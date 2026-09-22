@@ -1,0 +1,397 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useProject } from '@/context/ProjectContext';
+import { Modal } from '@/components/ui/Modal';
+import { Badge } from '@/components/ui/Badge';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { StatCard } from '@/components/ui/StatCard';
+import {
+  formatNumber, formatDateTime, formatRelativeTime,
+  readingStatusLabels, syncStatusLabels, statusColor,
+} from '@/lib/utils';
+import {
+  Gauge, Camera, MapPin, Bot, Save, AlertTriangle,
+  CheckCircle, Cloud, CloudOff, Clock, Loader2,
+} from 'lucide-react';
+import type { Meter, MeterReading, Customer } from '@/types';
+
+export function ReadingsPage() {
+  const { currentProject } = useProject();
+  const [meters, setMeters] = useState<(Meter & { customers?: Customer })[]>([]);
+  const [readings, setReadings] = useState<MeterReading[]>([]);
+  const [selectedMeter, setSelectedMeter] = useState<(Meter & { customers?: Customer }) | null>(null);
+  const [showReadingModal, setShowReadingModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [aiSimulating, setAiSimulating] = useState(false);
+  const [online, setOnline] = useState(navigator.onLine);
+  const [form, setForm] = useState({
+    reading_value: '', reading_method: 'manual',
+    gps_lat: '', gps_lng: '', gps_accuracy: '',
+    reader_name: '', notes: '',
+    ai_extracted_value: '', ai_confidence: '',
+  });
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const updateOnline = () => setOnline(navigator.onLine);
+    window.addEventListener('online', updateOnline);
+    window.addEventListener('offline', updateOnline);
+    return () => {
+      window.removeEventListener('online', updateOnline);
+      window.removeEventListener('offline', updateOnline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentProject) return;
+    const pid = currentProject.id;
+    (async () => {
+      const [m, r] = await Promise.all([
+        supabase.from('meters').select('*, customers(name_ar, customer_number, phone)').eq('project_id', pid).eq('status', 'active').order('meter_number'),
+        supabase.from('meter_readings').select('*').eq('project_id', pid).order('reading_date', { ascending: false }).limit(20),
+      ]);
+      setMeters((m.data as any[]) || []);
+      setReadings((r.data as MeterReading[]) || []);
+    })();
+  }, [currentProject]);
+
+  const stats = {
+    total: readings.length,
+    pending: readings.filter(r => r.status === 'pending').length,
+    anomalies: readings.filter(r => r.anomaly_flag).length,
+    synced: readings.filter(r => r.sync_status === 'synced').length,
+  };
+
+  const getLocation = () => {
+    if (!navigator.geolocation) {
+      setError('خدمة تحديد الموقع غير متاحة على هذا الجهاز');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm({
+          ...form,
+          gps_lat: pos.coords.latitude.toFixed(6),
+          gps_lng: pos.coords.longitude.toFixed(6),
+          gps_accuracy: Math.round(pos.coords.accuracy).toString(),
+        });
+        setError('');
+      },
+      (err) => setError('تعذر تحديد الموقع: ' + (err.message || 'خطأ غير معروف')),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const simulateAI = () => {
+    if (!selectedMeter) return;
+    setAiSimulating(true);
+    setError('');
+    setTimeout(() => {
+      const prev = selectedMeter.last_reading;
+      const consumption = Math.floor(Math.random() * 20) + 5;
+      const extracted = prev + consumption;
+      const confidence = Math.floor(Math.random() * 30) + 70;
+      setForm({
+        ...form,
+        ai_extracted_value: extracted.toString(),
+        ai_confidence: confidence.toString(),
+        reading_value: extracted.toString(),
+        reading_method: 'ai_vision',
+      });
+      setAiSimulating(false);
+    }, 1500);
+  };
+
+  const handleSaveReading = async () => {
+    if (!selectedMeter || !currentProject) return;
+    setError('');
+    const value = parseFloat(form.reading_value);
+    if (isNaN(value)) { setError('الرجاء إدخال قراءة صحيحة'); return; }
+
+    const prev = selectedMeter.last_reading;
+    let anomaly = false;
+    let anomalyReason = '';
+
+    if (value < prev && !form.notes.includes('استبدال') && !form.notes.includes('تجاوز')) {
+      setError(`القراءة (${value}) أقل من السابقة (${prev}). إذا تم استبدال العداد أو تجاوز العداد الصفر، يرجى ذكر ذلك في الملاحظات.`);
+      return;
+    }
+
+    const consumption = value - prev;
+    if (consumption > 50) {
+      anomaly = true;
+      anomalyReason = `استهلاك مرتفع بشكل غير اعتيادي: ${consumption} م³`;
+    }
+    if (consumption < 0) {
+      anomaly = true;
+      anomalyReason = `قراءة أقل من السابقة (قد يكون استبدال أو تجاوز العداد)`;
+    }
+
+    setSaving(true);
+    const readingData = {
+      meter_id: selectedMeter.id,
+      project_id: currentProject.id,
+      customer_id: selectedMeter.customer_id,
+      reading_value: value,
+      previous_reading: prev,
+      consumption: Math.max(consumption, 0),
+      reading_method: form.reading_method,
+      status: anomaly ? 'anomaly' : 'pending',
+      anomaly_flag: anomaly,
+      anomaly_reason: anomalyReason || null,
+      gps_lat: form.gps_lat ? parseFloat(form.gps_lat) : null,
+      gps_lng: form.gps_lng ? parseFloat(form.gps_lng) : null,
+      gps_accuracy: form.gps_accuracy ? parseFloat(form.gps_accuracy) : null,
+      reader_name: form.reader_name || null,
+      notes: form.notes || null,
+      sync_status: online ? 'synced' : 'pending',
+      ai_extracted_value: form.ai_extracted_value ? parseFloat(form.ai_extracted_value) : null,
+      ai_confidence: form.ai_confidence ? parseFloat(form.ai_confidence) : null,
+      ai_model: form.ai_extracted_value ? 'simulated-ocr-v1' : null,
+    };
+
+    const { data } = await supabase.from('meter_readings').insert(readingData).select().single();
+
+    if (data) {
+      await supabase.from('meters').update({
+        last_reading: value,
+        last_reading_date: new Date().toISOString(),
+      }).eq('id', selectedMeter.id);
+
+      setReadings([data as MeterReading, ...readings]);
+      setShowReadingModal(false);
+      setSelectedMeter(null);
+      setForm({ reading_value: '', reading_method: 'manual', gps_lat: '', gps_lng: '', gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: '' });
+    }
+    setSaving(false);
+  };
+
+  const openReadingModal = (meter: Meter & { customers?: Customer }) => {
+    setSelectedMeter(meter);
+    setForm({ reading_value: '', reading_method: 'manual', gps_lat: '', gps_lng: '', gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: '' });
+    setError('');
+    setShowReadingModal(true);
+  };
+
+  if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
+
+  const consumption = form.reading_value && selectedMeter
+    ? Math.max(parseFloat(form.reading_value) - selectedMeter.last_reading, 0)
+    : 0;
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">قراءة العدادات</h1>
+          <p className="text-sm text-neutral-500 mt-1">{currentProject.name_ar}</p>
+        </div>
+        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${online ? 'bg-success-50 text-success-700' : 'bg-warning-50 text-warning-700'}`}>
+          {online ? <><Cloud size={16} /> متصل</> : <><CloudOff size={16} /> غير متصل - وضع عدم الاتصال</>}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="إجمالي القراءات" value={formatNumber(stats.total)} icon={Gauge} color="primary" />
+        <StatCard title="بانتظار المراجعة" value={formatNumber(stats.pending)} icon={Clock} color="warning" />
+        <StatCard title="قراءات شاذة" value={formatNumber(stats.anomalies)} icon={AlertTriangle} color={stats.anomalies > 0 ? 'error' : 'neutral'} />
+        <StatCard title="متزامنة" value={formatNumber(stats.synced)} icon={CheckCircle} color="success" />
+      </div>
+
+      {/* Meters to read */}
+      <div>
+        <h2 className="text-lg font-bold text-neutral-800 mb-3">العدادات بانتظار القراءة</h2>
+        {meters.length === 0 ? (
+          <div className="card"><EmptyState icon={Gauge} title="لا توجد عدادات نشطة" description="أضف عدادات أولاً من صفحة المشتركين" /></div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {meters.map((m) => (
+              <div key={m.id} className="card-hover p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="p-2.5 rounded-xl bg-primary-50 text-primary-700"><Gauge size={20} /></div>
+                  <Badge status={m.status} label="نشط" />
+                </div>
+                <h3 className="font-bold text-neutral-900">{m.meter_number}</h3>
+                <p className="text-sm text-neutral-500 mt-0.5">{m.customers?.name_ar || 'بدون مشترك'}</p>
+                <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                  <div><p className="text-xs text-neutral-400">القراءة السابقة</p><p className="font-semibold text-neutral-700">{formatNumber(m.last_reading)}</p></div>
+                  <div><p className="text-xs text-neutral-400">تاريخها</p><p className="font-semibold text-neutral-700 text-xs">{m.last_reading_date ? formatRelativeTime(m.last_reading_date) : '—'}</p></div>
+                </div>
+                <button onClick={() => openReadingModal(m)} className="btn-primary w-full mt-4 text-sm">
+                  <Camera size={16} /> تسجيل قراءة
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Recent readings history */}
+      <div>
+        <h2 className="text-lg font-bold text-neutral-800 mb-3">سجل القراءات الأخيرة</h2>
+        {readings.length === 0 ? (
+          <div className="card"><EmptyState icon={Clock} title="لا توجد قراءات مسجلة بعد" /></div>
+        ) : (
+          <div className="card overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-right text-xs text-neutral-400 border-b border-neutral-200 bg-neutral-50">
+                  <th className="px-4 py-3 font-medium">القيمة</th>
+                  <th className="px-4 py-3 font-medium">السابقة</th>
+                  <th className="px-4 py-3 font-medium">الاستهلاك</th>
+                  <th className="px-4 py-3 font-medium">الطريقة</th>
+                  <th className="px-4 py-3 font-medium">الحالة</th>
+                  <th className="px-4 py-3 font-medium">المزامنة</th>
+                  <th className="px-4 py-3 font-medium">التاريخ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {readings.map((r) => (
+                  <tr key={r.id} className="hover:bg-neutral-50 transition-smooth">
+                    <td className="px-4 py-3 font-medium text-neutral-800">{formatNumber(r.reading_value)}</td>
+                    <td className="px-4 py-3 text-neutral-600">{formatNumber(r.previous_reading)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`font-medium ${r.anomaly_flag ? 'text-error-600' : 'text-neutral-700'}`}>{formatNumber(r.consumption)} م³</span>
+                      {r.anomaly_flag && <AlertTriangle size={13} className="inline mr-1 text-error-500" />}
+                    </td>
+                    <td className="px-4 py-3 text-neutral-600">
+                      {r.reading_method === 'manual' ? 'يدوي' : r.reading_method === 'ai_vision' ? 'ذكاء اصطناعي' : r.reading_method}
+                    </td>
+                    <td className="px-4 py-3"><Badge status={r.status} label={readingStatusLabels[r.status] || r.status} /></td>
+                    <td className="px-4 py-3"><Badge status={r.sync_status} label={syncStatusLabels[r.sync_status] || r.sync_status} /></td>
+                    <td className="px-4 py-3 text-xs text-neutral-400">{formatRelativeTime(r.reading_date)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Reading Modal */}
+      <Modal open={showReadingModal} onClose={() => setShowReadingModal(false)} title={`تسجيل قراءة - ${selectedMeter?.meter_number || ''}`} size="lg">
+        {selectedMeter && (
+          <div className="space-y-5">
+            {/* Meter info */}
+            <div className="bg-neutral-50 rounded-xl p-4 flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-primary-100 text-primary-700"><Gauge size={22} /></div>
+              <div className="flex-1">
+                <p className="font-bold text-neutral-800">{selectedMeter.meter_number}</p>
+                <p className="text-sm text-neutral-500">{selectedMeter.customers?.name_ar}</p>
+              </div>
+              <div className="text-left">
+                <p className="text-xs text-neutral-400">القراءة السابقة</p>
+                <p className="text-xl font-bold text-primary-700">{formatNumber(selectedMeter.last_reading)}</p>
+              </div>
+            </div>
+
+            {/* AI Simulation Panel */}
+            <div className="border-2 border-dashed border-accent-300 rounded-xl p-4 bg-accent-50/30">
+              <div className="flex items-center gap-2 mb-2">
+                <Bot size={18} className="text-accent-600" />
+                <h4 className="font-bold text-neutral-800">استخراج القراءة بالذكاء الاصطناعي</h4>
+                <span className="text-xs text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded">محاكاة تجريبية</span>
+              </div>
+              <p className="text-xs text-neutral-500 mb-3">في الإنتاج، يتم إرسال صورة العداد إلى مزود رؤية حاسوبية لاستخراج القراءة تلقائياً. هذه محاكاة للأغراض التوضيحية.</p>
+              <button onClick={simulateAI} disabled={aiSimulating} className="btn-secondary text-sm">
+                {aiSimulating ? <><Loader2 size={16} className="animate-spin" /> جاري التحليل...</> : <><Camera size={16} /> محاكاة استخراج القراءة</>}
+              </button>
+              {form.ai_extracted_value && (
+                <div className="mt-3 grid grid-cols-2 gap-3 animate-slide-up">
+                  <div className="bg-white rounded-lg p-3 border border-accent-200">
+                    <p className="text-xs text-neutral-400">القراءة المستخرجة</p>
+                    <p className="text-lg font-bold text-accent-700">{formatNumber(parseFloat(form.ai_extracted_value))}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-accent-200">
+                    <p className="text-xs text-neutral-400">نسبة الثقة</p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-neutral-200 rounded-full overflow-hidden">
+                        <div className={`h-full ${parseFloat(form.ai_confidence) > 85 ? 'bg-success-500' : 'bg-warning-500'}`} style={{ width: `${form.ai_confidence}%` }} />
+                      </div>
+                      <span className="text-sm font-bold text-neutral-700">{form.ai_confidence}%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Manual reading input */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="label-field">القراءة الجديدة *</label>
+                <input type="number" className="input-field text-lg font-semibold" value={form.reading_value} onChange={(e) => setForm({ ...form, reading_value: e.target.value })} placeholder={selectedMeter.last_reading.toString()} />
+              </div>
+              <div>
+                <label className="label-field">طريقة القراءة</label>
+                <select className="input-field" value={form.reading_method} onChange={(e) => setForm({ ...form, reading_method: e.target.value })}>
+                  <option value="manual">يدوي</option>
+                  <option value="ai_vision">ذكاء اصطناعي</option>
+                  <option value="photo">صورة</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Consumption preview */}
+            {form.reading_value && (
+              <div className={`rounded-lg p-3 ${consumption > 50 ? 'bg-error-50 border border-error-200' : 'bg-success-50 border border-success-200'}`}>
+                <div className="flex items-center gap-2">
+                  {consumption > 50 ? <AlertTriangle size={18} className="text-error-600" /> : <CheckCircle size={18} className="text-success-600" />}
+                  <span className="text-sm font-medium text-neutral-700">
+                    الاستهلاك المحسوب: <span className="font-bold">{formatNumber(consumption)} م³</span>
+                    {consumption > 50 && <span className="text-error-600 mr-2">— استهلاك مرتفع، سيتم وضع علامة شاذة</span>}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* GPS */}
+            <div>
+              <label className="label-field">الموقع الجغرافي (GPS)</label>
+              <div className="flex gap-2">
+                <input className="input-field flex-1" value={form.gps_lat} onChange={(e) => setForm({ ...form, gps_lat: e.target.value })} placeholder="خط العرض" />
+                <input className="input-field flex-1" value={form.gps_lng} onChange={(e) => setForm({ ...form, gps_lng: e.target.value })} placeholder="خط الطول" />
+                <button onClick={getLocation} className="btn-secondary shrink-0">
+                  <MapPin size={16} /> تحديد
+                </button>
+              </div>
+              {form.gps_accuracy && <p className="text-xs text-neutral-400 mt-1">الدقة: ±{form.gps_accuracy} متر</p>}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="label-field">اسم القارئ</label>
+                <input className="input-field" value={form.reader_name} onChange={(e) => setForm({ ...form, reader_name: e.target.value })} placeholder="قارئ العداد" />
+              </div>
+              <div>
+                <label className="label-field">ملاحظات</label>
+                <input className="input-field" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="مثال: استبدال العداد، تجاوز الصفر..." />
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-error-50 border border-error-200 rounded-lg p-3 flex items-start gap-2">
+                <AlertTriangle size={18} className="text-error-600 shrink-0 mt-0.5" />
+                <p className="text-sm text-error-700">{error}</p>
+              </div>
+            )}
+
+            {!online && (
+              <div className="bg-warning-50 border border-warning-200 rounded-lg p-3 flex items-center gap-2">
+                <CloudOff size={18} className="text-warning-600" />
+                <p className="text-sm text-warning-700">لا يوجد اتصال. سيتم حفظ القراءة محلياً ومزامنتها عند توفر الاتصال.</p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowReadingModal(false)} className="btn-secondary flex-1">إلغاء</button>
+              <button onClick={handleSaveReading} disabled={saving || !form.reading_value} className="btn-primary flex-1">
+                {saving ? <><Loader2 size={16} className="animate-spin" /> جاري الحفظ...</> : <><Save size={16} /> حفظ القراءة</>}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
