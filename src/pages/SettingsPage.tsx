@@ -1,19 +1,30 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
+import { useAuth, roleLabels } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/Badge';
 import { formatDateTime, formatRelativeTime } from '@/lib/utils';
-import { Settings, Shield, Database, Bot, Bell, FileText, Activity, History, Cpu, CheckCircle, AlertCircle } from 'lucide-react';
-import type { AuditLog, AiLog, Notification } from '@/types';
+import { Settings, Shield, Database, Bot, Bell, FileText, Activity, History, Cpu, CheckCircle, AlertCircle, KeyRound, Lock, Eye, EyeOff, User } from 'lucide-react';
+import type { AuditLog, AiLog, Notification, UserRole } from '@/types';
 
-type Tab = 'general' | 'audit' | 'ai_logs' | 'notifications' | 'system';
+type Tab = 'general' | 'security' | 'audit' | 'ai_logs' | 'notifications' | 'system';
 
 export function SettingsPage() {
   const { currentProject } = useProject();
+  const { profile, user } = useAuth();
   const [tab, setTab] = useState<Tab>('general');
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [aiLogs, setAiLogs] = useState<AiLog[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [pwdError, setPwdError] = useState<string | null>(null);
+  const [pwdSuccess, setPwdSuccess] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -35,8 +46,30 @@ export function SettingsPage() {
     setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdError(null);
+    if (newPassword.length < 8) { setPwdError('كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل'); return; }
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      setPwdError('كلمة المرور يجب أن تحتوي على حروف كبيرة وصغيرة وأرقام'); return;
+    }
+    if (newPassword !== confirmPassword) { setPwdError('كلمتا المرور غير متطابقتين'); return; }
+
+    setPwdLoading(true);
+    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+    if (updateError) { setPwdError(updateError.message); setPwdLoading(false); return; }
+
+    if (user) {
+      await supabase.from('profiles').update({ must_change_password: false }).eq('id', user.id);
+    }
+    setPwdSuccess(true);
+    setPwdLoading(false);
+    setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+  };
+
   const tabs = [
     { id: 'general' as Tab, label: 'عام', icon: Settings },
+    { id: 'security' as Tab, label: 'الأمان وكلمة المرور', icon: Lock },
     { id: 'audit' as Tab, label: 'سجل التدقيق', icon: History },
     { id: 'ai_logs' as Tab, label: 'سجل الذكاء الاصطناعي', icon: Cpu },
     { id: 'notifications' as Tab, label: 'الإشعارات', icon: Bell },
@@ -63,6 +96,16 @@ export function SettingsPage() {
 
       {tab === 'general' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* User Profile Card */}
+          <div className="card p-5">
+            <div className="flex items-center gap-2 mb-4"><User size={20} className="text-primary-600" /><h3 className="font-bold text-neutral-800">معلومات الحساب</h3></div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-neutral-400">الاسم</span><span className="font-medium text-neutral-700">{profile?.full_name || '—'}</span></div>
+              <div className="flex justify-between"><span className="text-neutral-400">البريد</span><span className="font-medium text-neutral-700" dir="ltr" style={{ textAlign: 'right' }}>{profile?.email || '—'}</span></div>
+              <div className="flex justify-between items-center"><span className="text-neutral-400">الدور</span><span className="px-2 py-0.5 rounded-md bg-primary-50 text-primary-700 text-xs font-medium">{profile ? roleLabels[profile.role as UserRole] : '—'}</span></div>
+              {profile?.phone && <div className="flex justify-between"><span className="text-neutral-400">الهاتف</span><span className="font-medium text-neutral-700" dir="ltr" style={{ textAlign: 'right' }}>{profile.phone}</span></div>}
+            </div>
+          </div>
           <div className="card p-5">
             <div className="flex items-center gap-2 mb-4"><Shield size={20} className="text-primary-600" /><h3 className="font-bold text-neutral-800">إعدادات الأمان</h3></div>
             <div className="space-y-3">
@@ -76,18 +119,6 @@ export function SettingsPage() {
             <div className="space-y-3">
               <ToggleRow label="استخراج القراءة بالذكاء الاصطناعي" desc="استخدام OCR/Vision لقراءة العدادات" enabled={true} />
               <ToggleRow label="كشف الشذوذ التلقائي" desc="تنبيه عند الاستهلاك غير الاعتيادي" enabled={true} />
-              <div className="pt-2">
-                <label className="label-field">حد الثقة الأدنى (%)</label>
-                <input type="number" className="input-field" defaultValue="85" />
-              </div>
-            </div>
-          </div>
-          <div className="card p-5">
-            <div className="flex items-center gap-2 mb-4"><Bell size={20} className="text-warning-600" /><h3 className="font-bold text-neutral-800">إعدادات الإشعارات</h3></div>
-            <div className="space-y-3">
-              <ToggleRow label="إشعارات الأعطال الحرجة" desc="تنبيه فوري عند الأعطال الحرجة" enabled={true} />
-              <ToggleRow label="تنبيه الفواتير المتأخرة" desc="تذكير بالفواتير غير المدفوعة" enabled={true} />
-              <ToggleRow label="رسائل SMS" desc="إرسال إشعارات عبر الرسائل القصيرة" enabled={false} />
             </div>
           </div>
           <div className="card p-5">
@@ -98,6 +129,49 @@ export function SettingsPage() {
               <div className="flex justify-between"><span className="text-neutral-400">المشروع الحالي</span><span className="font-medium text-neutral-700">{currentProject?.name_ar || '—'}</span></div>
             </div>
           </div>
+        </div>
+      )}
+
+      {tab === 'security' && (
+        <div className="max-w-md">
+          {pwdSuccess ? (
+            <div className="card p-6 text-center">
+              <div className="w-14 h-14 rounded-full bg-success-100 text-success-600 flex items-center justify-center mx-auto mb-3"><CheckCircle size={32} /></div>
+              <h3 className="font-bold text-neutral-900 mb-1">تم تغيير كلمة المرور بنجاح</h3>
+              <p className="text-sm text-neutral-500 mb-4">استخدم كلمة المرور الجديدة في تسجيل الدخول القادم</p>
+              <button onClick={() => setPwdSuccess(false)} className="btn-secondary">إغلاق</button>
+            </div>
+          ) : (
+            <div className="card p-6">
+              <div className="flex items-center gap-2 mb-4"><KeyRound size={20} className="text-primary-600" /><h3 className="font-bold text-neutral-800">تغيير كلمة المرور</h3></div>
+              <form onSubmit={handleChangePassword} className="space-y-4">
+                <div>
+                  <label className="label-field">كلمة المرور الحالية</label>
+                  <div className="relative">
+                    <input type={showPasswords ? 'text' : 'password'} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required className="input-field pl-10" dir="ltr" style={{ textAlign: 'right' }} />
+                    <button type="button" onClick={() => setShowPasswords(!showPasswords)} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">{showPasswords ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                  </div>
+                </div>
+                <div>
+                  <label className="label-field">كلمة المرور الجديدة</label>
+                  <input type={showPasswords ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required className="input-field" dir="ltr" style={{ textAlign: 'right' }} />
+                </div>
+                <div>
+                  <label className="label-field">تأكيد كلمة المرور</label>
+                  <input type={showPasswords ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className="input-field" dir="ltr" style={{ textAlign: 'right' }} />
+                </div>
+                {pwdError && <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-error-50 text-error-700 text-sm"><AlertCircle size={16} /><span>{pwdError}</span></div>}
+                <div className="text-xs text-neutral-400 space-y-0.5">
+                  <p className="text-neutral-500">المتطلبات:</p>
+                  <li>- 8 أحرف على الأقل</li>
+                  <li>- حروف كبيرة وصغيرة وأرقام</li>
+                </div>
+                <button type="submit" disabled={pwdLoading} className="btn-primary w-full">
+                  <Lock size={18} /> {pwdLoading ? 'جاري التغيير...' : 'تغيير كلمة المرور'}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       )}
 
@@ -204,24 +278,13 @@ export function SettingsPage() {
             <p className="text-xs text-neutral-400 mt-2">Supabase REST API</p>
           </div>
           <div className="card p-5">
-            <div className="flex items-center gap-2 mb-3"><Bot size={20} className="text-accent-600" /><h3 className="font-bold text-neutral-800">مزود الذكاء الاصطناعي</h3></div>
-            <div className="flex items-center gap-2"><AlertCircle size={18} className="text-warning-600" /><span className="text-sm text-neutral-600">وضع المحاكاة</span></div>
-            <p className="text-xs text-neutral-400 mt-2">لم يتم ربط مزود إنتاجي بعد</p>
-          </div>
-          <div className="card p-5">
-            <div className="flex items-center gap-2 mb-3"><Bell size={20} className="text-warning-600" /><h3 className="font-bold text-neutral-800">خدمة الإشعارات</h3></div>
-            <div className="flex items-center gap-2"><AlertCircle size={18} className="text-warning-600" /><span className="text-sm text-neutral-600">إشعارات داخل النظام فقط</span></div>
-            <p className="text-xs text-neutral-400 mt-2">SMS و Push غير مفعّلان</p>
-          </div>
-          <div className="card p-5">
             <div className="flex items-center gap-2 mb-3"><Shield size={20} className="text-success-600" /><h3 className="font-bold text-neutral-800">الأمان (RLS)</h3></div>
-            <div className="flex items-center gap-2"><CheckCircle size={18} className="text-success-600" /><span className="text-sm text-neutral-600">مفعّل على جميع الجداول</span></div>
-            <p className="text-xs text-neutral-400 mt-2">Row Level Security</p>
+            <div className="flex items-center gap-2"><CheckCircle size={18} className="text-success-600" /><span className="text-sm text-neutral-600">مفعّل - عزل كامل للمشاريع</span></div>
+            <p className="text-xs text-neutral-400 mt-2">Row Level Security + Project Isolation</p>
           </div>
           <div className="card p-5">
             <div className="flex items-center gap-2 mb-3"><History size={20} className="text-primary-600" /><h3 className="font-bold text-neutral-800">سجل التدقيق</h3></div>
             <div className="flex items-center gap-2"><CheckCircle size={18} className="text-success-600" /><span className="text-sm text-neutral-600">{auditLogs.length} سجل مسجل</span></div>
-            <p className="text-xs text-neutral-400 mt-2">تدقيق العمليات الحساسة</p>
           </div>
         </div>
       )}

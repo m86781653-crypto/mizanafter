@@ -1,0 +1,7 @@
+[functions.setup-admin]
+verify_jwt = false
+entrypoint = "./functions/setup-admin/index.ts"
+
+[functions.create-project]
+verify_jwt = true
+entrypoint = "./functions/create-project/index.ts"

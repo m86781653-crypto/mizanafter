@@ -2,21 +2,23 @@ import { useState, type ReactNode } from 'react';
 import {
   LayoutDashboard, Building2, Droplets, Users, Gauge,
   Receipt, Wrench, BarChart3, Bot, Settings,
-  Menu, X, Bell, Search, ChevronDown, Scale,
+  Menu, X, Bell, Search, ChevronDown, Scale, LogOut, KeyRound,
 } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
+import { useAuth, roleLabels } from '@/context/AuthContext';
 import { formatRelativeTime } from '@/lib/utils';
-import type { Notification } from '@/types';
+import type { Notification, UserRole } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useEffect } from 'react';
 
 interface LayoutProps {
   activePage: string;
   onNavigate: (page: string) => void;
+  allowedPages: string[];
   children: ReactNode;
 }
 
-const navConfig = [
+const navConfig: { id: string; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'لوحة القيادة', icon: LayoutDashboard },
   { id: 'projects', label: 'المشاريع', icon: Building2 },
   { id: 'infrastructure', label: 'البنية التحتية', icon: Droplets },
@@ -29,13 +31,18 @@ const navConfig = [
   { id: 'settings', label: 'الإعدادات', icon: Settings },
 ];
 
-export function Layout({ activePage, onNavigate, children }: LayoutProps) {
+export function Layout({ activePage, onNavigate, allowedPages, children }: LayoutProps) {
   const { currentProject, projects, setCurrentProjectId, loading } = useProject();
+  const { profile, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const isSuperAdmin = profile?.role === 'super_admin';
+  const visibleNav = navConfig.filter((item) => allowedPages.includes(item.id));
 
   useEffect(() => {
     if (currentProject) {
@@ -58,9 +65,11 @@ export function Layout({ activePage, onNavigate, children }: LayoutProps) {
     setSidebarOpen(false);
   };
 
+  const userInitial = profile?.full_name?.charAt(0) || profile?.email?.charAt(0) || '؟';
+
   return (
     <div className="min-h-screen bg-neutral-50 flex">
-      {/* Sidebar - Desktop */}
+      {/* Sidebar */}
       <aside className={`fixed lg:sticky top-0 right-0 z-40 h-screen w-72 bg-primary-900 text-white flex-col transition-transform duration-300 lg:flex ${
         sidebarOpen ? 'flex translate-x-0' : 'hidden lg:flex translate-x-full lg:translate-x-0'
       }`}>
@@ -82,7 +91,7 @@ export function Layout({ activePage, onNavigate, children }: LayoutProps) {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {navConfig.map((item) => {
+          {visibleNav.map((item) => {
             const Icon = item.icon;
             const active = activePage === item.id;
             return (
@@ -104,14 +113,19 @@ export function Layout({ activePage, onNavigate, children }: LayoutProps) {
         </nav>
 
         <div className="px-4 py-4 border-t border-primary-800/50">
-          <div className="bg-primary-800/40 rounded-xl p-3">
-            <p className="text-xs text-primary-300 font-medium">الإصدار 1.0.0</p>
-            <p className="text-[10px] text-primary-400 mt-0.5">منصة إنتاجية - بيئة تجريبية</p>
+          <div className="bg-primary-800/40 rounded-xl p-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent-400 to-accent-600 text-white flex items-center justify-center text-sm font-bold shrink-0">
+              {userInitial}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-white truncate">{profile?.full_name || 'مستخدم'}</p>
+              <p className="text-xs text-primary-300">{profile ? roleLabels[profile.role as UserRole] : ''}</p>
+            </div>
           </div>
         </div>
       </aside>
 
-      {/* Overlay for mobile */}
+      {/* Overlay */}
       {sidebarOpen && <div className="fixed inset-0 z-30 bg-neutral-900/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* Main Content */}
@@ -126,45 +140,62 @@ export function Layout({ activePage, onNavigate, children }: LayoutProps) {
             <Menu size={22} className="text-neutral-700" />
           </button>
 
-          {/* Project Selector */}
-          <div className="relative">
-            <button
-              onClick={() => setProjectMenuOpen(!projectMenuOpen)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-neutral-100 transition-smooth min-w-0"
-            >
+          {/* Project Selector - only for super_admin or multi-project users */}
+          {isSuperAdmin && (
+            <div className="relative">
+              <button
+                onClick={() => setProjectMenuOpen(!projectMenuOpen)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-neutral-100 transition-smooth min-w-0"
+              >
+                <div className="p-1.5 rounded-lg bg-primary-50 text-primary-700 shrink-0">
+                  <Building2 size={16} />
+                </div>
+                <div className="text-right min-w-0">
+                  <p className="text-xs text-neutral-500">المشروع الحالي</p>
+                  <p className="text-sm font-semibold text-neutral-800 truncate max-w-[140px] lg:max-w-none">
+                    {loading ? '...' : currentProject?.name_ar || 'اختر مشروعاً'}
+                  </p>
+                </div>
+                <ChevronDown size={16} className={`text-neutral-400 transition-transform shrink-0 ${projectMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {projectMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setProjectMenuOpen(false)} />
+                  <div className="absolute top-full mt-2 right-0 z-40 bg-white rounded-xl shadow-elevated border border-neutral-200 w-72 py-2 animate-scale-in max-h-80 overflow-y-auto">
+                    {projects.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => { setCurrentProjectId(p.id); setProjectMenuOpen(false); }}
+                        className={`w-full text-right px-4 py-2.5 hover:bg-neutral-50 transition-smooth flex items-center justify-between gap-2 ${
+                          currentProject?.id === p.id ? 'bg-primary-50 text-primary-700' : 'text-neutral-700'
+                        }`}
+                      >
+                        <span className="text-sm font-medium truncate">{p.name_ar}</span>
+                        <span className={`badge ${p.status === 'active' ? 'bg-success-100 text-success-700' : 'bg-neutral-100 text-neutral-600'}`}>
+                          {p.status === 'active' ? 'نشط' : 'غير نشط'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* For non-super-admin, show project name without selector */}
+          {!isSuperAdmin && currentProject && (
+            <div className="flex items-center gap-2 px-3 py-2">
               <div className="p-1.5 rounded-lg bg-primary-50 text-primary-700 shrink-0">
                 <Building2 size={16} />
               </div>
               <div className="text-right min-w-0">
-                <p className="text-xs text-neutral-500">المشروع الحالي</p>
+                <p className="text-xs text-neutral-500">المشروع</p>
                 <p className="text-sm font-semibold text-neutral-800 truncate max-w-[140px] lg:max-w-none">
-                  {loading ? '...' : currentProject?.name_ar || 'اختر مشروعاً'}
+                  {currentProject.name_ar}
                 </p>
               </div>
-              <ChevronDown size={16} className={`text-neutral-400 transition-transform shrink-0 ${projectMenuOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {projectMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-30" onClick={() => setProjectMenuOpen(false)} />
-                <div className="absolute top-full mt-2 right-0 z-40 bg-white rounded-xl shadow-elevated border border-neutral-200 w-72 py-2 animate-scale-in max-h-80 overflow-y-auto">
-                  {projects.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => { setCurrentProjectId(p.id); setProjectMenuOpen(false); }}
-                      className={`w-full text-right px-4 py-2.5 hover:bg-neutral-50 transition-smooth flex items-center justify-between gap-2 ${
-                        currentProject?.id === p.id ? 'bg-primary-50 text-primary-700' : 'text-neutral-700'
-                      }`}
-                    >
-                      <span className="text-sm font-medium truncate">{p.name_ar}</span>
-                      <span className={`badge ${p.status === 'active' ? 'bg-success-100 text-success-700' : 'bg-neutral-100 text-neutral-600'}`}>
-                        {p.status === 'active' ? 'نشط' : 'غير نشط'}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Search */}
           <div className="hidden md:flex relative flex-1 max-w-xs">
@@ -223,15 +254,49 @@ export function Layout({ activePage, onNavigate, children }: LayoutProps) {
               )}
             </div>
 
-            {/* User Avatar */}
-            <div className="flex items-center gap-2 pr-2">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                م
-              </div>
-              <div className="hidden lg:block">
-                <p className="text-sm font-semibold text-neutral-800">المدير</p>
-                <p className="text-xs text-neutral-400">مسؤول النظام</p>
-              </div>
+            {/* User Menu */}
+            <div className="relative">
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center gap-2 pr-2 hover:bg-neutral-100 rounded-lg p-1 transition-smooth"
+              >
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                  {userInitial}
+                </div>
+                <div className="hidden lg:block text-right">
+                  <p className="text-sm font-semibold text-neutral-800 truncate max-w-[120px]">{profile?.full_name || 'مستخدم'}</p>
+                  <p className="text-xs text-neutral-400">{profile ? roleLabels[profile.role as UserRole] : ''}</p>
+                </div>
+                <ChevronDown size={16} className="text-neutral-400" />
+              </button>
+              {userMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setUserMenuOpen(false)} />
+                  <div className="absolute top-full mt-2 left-0 z-40 bg-white rounded-xl shadow-elevated border border-neutral-200 w-56 py-2 animate-scale-in">
+                    <div className="px-4 py-3 border-b border-neutral-100">
+                      <p className="text-sm font-semibold text-neutral-800">{profile?.full_name}</p>
+                      <p className="text-xs text-neutral-400">{profile?.email}</p>
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-primary-50 text-primary-700 text-xs font-medium">
+                        {profile ? roleLabels[profile.role as UserRole] : ''}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => { onNavigate('settings'); setUserMenuOpen(false); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-smooth"
+                    >
+                      <Settings size={16} className="text-neutral-400" />
+                      <span>الإعدادات</span>
+                    </button>
+                    <button
+                      onClick={() => signOut()}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-error-600 hover:bg-error-50 transition-smooth"
+                    >
+                      <LogOut size={16} />
+                      <span>تسجيل الخروج</span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </header>

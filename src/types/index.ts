@@ -1,3 +1,17 @@
+export type UserRole = 'super_admin' | 'project_manager' | 'meter_reader' | 'collector' | 'accountant' | 'maintenance_tech' | 'read_only';
+
+export interface Profile {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  project_id: string | null;
+  phone: string | null;
+  must_change_password: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Region {
   id: string;
   name_ar: string;
