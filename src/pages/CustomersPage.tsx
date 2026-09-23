@@ -64,14 +64,20 @@ export function CustomersPage() {
     const pid = currentProject.id;
     try {
       if (tab === 'customers') {
-        if (!form.customer_number || !form.name_ar) {
-          setFormError('يرجى ملء رقم المشترك والاسم');
+        if (!form.name_ar) {
+          setFormError('يرجى إدخال اسم المشترك');
+          setSaving(false);
+          return;
+        }
+        const { data: seqData, error: seqErr } = await supabase.rpc('next_project_seq_number', { seq_name: 'CUS', project_uuid: pid });
+        if (seqErr || !seqData) {
+          setFormError('فشل توليد رقم المشترك: ' + (seqErr?.message || 'خطأ غير معروف'));
           setSaving(false);
           return;
         }
         const payload: Record<string, unknown> = {
           project_id: pid,
-          customer_number: form.customer_number,
+          customer_number: seqData,
           name_ar: form.name_ar,
           customer_type: form.customer_type || 'residential',
           status: form.status || 'active',
@@ -82,14 +88,15 @@ export function CustomersPage() {
         if (insError) throw insError;
         if (data) { setCustomers([...customers, data as Customer]); setShowForm(false); setForm({}); }
       } else {
-        if (!form.meter_number) {
-          setFormError('يرجى إدخال رقم العداد');
+        const { data: seqData, error: seqErr } = await supabase.rpc('next_project_seq_number', { seq_name: 'MTR', project_uuid: pid });
+        if (seqErr || !seqData) {
+          setFormError('فشل توليد رقم العداد: ' + (seqErr?.message || 'خطأ غير معروف'));
           setSaving(false);
           return;
         }
         const payload: Record<string, unknown> = {
           project_id: pid,
-          meter_number: form.meter_number,
+          meter_number: seqData,
           meter_type: form.meter_type || 'mechanical',
           status: form.status || 'active',
         };
@@ -258,8 +265,11 @@ export function CustomersPage() {
         {tab === 'customers' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="label-field">رقم المشترك *</label>
-              <input className="input-field" value={form.customer_number || ''} onChange={(e) => setForm({ ...form, customer_number: e.target.value })} placeholder="C-0006" />
+              <label className="label-field">رقم المشترك</label>
+              <div className="input-field bg-neutral-50 text-neutral-400 cursor-not-allowed flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                يُولّد تلقائياً عند الحفظ
+              </div>
             </div>
             <div>
               <label className="label-field">الاسم *</label>
@@ -291,8 +301,11 @@ export function CustomersPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="label-field">رقم العداد *</label>
-              <input className="input-field" value={form.meter_number || ''} onChange={(e) => setForm({ ...form, meter_number: e.target.value })} placeholder="M-0006" />
+              <label className="label-field">رقم العداد</label>
+              <div className="input-field bg-neutral-50 text-neutral-400 cursor-not-allowed flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                يُولّد تلقائياً عند الحفظ
+              </div>
             </div>
             <div>
               <label className="label-field">الرقم التسلسلي</label>
