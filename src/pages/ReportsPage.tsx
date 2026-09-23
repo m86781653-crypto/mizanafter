@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { StatCard } from '@/components/ui/StatCard';
-import { formatNumber, formatCurrency } from '@/lib/utils';
+import { LoadingSpinner, ErrorState } from '@/lib/hooks';
+import { formatNumber, formatCurrency, formatDate } from '@/lib/utils';
 import {
   BarChart3, Droplets, Users, Receipt, AlertTriangle,
   Wrench, TrendingDown, Activity, Download, FileText,
@@ -10,6 +11,8 @@ import {
 
 export function ReportsPage() {
   const { currentProject } = useProject();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState({
     customers: 0,
     meters: 0,
@@ -23,10 +26,12 @@ export function ReportsPage() {
     assets: [] as any[],
   });
 
-  useEffect(() => {
-    if (!currentProject) return;
+  const fetchData = useCallback(async () => {
+    if (!currentProject) { setLoading(false); return; }
+    setLoading(true);
+    setError(null);
     const pid = currentProject.id;
-    (async () => {
+    try {
       const [c, m, inv, pay, r, f, wo, w, p, a] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('project_id', pid),
         supabase.from('meters').select('id', { count: 'exact', head: true }).eq('project_id', pid),
@@ -39,6 +44,8 @@ export function ReportsPage() {
         supabase.from('pumps').select('*').eq('project_id', pid),
         supabase.from('assets').select('*').eq('project_id', pid),
       ]);
+      const firstError = c.error || m.error || inv.error || pay.error || r.error || f.error || wo.error || w.error || p.error || a.error;
+      if (firstError) throw firstError;
       setData({
         customers: c.count || 0,
         meters: m.count || 0,
@@ -51,32 +58,111 @@ export function ReportsPage() {
         pumps: p.data || [],
         assets: a.data || [],
       });
-    })();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'فشل تحميل البيانات');
+    } finally {
+      setLoading(false);
+    }
   }, [currentProject]);
 
+  useEffect(() => { fetchData(); }, [fetchData]);
+
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
+  if (loading) return <LoadingSpinner label="جاري تحليل البيانات..." />;
+  if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
   const totalRevenue = data.invoices.reduce((s: number, i: any) => s + Number(i.grand_total), 0);
   const collected = data.payments.reduce((s: number, p: any) => s + Number(p.amount), 0);
   const outstanding = data.invoices.filter((i: any) => i.status !== 'paid').reduce((s: number, i: any) => s + Number(i.balance), 0);
   const production = data.wells.reduce((s: number, w: any) => s + Number(w.daily_output_m3), 0);
   const consumption = data.invoices.reduce((s: number, i: any) => s + Number(i.consumption_m3), 0);
-  const nrw = production > 0 ? ((production - consumption) / production * 100) : 0;
+  const nrw: number | null = production > 0 ? ((production - consumption) / production * 100) : null;
   const collectionRate = totalRevenue > 0 ? (collected / totalRevenue * 100) : 0;
   const openFaults = data.faults.filter((f: any) => f.status !== 'closed' && f.status !== 'resolved').length;
   const openWOs = data.workOrders.filter((w: any) => w.status === 'open' || w.status === 'in_progress').length;
   const anomalies = data.readings.filter((r: any) => r.anomaly_flag).length;
   const dataCompleteness = data.meters > 0 ? Math.min(data.readings.length / data.meters * 100, 100) : 0;
 
+  const exportCSV = (type: string) => {
+    let rows: string[][] = [];
+    let filename = '';
+
+    switch (type) {
+      case 'production':
+        filename = 'production_report';
+        rows = [['البئر', 'الإنتاج اليومي (م³)', 'الحالة', 'ساعات التشغيل']];
+        data.wells.forEach((w: any) => {
+          rows.push([w.code, String(w.daily_output_m3 || 0), w.status, String(w.operating_hours || 0)]);
+        });
+        break;
+      case 'nrw':
+        filename = 'nrw_report';
+        rows = [['الإنتاج (م³)', 'الاستهلاك (م³)', 'الفاقد (م³)', 'نسبة الفاقد (%)']];
+        rows.push([String(production), String(consumption), String(production - consumption), nrw ? nrw.toFixed(2) : '—']);
+        break;
+      case 'revenue':
+        filename = 'revenue_report';
+        rows = [['رقم الفاتورة', 'الإجمالي', 'المدفوع', 'المتبقي', 'الحالة', 'التاريخ']];
+        data.invoices.forEach((i: any) => {
+          rows.push([i.invoice_number, String(i.grand_total), String(i.amount_paid || 0), String(i.balance), i.status, formatDate(i.issue_date)]);
+        });
+        break;
+      case 'customers':
+        filename = 'customers_report';
+        rows = [['عدد المشتركين', 'عدد العدادات', 'عدد الفواتير', 'عدد القراءات']];
+        rows.push([String(data.customers), String(data.meters), String(data.invoices.length), String(data.readings.length)]);
+        break;
+      case 'faults':
+        filename = 'faults_report';
+        rows = [['رقم العطل', 'النوع', 'الخطورة', 'الحالة', 'التاريخ']];
+        data.faults.forEach((f: any) => {
+          rows.push([f.fault_number, f.fault_type || '', f.severity, f.status, formatDate(f.reported_at)]);
+        });
+        break;
+      case 'assets':
+        filename = 'assets_report';
+        rows = [['الرمز', 'الاسم', 'التصنيف', 'الحالة', 'التكلفة']];
+        data.assets.forEach((a: any) => {
+          rows.push([a.asset_code, a.name_ar, a.category || '', a.status, String(a.purchase_cost || 0)]);
+        });
+        break;
+      case 'quality':
+        filename = 'data_quality_report';
+        rows = [['عدد العدادات', 'عدد القراءات', 'قراءات شاذة', 'اكتمال البيانات (%)']];
+        rows.push([String(data.meters), String(data.readings.length), String(anomalies), dataCompleteness.toFixed(1)]);
+        break;
+      case 'performance':
+        filename = 'performance_report';
+        rows = [['المؤشر', 'القيمة']];
+        rows.push(['معدل التحصيل (%)', collectionRate.toFixed(1)]);
+        rows.push(['نسبة الفاقد (%)', nrw ? nrw.toFixed(1) : '—']);
+        rows.push(['اكتمال البيانات (%)', dataCompleteness.toFixed(1)]);
+        rows.push(['أعطال مفتوحة', String(openFaults)]);
+        rows.push(['أوامر صيانة معلقة', String(openWOs)]);
+        break;
+      default:
+        return;
+    }
+
+    const csv = '\ufeff' + rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${filename}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const reports = [
-    { title: 'تقرير الإنتاج والاستهلاك', desc: 'إنتاج المياه مقابل الاستهلاك المسجل', icon: Droplets, color: 'primary' },
-    { title: 'تقرير الفاقد (NRW)', desc: 'حساب الفاقد غير المدفوع العائد', icon: TrendingDown, color: 'warning' },
-    { title: 'تقرير الإيرادات والتحصيل', desc: 'الإيرادات، المحصّل، المتأخرات', icon: Receipt, color: 'success' },
-    { title: 'تقرير المشتركين', desc: 'إحصائيات المشتركين والأنواع', icon: Users, color: 'accent' },
-    { title: 'تقرير الأعطال والصيانة', desc: 'الأعطال، أوامر الصيانة، الأوقات', icon: AlertTriangle, color: 'error' },
-    { title: 'تقرير الأصول', desc: 'الأصول وحالتها ودورة الحياة', icon: Wrench, color: 'neutral' },
-    { title: 'تقرير جودة البيانات', desc: 'اكتمال البيانات والقراءات الشاذة', icon: Activity, color: 'primary' },
-    { title: 'تقرير الأداء التشغيلي', desc: 'مؤشرات الأداء الرئيسية', icon: BarChart3, color: 'accent' },
+    { id: 'production', title: 'تقرير الإنتاج والاستهلاك', desc: 'إنتاج المياه مقابل الاستهلاك المسجل', icon: Droplets, color: 'primary' },
+    { id: 'nrw', title: 'تقرير الفاقد (NRW)', desc: 'حساب الفاقد غير المدفوع العائد', icon: TrendingDown, color: 'warning' },
+    { id: 'revenue', title: 'تقرير الإيرادات والتحصيل', desc: 'الإيرادات، المحصّل، المتأخرات', icon: Receipt, color: 'success' },
+    { id: 'customers', title: 'تقرير المشتركين', desc: 'إحصائيات المشتركين والأنواع', icon: Users, color: 'accent' },
+    { id: 'faults', title: 'تقرير الأعطال والصيانة', desc: 'الأعطال، أوامر الصيانة، الأوقات', icon: AlertTriangle, color: 'error' },
+    { id: 'assets', title: 'تقرير الأصول', desc: 'الأصول وحالتها ودورة الحياة', icon: Wrench, color: 'neutral' },
+    { id: 'quality', title: 'تقرير جودة البيانات', desc: 'اكتمال البيانات والقراءات الشاذة', icon: Activity, color: 'primary' },
+    { id: 'performance', title: 'تقرير الأداء التشغيلي', desc: 'مؤشرات الأداء الرئيسية', icon: BarChart3, color: 'accent' },
   ];
 
   return (
@@ -86,15 +172,13 @@ export function ReportsPage() {
         <p className="text-sm text-neutral-500 mt-1">{currentProject.name_ar}</p>
       </div>
 
-      {/* KPI Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="معدل التحصيل" value={`${formatNumber(collectionRate)}%`} icon={Receipt} color={collectionRate > 60 ? 'success' : 'warning'} />
-        <StatCard title="نسبة الفاقد" value={`${formatNumber(nrw)}%`} icon={TrendingDown} color={nrw < 15 ? 'success' : nrw < 30 ? 'warning' : 'error'} />
+        <StatCard title="نسبة الفاقد" value={nrw === null ? '—' : `${formatNumber(nrw)}%`} icon={TrendingDown} color={nrw === null ? 'success' : nrw < 15 ? 'success' : nrw < 30 ? 'warning' : 'error'} />
         <StatCard title="اكتمال البيانات" value={`${formatNumber(dataCompleteness)}%`} icon={Activity} color={dataCompleteness > 80 ? 'success' : 'warning'} />
         <StatCard title="قراءات شاذة" value={formatNumber(anomalies)} icon={AlertTriangle} color={anomalies > 0 ? 'error' : 'neutral'} />
       </div>
 
-      {/* Water Balance */}
       <div className="card p-6">
         <div className="flex items-center gap-2 mb-4">
           <Droplets size={20} className="text-primary-600" />
@@ -126,11 +210,13 @@ export function ReportsPage() {
           <div>
             <div className="flex justify-between text-sm mb-1.5">
               <span className="text-neutral-600">الفاقد (NRW)</span>
-              <span className={`font-bold ${nrw > 30 ? 'text-error-600' : 'text-warning-600'}`}>{formatNumber(production - consumption)} م³ ({formatNumber(nrw)}%)</span>
+              <span className={`font-bold ${nrw === null ? 'text-neutral-500' : nrw > 30 ? 'text-error-600' : 'text-warning-600'}`}>
+                {formatNumber(production - consumption)} م³ {nrw === null ? '(لا يوجد إنتاج)' : `(${formatNumber(nrw)}%)`}
+              </span>
             </div>
             <div className="h-6 bg-neutral-100 rounded-lg overflow-hidden">
-              <div className={`h-full flex items-center justify-start px-2 ${nrw > 30 ? 'bg-error-500' : 'bg-warning-500'}`} style={{ width: `${Math.min(nrw, 100)}%` }}>
-                <span className="text-xs text-white font-medium">{formatNumber(nrw)}%</span>
+              <div className={`h-full flex items-center justify-start px-2 ${nrw === null ? 'bg-neutral-300' : nrw > 30 ? 'bg-error-500' : 'bg-warning-500'}`} style={{ width: `${Math.min(nrw || 0, 100)}%` }}>
+                <span className="text-xs text-white font-medium">{nrw === null ? '—' : `${formatNumber(nrw)}%`}</span>
               </div>
             </div>
           </div>
@@ -138,7 +224,6 @@ export function ReportsPage() {
         <p className="text-xs text-neutral-400 mt-4">ملاحظة: يتم حساب الفاقد كالفرق بين الإنتاج والاستهلاك المسجل. دقة المؤشر تعتمد على اكتمال بيانات القراءات.</p>
       </div>
 
-      {/* Financial Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-3"><Receipt size={18} className="text-success-600" /><h3 className="font-bold text-neutral-800">الإيرادات</h3></div>
@@ -169,9 +254,8 @@ export function ReportsPage() {
         </div>
       </div>
 
-      {/* Available Reports */}
       <div>
-        <h2 className="text-lg font-bold text-neutral-800 mb-3">التقارير المتاحة</h2>
+        <h2 className="text-lg font-bold text-neutral-800 mb-3">التقارير المتاحة (تصدير CSV)</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {reports.map((r, i) => {
             const Icon = r.icon;
@@ -181,11 +265,11 @@ export function ReportsPage() {
               error: 'bg-error-50 text-error-700', neutral: 'bg-neutral-100 text-neutral-600',
             };
             return (
-              <div key={i} className="card-hover p-5 cursor-pointer">
+              <div key={i} className="card-hover p-5">
                 <div className={`p-2.5 rounded-xl mb-3 ${colorMap[r.color]}`}><Icon size={20} /></div>
                 <h3 className="font-bold text-neutral-900 text-sm">{r.title}</h3>
                 <p className="text-xs text-neutral-500 mt-1">{r.desc}</p>
-                <button className="text-primary-600 text-xs font-medium mt-3 flex items-center gap-1">
+                <button onClick={() => exportCSV(r.id)} className="text-primary-600 text-xs font-medium mt-3 flex items-center gap-1 hover:text-primary-700 transition-smooth">
                   <Download size={14} /> تصدير CSV
                 </button>
               </div>
@@ -194,7 +278,6 @@ export function ReportsPage() {
         </div>
       </div>
 
-      {/* Data Quality Info */}
       <div className="card p-5 bg-neutral-50 border-neutral-200">
         <div className="flex items-start gap-3">
           <FileText size={20} className="text-neutral-400 shrink-0 mt-0.5" />

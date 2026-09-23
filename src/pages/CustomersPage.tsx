@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import { formatNumber, formatDate, customerTypeLabels, meterStatusLabels } from '@/lib/utils';
-import { Plus, Users, Gauge, Search, Phone, MapPin } from 'lucide-react';
+import { Plus, Users, Gauge, Search, Phone, MapPin, Trash2, Ban, CheckCircle2 } from 'lucide-react';
 import type { Customer, Meter } from '@/types';
 
 type Tab = 'customers' | 'meters';
@@ -19,19 +20,34 @@ export function CustomersPage() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (!currentProject) return;
+    setLoading(true);
+    setError(null);
     const pid = currentProject.id;
-    (async () => {
+    try {
       const [c, m] = await Promise.all([
         supabase.from('customers').select('*').eq('project_id', pid).order('customer_number'),
         supabase.from('meters').select('*, customers(name_ar, customer_number)').eq('project_id', pid).order('meter_number'),
       ]);
-      setCustomers(c.data as Customer[] || []);
-      setMeters(m.data as any[] || []);
-    })();
+      if (c.error) throw c.error;
+      if (m.error) throw m.error;
+      setCustomers((c.data as Customer[]) || []);
+      setMeters((m.data as any[]) || []);
+    } catch (err: any) {
+      setError(err.message || 'حدث خطأ غير متوقع أثناء تحميل البيانات');
+    } finally {
+      setLoading(false);
+    }
   }, [currentProject]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const filteredCustomers = customers.filter(c =>
     !search || c.name_ar.includes(search) || c.customer_number.includes(search) || (c.phone || '').includes(search)
@@ -44,36 +60,75 @@ export function CustomersPage() {
   const handleSave = async () => {
     if (!currentProject) return;
     setSaving(true);
+    setFormError(null);
     const pid = currentProject.id;
-    if (tab === 'customers') {
-      if (!form.customer_number || !form.name_ar) { setSaving(false); return; }
-      const payload: Record<string, unknown> = {
-        project_id: pid,
-        customer_number: form.customer_number,
-        name_ar: form.name_ar,
-        customer_type: form.customer_type || 'residential',
-        status: form.status || 'active',
-      };
-      if (form.phone) payload.phone = form.phone;
-      if (form.address) payload.address = form.address;
-      const { data } = await supabase.from('customers').insert(payload).select().single();
-      if (data) { setCustomers([...customers, data as Customer]); setShowForm(false); setForm({}); }
-    } else {
-      if (!form.meter_number) { setSaving(false); return; }
-      const payload: Record<string, unknown> = {
-        project_id: pid,
-        meter_number: form.meter_number,
-        meter_type: form.meter_type || 'mechanical',
-        status: form.status || 'active',
-      };
-      if (form.customer_id) payload.customer_id = form.customer_id;
-      if (form.serial_number) payload.serial_number = form.serial_number;
-      if (form.size_mm) payload.size_mm = parseInt(form.size_mm);
-      const { data } = await supabase.from('meters').insert(payload).select('*, customers(name_ar, customer_number)').single();
-      if (data) { setMeters([...meters, data as any]); setShowForm(false); setForm({}); }
+    try {
+      if (tab === 'customers') {
+        if (!form.customer_number || !form.name_ar) {
+          setFormError('يرجى ملء رقم المشترك والاسم');
+          setSaving(false);
+          return;
+        }
+        const payload: Record<string, unknown> = {
+          project_id: pid,
+          customer_number: form.customer_number,
+          name_ar: form.name_ar,
+          customer_type: form.customer_type || 'residential',
+          status: form.status || 'active',
+        };
+        if (form.phone) payload.phone = form.phone;
+        if (form.address) payload.address = form.address;
+        const { data, error: insError } = await supabase.from('customers').insert(payload).select().single();
+        if (insError) throw insError;
+        if (data) { setCustomers([...customers, data as Customer]); setShowForm(false); setForm({}); }
+      } else {
+        if (!form.meter_number) {
+          setFormError('يرجى إدخال رقم العداد');
+          setSaving(false);
+          return;
+        }
+        const payload: Record<string, unknown> = {
+          project_id: pid,
+          meter_number: form.meter_number,
+          meter_type: form.meter_type || 'mechanical',
+          status: form.status || 'active',
+        };
+        if (form.customer_id) payload.customer_id = form.customer_id;
+        if (form.serial_number) payload.serial_number = form.serial_number;
+        if (form.size_mm) payload.size_mm = parseInt(form.size_mm);
+        const { data, error: insError } = await supabase.from('meters').insert(payload).select('*, customers(name_ar, customer_number)').single();
+        if (insError) throw insError;
+        if (data) { setMeters([...meters, data as any]); setShowForm(false); setForm({}); }
+      }
+    } catch (err: any) {
+      setFormError(err.message || 'فشل حفظ البيانات');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا المشترك؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    const { error: delError } = await supabase.from('customers').delete().eq('id', id);
+    if (delError) {
+      setError('فشل حذف المشترك: ' + delError.message);
+      return;
+    }
+    setCustomers(customers.filter(c => c.id !== id));
+  };
+
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    const { error: updError } = await supabase.from('customers').update({ status: newStatus }).eq('id', id);
+    if (updError) {
+      setError('فشل تحديث حالة المشترك: ' + updError.message);
+      return;
+    }
+    setCustomers(customers.map(c => c.id === id ? { ...c, status: newStatus } : c));
+  };
+
+  const openForm = () => { setForm({}); setFormError(null); setShowForm(true); };
+  const closeForm = () => { setShowForm(false); setFormError(null); };
 
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
 
@@ -84,7 +139,7 @@ export function CustomersPage() {
           <h1 className="text-2xl font-bold text-neutral-900">المشتركين والعدادات</h1>
           <p className="text-sm text-neutral-500 mt-1">{currentProject.name_ar}</p>
         </div>
-        <button onClick={() => { setForm({}); setShowForm(true); }} className="btn-primary">
+        <button onClick={openForm} className="btn-primary">
           <Plus size={18} /> إضافة {tab === 'customers' ? 'مشترك' : 'عداد'}
         </button>
       </div>
@@ -105,16 +160,36 @@ export function CustomersPage() {
         <input className="input-field pr-10" placeholder="بحث بالاسم أو الرقم أو الهاتف..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
-      {tab === 'customers' ? (
+      {loading ? (
+        <LoadingSpinner />
+      ) : error ? (
+        <ErrorState message={error} onRetry={fetchData} />
+      ) : tab === 'customers' ? (
         filteredCustomers.length === 0 ? (
-          <div className="card"><EmptyState icon={Users} title="لا يوجد مشتركين" description="أضف أول مشترك لبدء إدارة الخدمة" action={{ label: 'إضافة مشترك', onClick: () => { setForm({}); setShowForm(true); } }} /></div>
+          <div className="card"><EmptyState icon={Users} title="لا يوجد مشتركين" description="أضف أول مشترك لبدء إدارة الخدمة" action={{ label: 'إضافة مشترك', onClick: openForm }} /></div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredCustomers.map((c) => (
               <div key={c.id} className="card-hover p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div className="p-2.5 rounded-xl bg-primary-50 text-primary-700"><Users size={20} /></div>
-                  <Badge status={c.status} label={c.status === 'active' ? 'نشط' : 'غير نشط'} />
+                  <div className="flex items-center gap-1.5">
+                    <Badge status={c.status} label={c.status === 'active' ? 'نشط' : c.status === 'suspended' ? 'موقف' : 'غير نشط'} />
+                    <button
+                      onClick={() => handleToggleStatus(c.id, c.status)}
+                      title={c.status === 'active' ? 'إيقاف المشترك' : 'تفعيل المشترك'}
+                      className={`p-1.5 rounded-lg transition-smooth ${c.status === 'active' ? 'text-neutral-400 hover:text-amber-600 hover:bg-amber-50' : 'text-neutral-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                    >
+                      {c.status === 'active' ? <Ban size={16} /> : <CheckCircle2 size={16} />}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(c.id)}
+                      title="حذف المشترك"
+                      className="p-1.5 rounded-lg text-neutral-400 hover:text-error-600 hover:bg-error-100 transition-smooth"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
                 <h3 className="font-bold text-neutral-900">{c.name_ar}</h3>
                 <p className="text-xs text-neutral-400 mt-0.5">{c.customer_number}</p>
@@ -146,7 +221,7 @@ export function CustomersPage() {
         )
       ) : (
         filteredMeters.length === 0 ? (
-          <div className="card"><EmptyState icon={Gauge} title="لا توجد عدادات" description="أضف أول عداد لبدء تسجيل القراءات" action={{ label: 'إضافة عداد', onClick: () => { setForm({}); setShowForm(true); } }} /></div>
+          <div className="card"><EmptyState icon={Gauge} title="لا توجد عدادات" description="أضف أول عداد لبدء تسجيل القراءات" action={{ label: 'إضافة عداد', onClick: openForm }} /></div>
         ) : (
           <div className="card overflow-x-auto">
             <table className="w-full text-sm">
@@ -179,7 +254,7 @@ export function CustomersPage() {
         )
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title={tab === 'customers' ? 'إضافة مشترك جديد' : 'إضافة عداد جديد'}>
+      <Modal open={showForm} onClose={closeForm} title={tab === 'customers' ? 'إضافة مشترك جديد' : 'إضافة عداد جديد'}>
         {tab === 'customers' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -253,8 +328,14 @@ export function CustomersPage() {
             </div>
           </div>
         )}
+        {formError && (
+          <div className="mt-4 p-3 rounded-lg bg-error-100 text-error-600 text-sm flex items-start gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>{formError}</span>
+          </div>
+        )}
         <div className="flex gap-3 mt-6">
-          <button onClick={() => setShowForm(false)} className="btn-secondary flex-1">إلغاء</button>
+          <button onClick={closeForm} className="btn-secondary flex-1">إلغاء</button>
           <button onClick={handleSave} disabled={saving} className="btn-primary flex-1">{saving ? 'جاري الحفظ...' : 'حفظ'}</button>
         </div>
       </Modal>

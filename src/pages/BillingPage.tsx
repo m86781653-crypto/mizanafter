@@ -1,18 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatCard } from '@/components/ui/StatCard';
+import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import { formatNumber, formatCurrency, formatDate, invoiceStatusLabels } from '@/lib/utils';
-import { Receipt, Wallet, Plus, TrendingUp, AlertTriangle, CheckCircle, Loader2, Search } from 'lucide-react';
+import { Receipt, Wallet, Plus, TrendingUp, AlertTriangle, CheckCircle, Loader2, Search, Trash2, AlertCircle } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import type { Invoice, Payment, Customer, Meter, Tariff, TariffTier } from '@/types';
 
 type Tab = 'invoices' | 'payments' | 'tariffs';
 
+const paymentMethodLabels: Record<string, string> = {
+  cash: 'نقدي', wallet: 'محفظة إلكترونية', bank: 'حوالة بنكية', other: 'أخرى',
+};
+
 export function BillingPage() {
   const { currentProject } = useProject();
+  const { profile } = useAuth();
+  const canEdit = profile?.role === 'super_admin' || profile?.role === 'project_manager' || profile?.role === 'collector' || profile?.role === 'accountant';
   const [tab, setTab] = useState<Tab>('invoices');
   const [invoices, setInvoices] = useState<(Invoice & { customers?: Customer })[]>([]);
   const [payments, setPayments] = useState<(Payment & { customers?: Customer; invoices?: Invoice })[]>([]);
@@ -25,16 +33,21 @@ export function BillingPage() {
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [showTariffForm, setShowTariffForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<Record<string, string>>({});
   const [paymentForm, setPaymentForm] = useState<Record<string, string>>({});
   const [tariffForm, setTariffForm] = useState<{ name_ar: string; customer_type: string; fixed_fee: string; tiers: { from_m3: string; to_m3: string; price_per_m3: string }[] }>({
     name_ar: '', customer_type: 'residential', fixed_fee: '500', tiers: [{ from_m3: '0', to_m3: '10', price_per_m3: '100' }]
   });
 
-  useEffect(() => {
-    if (!currentProject) return;
+  const fetchData = useCallback(async () => {
+    if (!currentProject) { setLoading(false); return; }
+    setLoading(true);
+    setError(null);
     const pid = currentProject.id;
-    (async () => {
+    try {
       const [inv, pay, tar, cus, met] = await Promise.all([
         supabase.from('invoices').select('*, customers(name_ar, customer_number, phone)').eq('project_id', pid).order('issue_date', { ascending: false }),
         supabase.from('payments').select('*, customers(name_ar, customer_number), invoices(invoice_number, grand_total)').eq('project_id', pid).order('payment_date', { ascending: false }),
@@ -42,13 +55,13 @@ export function BillingPage() {
         supabase.from('customers').select('*').eq('project_id', pid).eq('status', 'active').order('name_ar'),
         supabase.from('meters').select('*').eq('project_id', pid).eq('status', 'active').order('meter_number'),
       ]);
+      if (inv.error) throw inv.error;
       setInvoices((inv.data as any[]) || []);
       setPayments((pay.data as any[]) || []);
       setTariffs(tar.data as Tariff[] || []);
       setCustomers(cus.data as Customer[] || []);
       setMeters(met.data as Meter[] || []);
 
-      // Fetch tiers for each tariff
       if (tar.data && tar.data.length > 0) {
         const tierResults: Record<string, TariffTier[]> = {};
         await Promise.all(tar.data.map(async (t: any) => {
@@ -57,8 +70,13 @@ export function BillingPage() {
         }));
         setTiers(tierResults);
       }
-    })();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'فشل تحميل البيانات');
+    }
+    setLoading(false);
   }, [currentProject]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const totalRevenue = invoices.reduce((s, i) => s + Number(i.grand_total), 0);
   const collected = payments.reduce((s, p) => s + Number(p.amount), 0);
@@ -69,21 +87,26 @@ export function BillingPage() {
   );
 
   const handleCreateInvoice = async () => {
-    if (!currentProject || !form.customer_id) { setSaving(false); return; }
+    if (!currentProject || !form.customer_id) return;
     setSaving(true);
+    setFormError(null);
     const pid = currentProject.id;
 
     const customer = customers.find(c => c.id === form.customer_id);
     const meter = meters.find(m => m.customer_id === form.customer_id);
-    if (!customer || !meter) { setSaving(false); return; }
+    if (!customer) { setFormError('المشترك غير موجود'); setSaving(false); return; }
+    if (!meter) { setFormError('لا يوجد عداد نشط لهذا المشترك'); setSaving(false); return; }
 
     const prev = Number(meter.last_reading);
     const current = parseFloat(form.current_reading);
-    if (isNaN(current) || current < prev) { setSaving(false); return; }
+    if (isNaN(current)) { setFormError('القراءة الحالية غير صحيحة'); setSaving(false); return; }
+    if (current < prev) { setFormError(`القراءة الحالية أقل من السابقة (${prev})`); setSaving(false); return; }
 
     const consumption = current - prev;
     const tariff = tariffs.find(t => t.customer_type === customer.customer_type && t.is_active);
-    const tariffTiers = tariff ? tiers[tariff.id] || [] : [];
+    if (!tariff) { setFormError('لا توجد تعرفة نشطة لنوع هذا المشترك'); setSaving(false); return; }
+
+    const tariffTiers = tiers[tariff.id] || [];
     const fixedFee = tariff ? Number(tariff.fixed_fee) : 0;
 
     let consumptionFee = 0;
@@ -99,12 +122,14 @@ export function BillingPage() {
     }
 
     const total = fixedFee + consumptionFee;
-    const invoiceCount = invoices.length;
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(3, '0')}`;
     const today = new Date();
     const dueDate = new Date(today.getTime() + 15 * 86400000);
 
-    const { data } = await supabase.from('invoices').insert({
+    // Get invoice number from DB sequence
+    const { data: seqData } = await supabase.rpc('next_seq_number', { seq_name: 'INV' });
+    const invoiceNumber = seqData || `INV-${today.getFullYear()}-${Date.now()}`;
+
+    const { data, error: insErr } = await supabase.from('invoices').insert({
       project_id: pid,
       customer_id: customer.id,
       meter_id: meter.id,
@@ -123,6 +148,8 @@ export function BillingPage() {
       due_date: dueDate.toISOString().split('T')[0],
     }).select('*, customers(name_ar, customer_number, phone)').single();
 
+    if (insErr) { setFormError(insErr.message); setSaving(false); return; }
+
     if (data) {
       await supabase.from('meters').update({ last_reading: current, last_reading_date: new Date().toISOString() }).eq('id', meter.id);
       setInvoices([data as any, ...invoices]);
@@ -135,15 +162,18 @@ export function BillingPage() {
   const handleRecordPayment = async () => {
     if (!currentProject || !paymentForm.invoice_id) { setSaving(false); return; }
     setSaving(true);
+    setFormError(null);
     const pid = currentProject.id;
     const invoice = invoices.find(i => i.id === paymentForm.invoice_id);
-    if (!invoice) { setSaving(false); return; }
+    if (!invoice) { setFormError('الفاتورة غير موجودة'); setSaving(false); return; }
     const amount = parseFloat(paymentForm.amount);
-    if (isNaN(amount) || amount <= 0) { setSaving(false); return; }
+    if (isNaN(amount) || amount <= 0) { setFormError('المبلغ غير صحيح'); setSaving(false); return; }
+    if (amount > Number(invoice.balance)) { setFormError(`المبلغ يتجاوز المتبقي (${formatCurrency(invoice.balance)})`); setSaving(false); return; }
 
-    const receiptNumber = `RCP-${new Date().getFullYear()}-${String(payments.length + 1).padStart(3, '0')}`;
+    const { data: seqData } = await supabase.rpc('next_seq_number', { seq_name: 'RCP' });
+    const receiptNumber = seqData || `RCP-${new Date().getFullYear()}-${Date.now()}`;
 
-    const { data } = await supabase.from('payments').insert({
+    const { data, error: insErr } = await supabase.from('payments').insert({
       project_id: pid,
       invoice_id: invoice.id,
       customer_id: invoice.customer_id,
@@ -154,6 +184,8 @@ export function BillingPage() {
       reference_number: paymentForm.reference_number || null,
       notes: paymentForm.notes || null,
     }).select('*, customers(name_ar, customer_number), invoices(invoice_number, grand_total)').single();
+
+    if (insErr) { setFormError(insErr.message); setSaving(false); return; }
 
     if (data) {
       const newPaid = Number(invoice.amount_paid) + amount;
@@ -181,7 +213,8 @@ export function BillingPage() {
   const handleSaveTariff = async () => {
     if (!currentProject || !tariffForm.name_ar) { setSaving(false); return; }
     setSaving(true);
-    const { data: tar } = await supabase.from('tariffs').insert({
+    setFormError(null);
+    const { data: tar, error: tarErr } = await supabase.from('tariffs').insert({
       project_id: currentProject.id,
       name_ar: tariffForm.name_ar,
       customer_type: tariffForm.customer_type,
@@ -190,8 +223,10 @@ export function BillingPage() {
       version: 1,
     }).select().single();
 
+    if (tarErr) { setFormError(tarErr.message); setSaving(false); return; }
+
     if (tar && tariffForm.tiers.length > 0) {
-      await supabase.from('tariff_tiers').insert(
+      const { error: tierErr } = await supabase.from('tariff_tiers').insert(
         tariffForm.tiers.map(t => ({
           tariff_id: tar.id,
           from_m3: parseFloat(t.from_m3) || 0,
@@ -199,15 +234,32 @@ export function BillingPage() {
           price_per_m3: parseFloat(t.price_per_m3) || 0,
         }))
       );
+      if (tierErr) { setFormError(tierErr.message); setSaving(false); return; }
     }
+
+    // Update local state instead of reload
+    setTariffs([tar as Tariff, ...tariffs]);
+    setTiers({ ...tiers, [tar.id]: tariffForm.tiers.map((t, idx) => ({
+      id: `temp-${idx}`, tariff_id: tar.id,
+      from_m3: parseFloat(t.from_m3) || 0,
+      to_m3: t.to_m3 ? parseFloat(t.to_m3) : null,
+      price_per_m3: parseFloat(t.price_per_m3) || 0,
+    })) });
     setShowTariffForm(false);
     setTariffForm({ name_ar: '', customer_type: 'residential', fixed_fee: '500', tiers: [{ from_m3: '0', to_m3: '10', price_per_m3: '100' }] });
     setSaving(false);
-    // Refresh
-    window.location.reload();
+  };
+
+  const handleDeletePayment = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا التحصيل؟')) return;
+    const { error: delErr } = await supabase.from('payments').delete().eq('id', id);
+    if (delErr) { setError(delErr.message); return; }
+    setPayments(payments.filter(p => p.id !== id));
   };
 
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
+  if (loading) return <LoadingSpinner label="جاري تحميل بيانات الفوترة..." />;
+  if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
   const tabs = [
     { id: 'invoices' as Tab, label: 'الفواتير', icon: Receipt, count: invoices.length },
@@ -222,9 +274,9 @@ export function BillingPage() {
           <h1 className="text-2xl font-bold text-neutral-900">الفوترة والتحصيل</h1>
           <p className="text-sm text-neutral-500 mt-1">{currentProject.name_ar}</p>
         </div>
-        {tab === 'invoices' && <button onClick={() => { setForm({}); setShowForm(true); }} className="btn-primary"><Plus size={18} /> فاتورة جديدة</button>}
-        {tab === 'payments' && <button onClick={() => { setPaymentForm({}); setShowPaymentForm(true); }} className="btn-primary"><Plus size={18} /> تسجيل تحصيل</button>}
-        {tab === 'tariffs' && <button onClick={() => setShowTariffForm(true)} className="btn-primary"><Plus size={18} /> تعرفة جديدة</button>}
+        {canEdit && tab === 'invoices' && <button onClick={() => { setForm({}); setFormError(null); setShowForm(true); }} className="btn-primary"><Plus size={18} /> فاتورة جديدة</button>}
+        {canEdit && tab === 'payments' && <button onClick={() => { setPaymentForm({}); setFormError(null); setShowPaymentForm(true); }} className="btn-primary"><Plus size={18} /> تسجيل تحصيل</button>}
+        {canEdit && tab === 'tariffs' && <button onClick={() => { setFormError(null); setShowTariffForm(true); }} className="btn-primary"><Plus size={18} /> تعرفة جديدة</button>}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -252,7 +304,7 @@ export function BillingPage() {
             <input className="input-field pr-10" placeholder="بحث برقم الفاتورة أو اسم المشترك..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           {filteredInvoices.length === 0 ? (
-            <div className="card"><EmptyState icon={Receipt} title="لا توجد فواتير" description="أنشئ أول فاتورة لبدء دورة الفوترة" action={{ label: 'فاتورة جديدة', onClick: () => { setForm({}); setShowForm(true); } }} /></div>
+            <div className="card"><EmptyState icon={Receipt} title="لا توجد فواتير" description="أنشئ أول فاتورة لبدء دورة الفوترة" action={canEdit ? { label: 'فاتورة جديدة', onClick: () => { setForm({}); setFormError(null); setShowForm(true); } } : undefined} /></div>
           ) : (
             <div className="card overflow-x-auto">
               <table className="w-full text-sm">
@@ -281,8 +333,8 @@ export function BillingPage() {
                       <td className="px-4 py-3 font-semibold text-neutral-800">{formatCurrency(inv.balance)}</td>
                       <td className="px-4 py-3"><Badge status={inv.status} label={invoiceStatusLabels[inv.status] || inv.status} /></td>
                       <td className="px-4 py-3">
-                        {inv.status !== 'paid' && (
-                          <button onClick={() => { setPaymentForm({ invoice_id: inv.id, amount: inv.balance.toString(), payment_method: 'cash' }); setShowPaymentForm(true); }} className="text-primary-600 hover:text-primary-700 text-xs font-medium">
+                        {canEdit && inv.status !== 'paid' && (
+                          <button onClick={() => { setPaymentForm({ invoice_id: inv.id, amount: inv.balance.toString(), payment_method: 'cash' }); setFormError(null); setShowPaymentForm(true); }} className="text-primary-600 hover:text-primary-700 text-xs font-medium">
                             تحصيل
                           </button>
                         )}
@@ -298,7 +350,7 @@ export function BillingPage() {
 
       {tab === 'payments' && (
         payments.length === 0 ? (
-          <div className="card"><EmptyState icon={Wallet} title="لا توجد مدفوعات مسجلة" description="سجل أول تحصيل لبدء تتبع الإيرادات" action={{ label: 'تسجيل تحصيل', onClick: () => { setPaymentForm({}); setShowPaymentForm(true); } }} /></div>
+          <div className="card"><EmptyState icon={Wallet} title="لا توجد مدفوعات مسجلة" description="سجل أول تحصيل لبدء تتبع الإيرادات" action={canEdit ? { label: 'تسجيل تحصيل', onClick: () => { setPaymentForm({}); setFormError(null); setShowPaymentForm(true); } } : undefined} /></div>
         ) : (
           <div className="card overflow-x-auto">
             <table className="w-full text-sm">
@@ -311,6 +363,7 @@ export function BillingPage() {
                   <th className="px-4 py-3 font-medium">طريقة الدفع</th>
                   <th className="px-4 py-3 font-medium">المحصل</th>
                   <th className="px-4 py-3 font-medium">التاريخ</th>
+                  {canEdit && <th className="px-4 py-3 font-medium"></th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -320,9 +373,16 @@ export function BillingPage() {
                     <td className="px-4 py-3 text-neutral-600">{p.customers?.name_ar || '—'}</td>
                     <td className="px-4 py-3 text-neutral-600">{p.invoices?.invoice_number || '—'}</td>
                     <td className="px-4 py-3 font-semibold text-success-700">{formatCurrency(p.amount)}</td>
-                    <td className="px-4 py-3 text-neutral-600">{p.payment_method === 'cash' ? 'نقدي' : p.payment_method === 'wallet' ? 'محفظة' : p.payment_method}</td>
+                    <td className="px-4 py-3 text-neutral-600">{paymentMethodLabels[p.payment_method] || p.payment_method}</td>
                     <td className="px-4 py-3 text-neutral-600">{p.collector_name || '—'}</td>
                     <td className="px-4 py-3 text-xs text-neutral-400">{formatDate(p.payment_date)}</td>
+                    {canEdit && (
+                      <td className="px-4 py-3">
+                        <button onClick={() => handleDeletePayment(p.id)} className="text-error-500 hover:text-error-700 transition-smooth">
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -333,7 +393,7 @@ export function BillingPage() {
 
       {tab === 'tariffs' && (
         tariffs.length === 0 ? (
-          <div className="card"><EmptyState icon={TrendingUp} title="لا توجد تعريفات" description="أنشئ أول تعرفة لاحتساب الفواتير" action={{ label: 'تعرفة جديدة', onClick: () => setShowTariffForm(true) }} /></div>
+          <div className="card"><EmptyState icon={TrendingUp} title="لا توجد تعريفات" description="أنشئ أول تعرفة لاحتساب الفواتير" action={canEdit ? { label: 'تعرفة جديدة', onClick: () => { setFormError(null); setShowTariffForm(true); } } : undefined} /></div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {tariffs.map((t) => (
@@ -354,7 +414,7 @@ export function BillingPage() {
                   </div>
                   <div className="border-t border-neutral-100 pt-2">
                     <p className="text-xs text-neutral-400 mb-2">شرائح الاستهلاك:</p>
-                    {(tiers[t.id] || []).map((tier, idx) => (
+                    {(tiers[t.id] || []).map((tier) => (
                       <div key={tier.id} className="flex justify-between text-sm py-1">
                         <span className="text-neutral-600">
                           {formatNumber(tier.from_m3)} - {tier.to_m3 ? formatNumber(tier.to_m3) : 'ما فوق'} م³
@@ -373,6 +433,7 @@ export function BillingPage() {
       {/* Invoice Form Modal */}
       <Modal open={showForm} onClose={() => setShowForm(false)} title="إنشاء فاتورة جديدة" size="lg">
         <div className="space-y-4">
+          {formError && <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-error-50 text-error-700 text-sm"><AlertCircle size={16} /><span>{formError}</span></div>}
           <div>
             <label className="label-field">المشترك *</label>
             <select className="input-field" value={form.customer_id || ''} onChange={(e) => setForm({ ...form, customer_id: e.target.value })}>
@@ -421,6 +482,7 @@ export function BillingPage() {
       {/* Payment Form Modal */}
       <Modal open={showPaymentForm} onClose={() => setShowPaymentForm(false)} title="تسجيل تحصيل" size="md">
         <div className="space-y-4">
+          {formError && <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-error-50 text-error-700 text-sm"><AlertCircle size={16} /><span>{formError}</span></div>}
           <div>
             <label className="label-field">الفاتورة *</label>
             <select className="input-field" value={paymentForm.invoice_id || ''} onChange={(e) => {
@@ -433,6 +495,16 @@ export function BillingPage() {
               ))}
             </select>
           </div>
+          {paymentForm.invoice_id && (() => {
+            const inv = invoices.find(i => i.id === paymentForm.invoice_id);
+            return inv ? (
+              <div className="bg-neutral-50 rounded-xl p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-neutral-400">الإجمالي</span><span className="font-medium">{formatCurrency(inv.grand_total)}</span></div>
+                <div className="flex justify-between"><span className="text-neutral-400">المدفوع</span><span className="font-medium">{formatCurrency(inv.amount_paid)}</span></div>
+                <div className="flex justify-between"><span className="text-neutral-400">المتبقي</span><span className="font-bold text-error-700">{formatCurrency(inv.balance)}</span></div>
+              </div>
+            ) : null;
+          })()}
           <div>
             <label className="label-field">المبلغ *</label>
             <input type="number" className="input-field text-lg font-semibold" value={paymentForm.amount || ''} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} />
@@ -466,6 +538,7 @@ export function BillingPage() {
       {/* Tariff Form Modal */}
       <Modal open={showTariffForm} onClose={() => setShowTariffForm(false)} title="إنشاء تعرفة جديدة" size="lg">
         <div className="space-y-4">
+          {formError && <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-error-50 text-error-700 text-sm"><AlertCircle size={16} /><span>{formError}</span></div>}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label-field">اسم التعرفة *</label>
@@ -489,14 +562,23 @@ export function BillingPage() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-neutral-700">شرائح الاستهلاك</label>
-              <button onClick={() => setTariffForm({ ...tariffForm, tiers: [...tariffForm.tiers, { from_m3: '0', to_m3: '', price_per_m3: '0' }] })} className="text-primary-600 text-sm font-medium">إضافة شريحة</button>
+              <button onClick={() => {
+                const lastTier = tariffForm.tiers[tariffForm.tiers.length - 1];
+                const nextFrom = lastTier?.to_m3 || '0';
+                setTariffForm({ ...tariffForm, tiers: [...tariffForm.tiers, { from_m3: nextFrom, to_m3: '', price_per_m3: '0' }] });
+              }} className="text-primary-600 text-sm font-medium">إضافة شريحة</button>
             </div>
             <div className="space-y-2">
               {tariffForm.tiers.map((tier, idx) => (
-                <div key={idx} className="grid grid-cols-3 gap-2">
+                <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
                   <input type="number" className="input-field text-sm" placeholder="من م³" value={tier.from_m3} onChange={(e) => { const t = [...tariffForm.tiers]; t[idx] = { ...t[idx], from_m3: e.target.value }; setTariffForm({ ...tariffForm, tiers: t }); }} />
                   <input type="number" className="input-field text-sm" placeholder="إلى م³" value={tier.to_m3} onChange={(e) => { const t = [...tariffForm.tiers]; t[idx] = { ...t[idx], to_m3: e.target.value }; setTariffForm({ ...tariffForm, tiers: t }); }} />
                   <input type="number" className="input-field text-sm" placeholder="ر.ي/م³" value={tier.price_per_m3} onChange={(e) => { const t = [...tariffForm.tiers]; t[idx] = { ...t[idx], price_per_m3: e.target.value }; setTariffForm({ ...tariffForm, tiers: t }); }} />
+                  {tariffForm.tiers.length > 1 && (
+                    <button onClick={() => setTariffForm({ ...tariffForm, tiers: tariffForm.tiers.filter((_, i) => i !== idx) })} className="text-error-500 hover:text-error-700 p-1">
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

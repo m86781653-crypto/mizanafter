@@ -13,6 +13,7 @@ import {
   Gauge, Camera, MapPin, Bot, Save, AlertTriangle,
   CheckCircle, Cloud, CloudOff, Clock, Loader2,
 } from 'lucide-react';
+import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import type { Meter, MeterReading, Customer } from '@/types';
 
 export function ReadingsPage() {
@@ -31,6 +32,8 @@ export function ReadingsPage() {
     ai_extracted_value: '', ai_confidence: '',
   });
   const [error, setError] = useState('');
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const updateOnline = () => setOnline(navigator.onLine);
@@ -43,15 +46,25 @@ export function ReadingsPage() {
   }, []);
 
   useEffect(() => {
-    if (!currentProject) return;
+    if (!currentProject) { setLoading(false); return; }
     const pid = currentProject.id;
     (async () => {
-      const [m, r] = await Promise.all([
-        supabase.from('meters').select('*, customers(name_ar, customer_number, phone)').eq('project_id', pid).eq('status', 'active').order('meter_number'),
-        supabase.from('meter_readings').select('*').eq('project_id', pid).order('reading_date', { ascending: false }).limit(20),
-      ]);
-      setMeters((m.data as any[]) || []);
-      setReadings((r.data as MeterReading[]) || []);
+      setLoading(true);
+      setPageError(null);
+      try {
+        const [m, r] = await Promise.all([
+          supabase.from('meters').select('*, customers(name_ar, customer_number, phone)').eq('project_id', pid).eq('status', 'active').order('meter_number'),
+          supabase.from('meter_readings').select('*').eq('project_id', pid).order('reading_date', { ascending: false }).limit(20),
+        ]);
+        if (m.error) throw m.error;
+        if (r.error) throw r.error;
+        setMeters((m.data as any[]) || []);
+        setReadings((r.data as MeterReading[]) || []);
+      } catch (err) {
+        setPageError(err instanceof Error ? err.message : 'فشل تحميل البيانات');
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [currentProject]);
 
@@ -150,7 +163,13 @@ export function ReadingsPage() {
       ai_model: form.ai_extracted_value ? 'simulated-ocr-v1' : null,
     };
 
-    const { data } = await supabase.from('meter_readings').insert(readingData).select().single();
+    const { data, error: insErr } = await supabase.from('meter_readings').insert(readingData).select().single();
+
+    if (insErr) {
+      setError(insErr.message);
+      setSaving(false);
+      return;
+    }
 
     if (data) {
       await supabase.from('meters').update({
@@ -174,6 +193,8 @@ export function ReadingsPage() {
   };
 
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
+  if (loading) return <LoadingSpinner label="جاري تحميل العدادات والقراءات..." />;
+  if (pageError) return <ErrorState message={pageError} onRetry={() => window.location.reload()} />;
 
   const consumption = form.reading_value && selectedMeter
     ? Math.max(parseFloat(form.reading_value) - selectedMeter.last_reading, 0)

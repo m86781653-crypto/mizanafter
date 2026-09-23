@@ -11,8 +11,9 @@ import {
 } from '@/lib/utils';
 import {
   Wrench, AlertTriangle, Plus, Activity, Clock, CheckCircle,
-  Loader2, Boxes,
+  Loader2, Boxes, AlertCircle,
 } from 'lucide-react';
+import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import type { Fault, WorkOrder, Asset, Well, Pump } from '@/types';
 
 type Tab = 'faults' | 'workorders' | 'assets';
@@ -28,11 +29,16 @@ export function MaintenancePage() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!currentProject) return;
+  const fetchData = async () => {
+    if (!currentProject) { setLoading(false); return; }
+    setLoading(true);
+    setError(null);
     const pid = currentProject.id;
-    (async () => {
+    try {
       const [f, wo, a, w, p] = await Promise.all([
         supabase.from('faults').select('*').eq('project_id', pid).order('reported_at', { ascending: false }),
         supabase.from('maintenance_work_orders').select('*, faults(fault_number, severity, description)').eq('project_id', pid).order('created_at', { ascending: false }),
@@ -40,13 +46,22 @@ export function MaintenancePage() {
         supabase.from('wells').select('*').eq('project_id', pid),
         supabase.from('pumps').select('*').eq('project_id', pid),
       ]);
+      if (f.error) throw f.error;
+      if (wo.error) throw wo.error;
+      if (a.error) throw a.error;
       setFaults(f.data as Fault[] || []);
       setWorkOrders(wo.data as any[] || []);
       setAssets(a.data as Asset[] || []);
       setWells(w.data as Well[] || []);
       setPumps(p.data as Pump[] || []);
-    })();
-  }, [currentProject]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'فشل تحميل البيانات');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, [currentProject]);
 
   const openFaults = faults.filter(f => f.status !== 'closed' && f.status !== 'resolved');
   const openWOs = workOrders.filter(w => w.status === 'open' || w.status === 'in_progress');
@@ -54,11 +69,13 @@ export function MaintenancePage() {
   const handleSave = async () => {
     if (!currentProject) return;
     setSaving(true);
+    setFormError(null);
     const pid = currentProject.id;
 
     if (tab === 'faults') {
-      if (!form.fault_type) { setSaving(false); return; }
-      const faultNum = `F-${String(faults.length + 1).padStart(3, '0')}`;
+      if (!form.fault_type) { setFormError('نوع العطل مطلوب'); setSaving(false); return; }
+      const { data: seqData } = await supabase.rpc('next_seq_number', { seq_name: 'FLT' });
+      const faultNum = seqData || `F-${Date.now()}`;
       const payload: Record<string, unknown> = {
         project_id: pid,
         fault_number: faultNum,
@@ -71,11 +88,13 @@ export function MaintenancePage() {
       };
       if (form.pump_id) payload.pump_id = form.pump_id;
       if (form.well_id) payload.well_id = form.well_id;
-      const { data } = await supabase.from('faults').insert(payload).select().single();
+      const { data, error: insErr } = await supabase.from('faults').insert(payload).select().single();
+      if (insErr) { setFormError(insErr.message); setSaving(false); return; }
       if (data) { setFaults([data as Fault, ...faults]); setShowForm(false); setForm({}); }
     } else if (tab === 'workorders') {
-      if (!form.description) { setSaving(false); return; }
-      const woNum = `WO-${String(workOrders.length + 1).padStart(3, '0')}`;
+      if (!form.description) { setFormError('الوصف مطلوب'); setSaving(false); return; }
+      const { data: seqData } = await supabase.rpc('next_seq_number', { seq_name: 'WO' });
+      const woNum = seqData || `WO-${Date.now()}`;
       const payload: Record<string, unknown> = {
         project_id: pid,
         work_order_number: woNum,
@@ -89,10 +108,11 @@ export function MaintenancePage() {
       if (form.pump_id) payload.pump_id = form.pump_id;
       if (form.well_id) payload.well_id = form.well_id;
       if (form.fault_id) payload.fault_id = form.fault_id;
-      const { data } = await supabase.from('maintenance_work_orders').insert(payload).select('*, faults(fault_number, severity, description)').single();
+      const { data, error: insErr } = await supabase.from('maintenance_work_orders').insert(payload).select('*, faults(fault_number, severity, description)').single();
+      if (insErr) { setFormError(insErr.message); setSaving(false); return; }
       if (data) { setWorkOrders([data as any, ...workOrders]); setShowForm(false); setForm({}); }
     } else if (tab === 'assets') {
-      if (!form.asset_code || !form.name_ar) { setSaving(false); return; }
+      if (!form.asset_code || !form.name_ar) { setFormError('رمز الأصل والاسم مطلوبان'); setSaving(false); return; }
       const payload: Record<string, unknown> = {
         project_id: pid,
         asset_code: form.asset_code,
@@ -108,7 +128,8 @@ export function MaintenancePage() {
       if (form.expected_lifespan_years) payload.expected_lifespan_years = parseFloat(form.expected_lifespan_years);
       if (form.purchase_date) payload.purchase_date = form.purchase_date;
       if (form.installation_date) payload.installation_date = form.installation_date;
-      const { data } = await supabase.from('assets').insert(payload).select().single();
+      const { data, error: insErr } = await supabase.from('assets').insert(payload).select().single();
+      if (insErr) { setFormError(insErr.message); setSaving(false); return; }
       if (data) { setAssets([data as Asset, ...assets]); setShowForm(false); setForm({}); }
     }
     setSaving(false);
@@ -130,6 +151,8 @@ export function MaintenancePage() {
   };
 
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
+  if (loading) return <LoadingSpinner label="جاري تحميل بيانات الصيانة..." />;
+  if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
   const tabs = [
     { id: 'faults' as Tab, label: 'الأعطال', icon: AlertTriangle, count: faults.length },
@@ -144,7 +167,7 @@ export function MaintenancePage() {
           <h1 className="text-2xl font-bold text-neutral-900">الصيانة والأعطال</h1>
           <p className="text-sm text-neutral-500 mt-1">{currentProject.name_ar}</p>
         </div>
-        <button onClick={() => { setForm({}); setShowForm(true); }} className="btn-primary">
+        <button onClick={() => { setForm({}); setFormError(null); setShowForm(true); }} className="btn-primary">
           <Plus size={18} /> إضافة {tab === 'faults' ? 'عطل' : tab === 'workorders' ? 'أمر صيانة' : 'أصل'}
         </button>
       </div>
@@ -447,6 +470,11 @@ export function MaintenancePage() {
               <label className="label-field">تاريخ التركيب</label>
               <input type="date" className="input-field" value={form.installation_date || ''} onChange={(e) => setForm({ ...form, installation_date: e.target.value })} />
             </div>
+          </div>
+        )}
+        {formError && (
+          <div className="mt-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-error-50 text-error-700 text-sm">
+            <AlertCircle size={16} /><span>{formError}</span>
           </div>
         )}
         <div className="flex gap-3 mt-6">

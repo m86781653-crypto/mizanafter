@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
+import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import {
   Droplets, Users, Receipt, TrendingDown, AlertTriangle,
   Wrench, Gauge, Activity, Wallet, Building2, MapPin,
@@ -15,6 +16,8 @@ import type { Invoice, Fault, WorkOrder, MeterReading, Well, Pump } from '@/type
 
 export function DashboardPage() {
   const { currentProject } = useProject();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
     customers: 0,
     meters: 0,
@@ -32,10 +35,12 @@ export function DashboardPage() {
     waterConsumption: 0,
   });
 
-  useEffect(() => {
+  const fetchData = async () => {
     if (!currentProject) return;
     const pid = currentProject.id;
-    (async () => {
+    setLoading(true);
+    setError(null);
+    try {
       const [customers, meters, invoices, payments, faults, wos, readings, wells, pumps] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('project_id', pid).eq('status', 'active'),
         supabase.from('meters').select('id', { count: 'exact', head: true }).eq('project_id', pid).eq('status', 'active'),
@@ -50,7 +55,7 @@ export function DashboardPage() {
 
       const invData = invoices.data as Invoice[] || [];
       const unpaid = invData.filter(i => i.status === 'unpaid' || i.status === 'overdue');
-      const overdueAmt = invData.filter(i => i.status === 'overdue' || i.status === 'unpaid').reduce((s, i) => s + Number(i.balance), 0);
+      const overdueAmt = invData.filter(i => i.status === 'overdue').reduce((s, i) => s + Number(i.balance), 0);
       const totalRev = invData.reduce((s, i) => s + Number(i.grand_total), 0);
       const collectedRev = (payments.data || []).reduce((s, p: any) => s + Number(p.amount), 0);
       const production = (wells.data as Well[] || []).reduce((s, w) => s + Number(w.daily_output_m3), 0);
@@ -72,7 +77,15 @@ export function DashboardPage() {
         waterProduction: production,
         waterConsumption: consumption,
       });
-    })();
+    } catch (err: any) {
+      setError(err?.message || 'حدث خطأ غير متوقع أثناء تحميل البيانات');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
   }, [currentProject]);
 
   if (!currentProject) {
@@ -84,9 +97,17 @@ export function DashboardPage() {
     );
   }
 
-  const nrw = stats.waterProduction > 0
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  if (error) {
+    return <ErrorState message={error} onRetry={fetchData} />;
+  }
+
+  const nrw: number | null = stats.waterProduction > 0
     ? ((stats.waterProduction - stats.waterConsumption) / stats.waterProduction * 100)
-    : 0;
+    : null;
   const collectionRate = stats.totalRevenue > 0
     ? (stats.collectedRevenue / stats.totalRevenue * 100)
     : 0;
@@ -127,9 +148,9 @@ export function DashboardPage() {
         />
         <StatCard
           title="الفاقد (NRW)"
-          value={`${formatNumber(nrw)}%`}
+          value={nrw === null ? '—' : `${formatNumber(nrw)}%`}
           icon={TrendingDown}
-          color={nrw > 30 ? 'error' : nrw > 15 ? 'warning' : 'success'}
+          color={nrw === null ? 'success' : nrw > 30 ? 'error' : nrw > 15 ? 'warning' : 'success'}
           subtitle="غير مدفوع العائد"
         />
         <StatCard
@@ -332,7 +353,7 @@ export function DashboardPage() {
           </div>
           <div>
             <p className="text-primary-300 text-xs">نسبة الفاقد</p>
-            <p className={`text-2xl font-bold ${nrw < 15 ? 'text-success-300' : nrw < 30 ? 'text-warning-300' : 'text-error-300'}`}>{formatNumber(nrw)}%</p>
+            <p className={`text-2xl font-bold ${nrw === null ? 'text-success-300' : nrw < 15 ? 'text-success-300' : nrw < 30 ? 'text-warning-300' : 'text-error-300'}`}>{nrw === null ? '—' : `${formatNumber(nrw)}%`}</p>
           </div>
           <div>
             <p className="text-primary-300 text-xs">أعطال حرجة</p>

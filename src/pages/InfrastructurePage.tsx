@@ -4,8 +4,9 @@ import { useProject } from '@/context/ProjectContext';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import { formatNumber } from '@/lib/utils';
-import { Plus, Droplets, Activity, Database, Gauge, Power, Cpu, CircleDashed } from 'lucide-react';
+import { Plus, Droplets, Activity, Database, Gauge, Power, Cpu } from 'lucide-react';
 import type { Well, Pump, Tank } from '@/types';
 
 type Tab = 'wells' | 'pumps' | 'tanks';
@@ -19,27 +20,44 @@ export function InfrastructurePage() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchData = async () => {
     if (!currentProject) return;
     const pid = currentProject.id;
-    (async () => {
+    setLoading(true);
+    setError(null);
+    try {
       const [w, p, t] = await Promise.all([
         supabase.from('wells').select('*').eq('project_id', pid).order('code'),
         supabase.from('pumps').select('*').eq('project_id', pid).order('code'),
         supabase.from('tanks').select('*').eq('project_id', pid).order('code'),
       ]);
-      setWells(w.data as Well[] || []);
-      setPumps(p.data as Pump[] || []);
-      setTanks(t.data as Tank[] || []);
-    })();
+      const wErr = w.error || p.error || t.error;
+      if (wErr) throw wErr;
+      setWells((w.data as Well[]) || []);
+      setPumps((p.data as Pump[]) || []);
+      setTanks((t.data as Tank[]) || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر تحميل البيانات');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProject]);
 
-  const openForm = () => { setForm({}); setShowForm(true); };
+  const openForm = () => { setForm({}); setFormError(null); setShowForm(true); };
 
   const handleSave = async () => {
     if (!currentProject) return;
     setSaving(true);
+    setFormError(null);
     const pid = currentProject.id;
     const table = tab === 'wells' ? 'wells' : tab === 'pumps' ? 'pumps' : 'tanks';
     const payload: Record<string, unknown> = { project_id: pid };
@@ -57,17 +75,23 @@ export function InfrastructurePage() {
       }
     });
 
-    if (tab === 'wells') payload.pump_installed = !!form.pump_installed;
-    if (!payload.code) { setSaving(false); return; }
+    if (tab === 'wells') payload.pump_installed = form.pump_installed === 'true';
+    if (!payload.code) { setSaving(false); setFormError('الرمز مطلوب'); return; }
 
-    const { data } = await supabase.from(table).insert(payload).select().single();
-    if (data) {
-      setShowForm(false);
-      if (tab === 'wells') setWells([...wells, data as Well]);
-      if (tab === 'pumps') setPumps([...pumps, data as Pump]);
-      if (tab === 'tanks') setTanks([...tanks, data as Tank]);
+    try {
+      const { data, error: insertError } = await supabase.from(table).insert(payload).select().single();
+      if (insertError) throw insertError;
+      if (data) {
+        setShowForm(false);
+        if (tab === 'wells') setWells([...wells, data as Well]);
+        if (tab === 'pumps') setPumps([...pumps, data as Pump]);
+        if (tab === 'tanks') setTanks([...tanks, data as Tank]);
+      }
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'تعذر حفظ البيانات');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
@@ -108,8 +132,12 @@ export function InfrastructurePage() {
         })}
       </div>
 
+      {loading && <LoadingSpinner />}
+
+      {!loading && error && <ErrorState message={error} onRetry={fetchData} />}
+
       {/* Wells */}
-      {tab === 'wells' && (
+      {!loading && !error && tab === 'wells' && (
         wells.length === 0 ? (
           <div className="card"><EmptyState icon={Droplets} title="لا توجد آبار مسجلة" description="أضف بئراً لبدء تتبع إنتاج المياه" action={{ label: 'إضافة بئر', onClick: openForm }} /></div>
         ) : (
@@ -140,7 +168,7 @@ export function InfrastructurePage() {
       )}
 
       {/* Pumps */}
-      {tab === 'pumps' && (
+      {!loading && !error && tab === 'pumps' && (
         pumps.length === 0 ? (
           <div className="card"><EmptyState icon={Activity} title="لا توجد مضخات مسجلة" description="أضف مضخة لبدء تتبع أدائها" action={{ label: 'إضافة مضخة', onClick: openForm }} /></div>
         ) : (
@@ -187,7 +215,7 @@ export function InfrastructurePage() {
       )}
 
       {/* Tanks */}
-      {tab === 'tanks' && (
+      {!loading && !error && tab === 'tanks' && (
         tanks.length === 0 ? (
           <div className="card"><EmptyState icon={Database} title="لا توجد خزانات مسجلة" description="أضف خزاناً لبدء تتبع مستوى المياه" action={{ label: 'إضافة خزان', onClick: openForm }} /></div>
         ) : (
@@ -237,6 +265,7 @@ export function InfrastructurePage() {
               <FormInput label="الإنتاج اليومي (م³)" field="daily_output_m3" form={form} setForm={setForm} type="number" />
               <FormInput label="ساعات التشغيل" field="operating_hours" form={form} setForm={setForm} type="number" />
               <FormInput label="مستوى المياه (م)" field="water_level_m" form={form} setForm={setForm} type="number" />
+              <FormCheckbox label="مركب عليه مضخة" field="pump_installed" form={form} setForm={setForm} />
             </>
           )}
           {tab === 'pumps' && (
@@ -264,6 +293,11 @@ export function InfrastructurePage() {
             </>
           )}
         </div>
+        {formError && (
+          <div className="mt-4 p-3 rounded-lg bg-error-50 border border-error-200 text-sm text-error-700">
+            {formError}
+          </div>
+        )}
         <div className="flex gap-3 mt-6">
           <button onClick={() => setShowForm(false)} className="btn-secondary flex-1">إلغاء</button>
           <button onClick={handleSave} disabled={saving || !form.code} className="btn-primary flex-1">{saving ? 'جاري الحفظ...' : 'حفظ'}</button>
@@ -290,6 +324,21 @@ function FormSelect({ label, field, form, setForm, options }: { label: string; f
         <option value="">— اختر —</option>
         {options.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
       </select>
+    </div>
+  );
+}
+
+function FormCheckbox({ label, field, form, setForm }: { label: string; field: string; form: Record<string, string>; setForm: (f: Record<string, string>) => void }) {
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        id={field}
+        className="w-4 h-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+        checked={form[field] === 'true'}
+        onChange={(e) => setForm({ ...form, [field]: e.target.checked ? 'true' : 'false' })}
+      />
+      <label htmlFor={field} className="label-field !mb-0 cursor-pointer">{label}</label>
     </div>
   );
 }
