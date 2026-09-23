@@ -37,6 +37,8 @@ Deno.serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    const password = generatePassword();
+
     // Check if any super_admin already exists
     const { data: existingAdmins } = await supabase
       .from("profiles")
@@ -44,17 +46,52 @@ Deno.serve(async (req: Request) => {
       .eq("role", "super_admin");
 
     if (existingAdmins && existingAdmins.length > 0) {
+      const existing = existingAdmins[0];
+      if (existing.email !== email) {
+        return new Response(
+          JSON.stringify({ error: "يوجد مدير عام بالفعل. لا يمكن إنشاء أكثر من مدير عام.", existing: existingAdmins }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      // Same email: this is a password reset for the existing super_admin
+      const { data: updated, error: updateErr } = await supabase.auth.admin.updateUserById(
+        existing.id,
+        {
+          password,
+          email_confirm: true,
+          user_metadata: { full_name, role: "super_admin", must_change_password: true },
+        }
+      );
+      if (updateErr) throw new Error(updateErr.message);
+
+      await supabase.from("profiles").upsert({
+        id: existing.id,
+        email,
+        full_name,
+        role: "super_admin",
+        phone: phone || null,
+        must_change_password: true,
+      });
+
       return new Response(
-        JSON.stringify({ error: "يوجد مدير عام بالفعل. لا يمكن إنشاء أكثر من مدير عام.", existing: existingAdmins }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          success: true,
+          message: "تم إعادة تعيين كلمة مرور المدير العام بنجاح",
+          credentials: {
+            email,
+            password,
+            role: "super_admin",
+            full_name,
+            must_change_password: true,
+          },
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     // Check if user with this email already exists
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
     const existingUser = existingUsers?.users?.find((u: any) => u.email === email);
-
-    const password = generatePassword();
 
     let userId: string;
 
