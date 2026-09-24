@@ -1,4 +1,4 @@
-import { type LucideIcon } from 'lucide-react';
+import { BarChart3, Building2, Bot, Droplets, Gauge, Receipt, Settings, Users, Wrench, type LucideIcon } from 'lucide-react';
 
 export interface NavItem {
   id: string;
@@ -7,14 +7,14 @@ export interface NavItem {
 }
 
 export const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'لوحة القيادة', icon: null as any },
-  { id: 'projects', label: 'المشاريع', icon: null as any },
-  { id: 'infrastructure', label: 'البنية التحتية', icon: null as any },
-  { id: 'customers', label: 'المشتركين والعدادات', icon: null as any },
-  { id: 'readings', label: 'قراءة العدادات', icon: null as any },
-  { id: 'billing', label: 'الفوترة والتحصيل', icon: null as any },
-  { id: 'maintenance', label: 'الصيانة والأعطال', icon: null as any },
-  { id: 'reports', label: 'التقارير والتحليلات', icon: null as any },
-  { id: 'copilot', label: 'مساعد ميزان', icon: null as any },
-  { id: 'settings', label: 'الإعدادات', icon: null as any },
+  { id: 'dashboard', label: 'لوحة القيادة', icon: BarChart3 },
+  { id: 'projects', label: 'المشاريع', icon: Building2 },
+  { id: 'infrastructure', label: 'البنية التحتية', icon: Droplets },
+  { id: 'customers', label: 'المشتركين والعدادات', icon: Users },
+  { id: 'readings', label: 'قراءة العدادات', icon: Gauge },
+  { id: 'billing', label: 'الفوترة والتحصيل', icon: Receipt },
+  { id: 'maintenance', label: 'الصيانة والأعطال', icon: Wrench },
+  { id: 'reports', label: 'التقارير والتحليلات', icon: BarChart3 },
+  { id: 'copilot', label: 'مساعد ميزان', icon: Bot },
+  { id: 'settings', label: 'الإعدادات', icon: Settings },
 ];

@@ -6,11 +6,11 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatCard } from '@/components/ui/StatCard';
 import {
-  formatNumber, formatCurrency, formatDate, formatRelativeTime,
+  formatNumber, formatCurrency, formatRelativeTime,
   faultStatusLabels, workOrderStatusLabels, severityLabels, statusColor,
 } from '@/lib/utils';
 import {
-  Wrench, AlertTriangle, Plus, Activity, Clock, CheckCircle,
+  Wrench, AlertTriangle, Plus, Activity,
   Loader2, Boxes, AlertCircle,
 } from 'lucide-react';
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';

@@ -23,13 +23,15 @@ const allPages = [
 type PageId = typeof allPages[number];
 
 const roleAccess: Record<UserRole, PageId[]> = {
-  super_admin: [...allPages],
-  project_manager: ['dashboard', 'infrastructure', 'customers', 'readings', 'billing', 'maintenance', 'reports', 'copilot', 'settings'],
+  platform_admin: [...allPages],
+  tenant_manager: [...allPages],
+  operations_officer: ['dashboard', 'projects', 'infrastructure', 'customers', 'readings', 'billing', 'maintenance', 'reports', 'copilot', 'settings'],
   meter_reader: ['dashboard', 'readings', 'customers', 'copilot'],
-  collector: ['dashboard', 'billing', 'customers', 'copilot'],
-  accountant: ['dashboard', 'billing', 'reports', 'copilot'],
-  maintenance_tech: ['dashboard', 'maintenance', 'infrastructure', 'copilot'],
-  read_only: ['dashboard', 'reports', 'copilot'],
+  collection_officer: ['dashboard', 'billing', 'customers', 'copilot'],
+  maintenance_officer: ['dashboard', 'maintenance', 'infrastructure', 'copilot'],
+  technician: ['dashboard', 'maintenance', 'infrastructure', 'copilot'],
+  data_exception_officer: ['dashboard', 'customers', 'readings', 'billing', 'maintenance', 'reports', 'copilot'],
+  viewer: ['dashboard', 'reports', 'copilot'],
 };
 
 function AuthedApp() {

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import { formatNumber } from '@/lib/utils';
-import { Plus, Droplets, Activity, Database, Gauge, Power, Cpu } from 'lucide-react';
+import { Plus, Droplets, Activity, Database } from 'lucide-react';
 import type { Well, Pump, Tank } from '@/types';
 
 type Tab = 'wells' | 'pumps' | 'tanks';

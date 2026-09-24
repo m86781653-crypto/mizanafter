@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
-import { Bot, Send, Sparkles, User, Loader2, TrendingDown, AlertTriangle, Receipt, Wrench } from 'lucide-react';
+import { Bot, Send, Sparkles, User, Loader2, AlertTriangle } from 'lucide-react';
 
 interface ChatMessage {
   role: 'user' | 'assistant';

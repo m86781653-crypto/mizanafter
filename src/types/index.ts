@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'project_manager' | 'meter_reader' | 'collector' | 'accountant' | 'maintenance_tech' | 'read_only';
+export type UserRole = 'platform_admin' | 'tenant_manager' | 'operations_officer' | 'meter_reader' | 'collection_officer' | 'maintenance_officer' | 'technician' | 'data_exception_officer' | 'viewer';
 
 export interface Profile {
   id: string;
