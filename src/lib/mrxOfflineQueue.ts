@@ -98,7 +98,9 @@ async function deleteCapture(clientCaptureId: string): Promise<void> {
 }
 
 export function isPermanentMRXError(message: string): boolean {
-  return /READING_DECREASE|DUPLICATE|METER_INACTIVE|PROJECT_ACCESS|UNAUTHORIZED|FORBIDDEN|IDENTITY|VALIDATION|CONFIDENCE|OCR/i.test(message);
+  // Only classify deterministic business/data failures as permanent. Runtime,
+  // network, and OCR availability failures must remain retryable.
+  return /READING_DECREASE|DUPLICATE|METER_INACTIVE|PROJECT_ACCESS|UNAUTHORIZED|FORBIDDEN|IDENTITY|VALIDATION|CONFIDENCE|OCR_READING_NOT_DETECTED|OCR_READING_INVALID|OCR_IMAGE_MISSING/i.test(message);
 }
 
 async function markCaptureRetry(capture: MRXCapture, errorMessage: string): Promise<void> {
@@ -227,7 +229,7 @@ export async function syncPendingMRXCaptures(): Promise<{
       await syncMRXCapture(readyCapture);
       synced += 1;
     } catch (error) {
-      await markCaptureRetry(capture, error instanceof Error ? error.message : 'MRX_SYNC_FAILED');
+      await markCaptureRetry(readyCapture, error instanceof Error ? error.message : 'MRX_SYNC_FAILED');
       failed += 1;
     }
   }
