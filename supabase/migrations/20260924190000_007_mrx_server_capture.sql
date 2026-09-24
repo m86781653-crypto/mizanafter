@@ -101,6 +101,23 @@ BEGIN
      AND (p_ai_confidence < 0 OR p_ai_confidence > 100) THEN
     RAISE EXCEPTION 'INVALID_AI_CONFIDENCE';
   END IF;
+  IF lower(coalesce(p_reading_method, '')) = 'photo' THEN
+    IF p_image_url IS NULL OR p_ai_extracted_value IS NULL OR p_ai_confidence IS NULL THEN
+      RAISE EXCEPTION 'PHOTO_OCR_REQUIRED';
+    END IF;
+    IF abs(p_reading_value - p_ai_extracted_value) > 0.01 THEN
+      RAISE EXCEPTION 'READING_MUST_MATCH_OCR';
+    END IF;
+  ELSIF lower(coalesce(p_reading_method, '')) = 'manual_exception' THEN
+    IF NOT private.mizan_has_permission('meter.exception') THEN
+      RAISE EXCEPTION 'METER_EXCEPTION_FORBIDDEN';
+    END IF;
+    IF NULLIF(trim(coalesce(p_notes, '')), '') IS NULL THEN
+      RAISE EXCEPTION 'EXCEPTION_REASON_REQUIRED';
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'INVALID_READING_METHOD';
+  END IF;
 
   INSERT INTO public.meter_readings (
     meter_id,
