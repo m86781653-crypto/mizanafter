@@ -16,6 +16,9 @@ The RPC:
 - returns the committed reading
 */
 
+ALTER TABLE public.meter_readings ADD COLUMN IF NOT EXISTS client_capture_id uuid;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_meter_readings_client_capture_id ON public.meter_readings(client_capture_id) WHERE client_capture_id IS NOT NULL;
+
 CREATE OR REPLACE FUNCTION public.mrx_capture_meter_reading(
   p_meter_id uuid,
   p_reading_value numeric,
@@ -28,7 +31,8 @@ CREATE OR REPLACE FUNCTION public.mrx_capture_meter_reading(
   p_ai_extracted_value numeric DEFAULT NULL,
   p_ai_confidence numeric DEFAULT NULL,
   p_ai_model text DEFAULT NULL,
-  p_notes text DEFAULT NULL
+  p_notes text DEFAULT NULL,
+  p_client_capture_id uuid DEFAULT NULL
 )
 RETURNS public.meter_readings
 LANGUAGE plpgsql
@@ -49,6 +53,10 @@ BEGIN
 
   IF p_reading_value IS NULL OR p_reading_value < 0 THEN
     RAISE EXCEPTION 'INVALID_READING_VALUE';
+  END IF;
+  IF p_client_capture_id IS NOT NULL THEN
+    SELECT * INTO v_reading FROM public.meter_readings WHERE client_capture_id = p_client_capture_id LIMIT 1;
+    IF FOUND THEN RETURN v_reading; END IF;
   END IF;
 
   SELECT *
@@ -115,7 +123,8 @@ BEGIN
     gps_accuracy,
     sync_status,
     reader_name,
-    notes
+    notes,
+    client_capture_id
   )
   VALUES (
     p_meter_id,
@@ -138,7 +147,8 @@ BEGIN
     p_gps_accuracy,
     'synced',
     NULL,
-    p_notes
+    p_notes,
+    p_client_capture_id
   )
   RETURNING * INTO v_reading;
 
@@ -153,7 +163,7 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.mrx_capture_meter_reading(
-  uuid, numeric, timestamptz, text, text, numeric, numeric, numeric, numeric, numeric, text, text
+  uuid, numeric, timestamptz, text, text, numeric, numeric, numeric, numeric, numeric, text, text, uuid
 ) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION public.mrx_capture_meter_reading(
