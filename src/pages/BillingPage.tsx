@@ -20,7 +20,7 @@ const paymentMethodLabels: Record<string, string> = {
 export function BillingPage() {
   const { currentProject } = useProject();
   const { profile } = useAuth();
-  const canEdit = profile?.role === 'super_admin' || profile?.role === 'project_manager' || profile?.role === 'collector' || profile?.role === 'accountant';
+  const canEdit = ['platform_admin', 'tenant_manager', 'operations_officer', 'collection_officer'].includes(profile?.role ?? '');
   const [tab, setTab] = useState<Tab>('invoices');
   const [invoices, setInvoices] = useState<(Invoice & { customers?: Customer })[]>([]);
   const [payments, setPayments] = useState<(Payment & { customers?: Customer; invoices?: Invoice })[]>([]);
