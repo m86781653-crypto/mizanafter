@@ -320,7 +320,7 @@ export function ProjectsPage() {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                        cred.role === 'project_manager' ? 'bg-primary-100 text-primary-700' :
+                        cred.role === 'operations_officer' ? 'bg-primary-100 text-primary-700' :
                         cred.role === 'meter_reader' ? 'bg-accent-100 text-accent-700' :
                         'bg-success-100 text-success-700'
                       }`}>{cred.role_label}</span>
