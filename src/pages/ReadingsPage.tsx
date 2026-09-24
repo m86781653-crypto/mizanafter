@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { queueMRXCapture, syncMRXCapture, syncPendingMRXCaptures } from '@/lib/mrxOfflineQueue';
+import { extractMeterReading, queueMRXCapture, syncMRXCapture, syncPendingMRXCaptures } from '@/lib/mrxOfflineQueue';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { Modal } from '@/components/ui/Modal';
@@ -25,6 +25,9 @@ export function ReadingsPage() {
   const [showReadingModal, setShowReadingModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photoData, setPhotoData] = useState<string | null>(null);
+  const [ocrProcessing, setOcrProcessing] = useState(false);
+  const [manualException, setManualException] = useState(false);
+  const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
   const [form, setForm] = useState({
     reading_value: '', reading_method: 'manual',
@@ -130,8 +133,28 @@ export function ReadingsPage() {
           return;
         }
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-        setPhotoData(canvas.toDataURL('image/jpeg', 0.78));
+        const compressed = canvas.toDataURL('image/jpeg', 0.78);
+        setPhotoData(compressed);
+        setOcrProcessing(true);
+        setManualException(false);
+        setOcrConfidence(null);
         setError('');
+        void extractMeterReading(compressed)
+          .then((result) => {
+            setForm((prev) => ({
+              ...prev,
+              reading_value: result.readingValue.toString(),
+              reading_method: manualException ? 'manual_exception' : 'photo',
+              ai_extracted_value: result.readingValue.toString(),
+              ai_confidence: result.confidence.toString(),
+            }));
+            setOcrConfidence(result.confidence);
+          })
+          .catch((err) => {
+            setForm((prev) => ({ ...prev, reading_value: '', ai_extracted_value: '', ai_confidence: '' }));
+            setError(err instanceof Error ? 'تعذر استخراج القراءة آلياً. فعّل الاستثناء اليدوي فقط بعد التحقق من العداد.' : 'تعذر استخراج القراءة آلياً.');
+          })
+          .finally(() => setOcrProcessing(false));
       };
       image.onerror = () => setError('تعذر معالجة صورة العداد');
       image.src = source;
@@ -144,9 +167,21 @@ export function ReadingsPage() {
     if (!selectedMeter || !currentProject) return;
     setError('');
 
+    if (!photoData) {
+      setError('يجب تصوير العداد قبل تسجيل القراءة');
+      return;
+    }
+    if (ocrProcessing) {
+      setError('جارٍ استخراج القراءة من الصورة، انتظر لحظة');
+      return;
+    }
     const value = parseFloat(form.reading_value);
     if (!Number.isFinite(value) || value < 0) {
       setError('الرجاء إدخال قراءة صحيحة');
+      return;
+    }
+    if (manualException && !form.notes.trim()) {
+      setError('الاستثناء اليدوي يتطلب سبباً موثقاً في الملاحظات');
       return;
     }
 
@@ -162,9 +197,9 @@ export function ReadingsPage() {
       gps_lat: form.gps_lat ? parseFloat(form.gps_lat) : null,
       gps_lng: form.gps_lng ? parseFloat(form.gps_lng) : null,
       gps_accuracy: form.gps_accuracy ? parseFloat(form.gps_accuracy) : null,
-      ai_extracted_value: null,
-      ai_confidence: null,
-      ai_model: null,
+      ai_extracted_value: manualException ? null : value,
+      ai_confidence: manualException ? null : ocrConfidence,
+      ai_model: manualException ? null : 'tesseract-js-7',
       notes: form.notes || null,
     };
 
@@ -200,6 +235,8 @@ export function ReadingsPage() {
       setShowReadingModal(false);
       setSelectedMeter(null);
       setPhotoData(null);
+      setOcrConfidence(null);
+      setManualException(false);
       setForm({ reading_value: '', reading_method: 'photo', gps_lat: '', gps_lng: '', gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: '' });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'تعذر حفظ القراءة');
@@ -212,6 +249,8 @@ export function ReadingsPage() {
     setSelectedMeter(meter);
     setForm({ reading_value: '', reading_method: 'photo', gps_lat: '', gps_lng: '', gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: '' });
     setPhotoData(null);
+    setOcrConfidence(null);
+    setManualException(false);
     setError('');
     setShowReadingModal(true);
     window.setTimeout(() => getLocation(), 0);
@@ -356,14 +395,16 @@ export function ReadingsPage() {
             {/* Manual reading input */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="label-field">القراءة الجديدة *</label>
-                <input type="number" min="0" step="0.01" className="input-field text-lg font-semibold" value={form.reading_value} onChange={(e) => setForm({ ...form, reading_value: e.target.value })} placeholder={selectedMeter.last_reading.toString()} />
+                <label className="label-field">القراءة المستخرجة *</label>
+                <input type="number" min="0" step="0.01" readOnly={!manualException} className="input-field text-lg font-semibold" value={form.reading_value} onChange={(e) => setForm({ ...form, reading_value: e.target.value })} placeholder={ocrProcessing ? 'جارٍ الاستخراج...' : selectedMeter.last_reading.toString()} />
+                {ocrConfidence !== null && !manualException && <p className="text-xs text-success-700 mt-1">ثقة OCR: {formatNumber(ocrConfidence)}%</p>}
+                {manualException && <p className="text-xs text-warning-700 mt-1">استثناء يدوي: أدخل القراءة بعد التحقق البصري، واكتب السبب.</p>}
               </div>
               <div>
                 <label className="label-field">طريقة القراءة</label>
-                <select className="input-field" value={form.reading_method} onChange={(e) => setForm({ ...form, reading_method: e.target.value })}>
-                  <option value="photo">صورة</option>
-                  <option value="manual">إدخال يدوي استثنائي</option>
+                <select className="input-field" value={form.reading_method} onChange={(e) => { const v = e.target.value; setManualException(v === 'manual_exception'); setForm({ ...form, reading_method: v }); }}>
+                  <option value="photo">صورة + OCR</option>
+                  <option value="manual_exception">استثناء يدوي</option>
                 </select>
               </div>
             </div>
