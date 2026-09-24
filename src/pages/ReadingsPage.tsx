@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { extractMeterReading, queueMRXCapture, syncMRXCapture, syncPendingMRXCaptures } from '@/lib/mrxOfflineQueue';
+import { extractMeterReading, isPermanentMRXError, queueMRXCapture, syncMRXCapture, syncPendingMRXCaptures } from '@/lib/mrxOfflineQueue';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { Modal } from '@/components/ui/Modal';
@@ -216,10 +216,13 @@ export function ReadingsPage() {
       try {
         await syncMRXCapture(capture);
       } catch (syncError) {
-        await queueMRXCapture(capture);
+        const syncMessage = syncError instanceof Error ? syncError.message : 'تعذر الإرسال الآن.';
+        if (!isPermanentMRXError(syncMessage)) await queueMRXCapture(capture);
         throw new Error(
           syncError instanceof Error
-            ? `تعذر الإرسال الآن؛ حُفظت القراءة محلياً للمزامنة التلقائية: ${syncError.message}`
+            ? (isPermanentMRXError(syncMessage)
+              ? `تعذر اعتماد القراءة: ${syncMessage}`
+              : `تعذر الإرسال الآن؛ حُفظت القراءة محلياً للمزامنة التلقائية: ${syncMessage}`)
             : 'تعذر الإرسال الآن؛ حُفظت القراءة محلياً للمزامنة التلقائية.'
         );
       }
