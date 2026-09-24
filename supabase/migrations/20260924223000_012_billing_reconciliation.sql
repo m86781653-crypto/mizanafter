@@ -44,5 +44,5 @@ EXCEPTION WHEN unique_violation THEN
     IF FOUND THEN RETURN pay; END IF;
   END IF;
   RAISE;
-END; $;
+END; $$;
 REVOKE ALL ON FUNCTION public.mizan_record_payment(uuid,numeric,text,text,text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.mizan_record_payment(uuid,numeric,text,text,text) TO authenticated;
