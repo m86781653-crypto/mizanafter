@@ -17,6 +17,11 @@ export interface MRXCapture {
   notes?: string | null;
 }
 
+export interface MRXSyncResult {
+  capture: MRXCapture;
+  reading: unknown;
+}
+
 const DB_NAME = 'mizan-mrx';
 const STORE = 'captures';
 
@@ -35,11 +40,42 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
+async function deleteCapture(clientCaptureId: string): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).delete(clientCaptureId);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+async function markCaptureRetry(capture: MRXCapture, errorMessage: string): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put({
+      ...capture,
+      status: 'pending',
+      last_error: errorMessage,
+      retry_at: new Date().toISOString(),
+    });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
 export async function queueMRXCapture(capture: MRXCapture): Promise<void> {
   const db = await openDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).put({ ...capture, status: 'pending', queued_at: new Date().toISOString() });
+    tx.objectStore(STORE).put({
+      ...capture,
+      status: 'pending',
+      queued_at: new Date().toISOString(),
+    });
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -48,17 +84,18 @@ export async function queueMRXCapture(capture: MRXCapture): Promise<void> {
 
 export async function listPendingMRXCaptures(): Promise<MRXCapture[]> {
   const db = await openDb();
-  const rows = await new Promise<any[]>((resolve, reject) => {
-    const request = db.transaction(STORE, 'readonly').objectStore(STORE).index('status').getAll('pending');
-    request.onsuccess = () => resolve(request.result || []);
+  const rows = await new Promise<MRXCapture[]>((resolve, reject) => {
+    const request = db.transaction(STORE, 'readonly')
+      .objectStore(STORE).index('status').getAll('pending');
+    request.onsuccess = () => resolve((request.result || []) as MRXCapture[]);
     request.onerror = () => reject(request.error);
   });
   db.close();
   return rows;
 }
 
-export async function syncMRXCapture(capture: MRXCapture): Promise<void> {
-  const { error } = await supabase.rpc('mrx_capture_meter_reading', {
+export async function syncMRXCapture(capture: MRXCapture): Promise<MRXSyncResult> {
+  const { data, error } = await supabase.rpc('mrx_capture_meter_reading', {
     p_meter_id: capture.meter_id,
     p_reading_value: capture.reading_value,
     p_reading_date: capture.reading_date,
@@ -73,5 +110,34 @@ export async function syncMRXCapture(capture: MRXCapture): Promise<void> {
     p_notes: capture.notes ?? null,
     p_client_capture_id: capture.client_capture_id,
   });
-  if (error) throw error;
+
+  if (error) {
+    await markCaptureRetry(capture, error.message);
+    throw error;
+  }
+
+  await deleteCapture(capture.client_capture_id);
+  return { capture, reading: data };
+}
+
+export async function syncPendingMRXCaptures(): Promise<{
+  synced: number;
+  failed: number;
+}> {
+  if (!navigator.onLine) return { synced: 0, failed: 0 };
+
+  const pending = await listPendingMRXCaptures();
+  let synced = 0;
+  let failed = 0;
+
+  for (const capture of pending) {
+    try {
+      await syncMRXCapture(capture);
+      synced += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+
+  return { synced, failed };
 }
