@@ -99,7 +99,8 @@ async function markCaptureRetry(capture: MRXCapture, errorMessage: string): Prom
       ...capture,
       status: 'pending',
       last_error: errorMessage,
-      retry_at: new Date().toISOString(),
+      retry_at: new Date(Date.now() + 30_000).toISOString(),
+      retry_count: Number((capture as MRXCapture & { retry_count?: number }).retry_count ?? 0) + 1,
     });
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
