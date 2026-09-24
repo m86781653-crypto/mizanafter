@@ -40,6 +40,8 @@ let ocrWorkerPromise: Promise<TesseractWorker> | null = null;
 const OCR_RUNTIME_PATHS = [
   '/mizan-ocr/tesseract.min.js',
   '/mizan-ocr/worker.min.js',
+  '/mizan-ocr/core/tesseract-core.wasm.js',
+  '/mizan-ocr/core/tesseract-core-simd.wasm.js',
   '/mizan-ocr/core/tesseract-core-lstm.wasm.js',
   '/mizan-ocr/core/tesseract-core-lstm.wasm',
   '/mizan-ocr/core/tesseract-core-simd-lstm.wasm.js',
