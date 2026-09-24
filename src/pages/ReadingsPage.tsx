@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { extractMeterReading, isPermanentMRXError, listFailedMRXCaptures, queueMRXCapture, syncMRXCapture, syncPendingMRXCaptures } from '@/lib/mrxOfflineQueue';
+import { extractMeterReading, isPermanentMRXError, listFailedMRXCaptures, listConflictMRXCaptures, queueMRXCapture, resolveConflictMRXCapture, syncMRXCapture, syncPendingMRXCaptures } from '@/lib/mrxOfflineQueue';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { Modal } from '@/components/ui/Modal';
@@ -31,6 +31,11 @@ export function ReadingsPage() {
   const [detectedMeterNumber, setDetectedMeterNumber] = useState<string | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
   const [failedCaptures, setFailedCaptures] = useState(0);
+  const [conflictCaptures, setConflictCaptures] = useState<Awaited<ReturnType<typeof listConflictMRXCaptures>>>([]);
+  const [selectedConflict, setSelectedConflict] = useState<Awaited<ReturnType<typeof listConflictMRXCaptures>>[number] | null>(null);
+  const [conflictReading, setConflictReading] = useState('');
+  const [conflictNotes, setConflictNotes] = useState('');
+  const [resolvingConflict, setResolvingConflict] = useState(false);
   const [form, setForm] = useState({
     reading_value: '', reading_method: 'manual',
     gps_lat: '', gps_lng: '', gps_accuracy: '',
@@ -43,7 +48,14 @@ export function ReadingsPage() {
 
   useEffect(() => {
     const refreshQueueState = async () => {
-      try { setFailedCaptures((await listFailedMRXCaptures()).length); } catch { setFailedCaptures(0); }
+      try {
+        const [failed, conflicts] = await Promise.all([listFailedMRXCaptures(), listConflictMRXCaptures()]);
+        setFailedCaptures(failed.length);
+        setConflictCaptures(conflicts);
+      } catch {
+        setFailedCaptures(0);
+        setConflictCaptures([]);
+      }
     };
     const syncAndRefresh = async () => {
       if (navigator.onLine) await syncPendingMRXCaptures().catch(() => undefined);
@@ -300,6 +312,44 @@ export function ReadingsPage() {
       </div>
 
       {/* Stats */}
+      {conflictCaptures.length > 0 && (
+        <div className="bg-warning-50 border border-warning-200 rounded-xl p-4 space-y-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={18} className="text-warning-700 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-warning-800">قراءات متعارضة أثناء المزامنة</p>
+              <p className="text-xs text-warning-700 mt-1">
+                هذه القراءات كانت أقدم من القراءة التي اعتمدها الخادم. لم يتم تجاوز القراءة الحالية تلقائياً.
+                راجع العداد ميدانياً، ثم أدخل القراءة المتحقق منها مع سبب المعالجة.
+              </p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {conflictCaptures.map((capture) => (
+              <div key={capture.client_capture_id} className="bg-white border border-warning-200 rounded-lg p-3 flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-neutral-800">عداد {capture.expected_meter_number || capture.meter_id}</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    القراءة الميدانية الأصلية: <span className="font-semibold">{formatNumber(capture.reading_value)}</span>
+                  </p>
+                  {capture.last_error && <p className="text-xs text-error-600 mt-1">{capture.last_error}</p>}
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedConflict(capture);
+                    setConflictReading('');
+                    setConflictNotes('');
+                  }}
+                  className="btn-secondary shrink-0 text-xs"
+                >
+                  مراجعة وحل
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {failedCaptures > 0 && (
         <div className="bg-error-50 border border-error-200 rounded-lg p-3 flex items-center gap-2">
           <AlertTriangle size={18} className="text-error-600" />
@@ -383,6 +433,82 @@ export function ReadingsPage() {
           </div>
         )}
       </div>
+
+      <Modal
+        open={Boolean(selectedConflict)}
+        onClose={() => !resolvingConflict && setSelectedConflict(null)}
+        title="حل تعارض قراءة غير متزامنة"
+        size="md"
+      >
+        {selectedConflict && (
+          <div className="space-y-4">
+            <div className="bg-warning-50 border border-warning-200 rounded-lg p-3">
+              <p className="text-sm font-semibold text-warning-800">القراءة الأصلية: {formatNumber(selectedConflict.reading_value)}</p>
+              <p className="text-xs text-warning-700 mt-1">
+                تم رفضها لأن قراءة العداد على الخادم تقدمت أثناء بقاء الجهاز دون اتصال.
+              </p>
+            </div>
+            <div>
+              <label className="label-field">القراءة المتحقق منها ميدانياً *</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="input-field text-lg font-semibold"
+                value={conflictReading}
+                onChange={(e) => setConflictReading(e.target.value)}
+                placeholder="أدخل القراءة الحالية بعد التحقق من العداد"
+              />
+            </div>
+            <div>
+              <label className="label-field">سبب المعالجة / ملاحظات التحقق *</label>
+              <textarea
+                className="input-field min-h-24"
+                value={conflictNotes}
+                onChange={(e) => setConflictNotes(e.target.value)}
+                placeholder="مثال: تمت إعادة زيارة العداد والتحقق بصرياً من القراءة..."
+              />
+            </div>
+            <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3 text-xs text-neutral-600">
+              سيُعاد إرسال القراءة كاستثناء يدوي. صلاحية اعتماد الاستثناء يتحقق منها الخادم، ولا يتم تجاوز ضوابط MRX من الواجهة.
+            </div>
+            {error && (
+              <div className="bg-error-50 border border-error-200 rounded-lg p-3 flex items-start gap-2">
+                <AlertTriangle size={18} className="text-error-600 shrink-0" />
+                <p className="text-sm text-error-700">{error}</p>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button onClick={() => setSelectedConflict(null)} disabled={resolvingConflict} className="btn-secondary flex-1">إلغاء</button>
+              <button
+                disabled={resolvingConflict || !conflictReading || !conflictNotes.trim()}
+                onClick={async () => {
+                  if (!selectedConflict) return;
+                  setResolvingConflict(true);
+                  setError('');
+                  try {
+                    await resolveConflictMRXCapture(selectedConflict.client_capture_id, Number(conflictReading), conflictNotes);
+                    await syncPendingMRXCaptures();
+                    const [failed, conflicts] = await Promise.all([listFailedMRXCaptures(), listConflictMRXCaptures()]);
+                    setFailedCaptures(failed.length);
+                    setConflictCaptures(conflicts);
+                    setSelectedConflict(null);
+                    setConflictReading('');
+                    setConflictNotes('');
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : 'تعذر حل التعارض');
+                  } finally {
+                    setResolvingConflict(false);
+                  }
+                }}
+                className="btn-primary flex-1"
+              >
+                {resolvingConflict ? <><Loader2 size={16} className="animate-spin" /> جاري الاعتماد...</> : <><CheckCircle size={16} /> اعتماد الحل وإعادة المزامنة</>}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Reading Modal */}
       <Modal open={showReadingModal} onClose={() => setShowReadingModal(false)} title={`تسجيل قراءة - ${selectedMeter?.meter_number || ''}`} size="lg">
