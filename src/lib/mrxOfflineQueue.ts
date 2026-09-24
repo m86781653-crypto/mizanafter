@@ -17,6 +17,46 @@ export interface MRXCapture {
   notes?: string | null;
 }
 
+export interface MRXOcrResult {
+  readingValue: number;
+  confidence: number;
+  rawText: string;
+}
+
+let ocrWorkerPromise: Promise<TesseractWorker> | null = null;
+
+function normalizeMeterDigits(text: string): string {
+  return text
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[,٬]/g, '')
+    .replace(/[٫]/g, '.');
+}
+
+export async function extractMeterReading(imageUrl: string): Promise<MRXOcrResult> {
+  if (!navigator.onLine && !ocrWorkerPromise) throw new Error('OCR_OFFLINE_NOT_READY');
+  if (!window.Tesseract) throw new Error('OCR_RUNTIME_UNAVAILABLE');
+  if (!ocrWorkerPromise) {
+    ocrWorkerPromise = window.Tesseract.createWorker('eng', 1);
+    const worker = await ocrWorkerPromise;
+    await worker.setParameters({ tessedit_char_whitelist: '0123456789.,٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', tessedit_pageseg_mode: '7' });
+  }
+  const worker = await ocrWorkerPromise;
+  const first = await worker.recognize(imageUrl);
+  await worker.setParameters({ tessedit_pageseg_mode: '6' });
+  const second = await worker.recognize(imageUrl);
+  const candidates = [first, second].flatMap((r) => {
+    const text = normalizeMeterDigits(r.data.text);
+    return (text.match(/\d+(?:\.\d+)?/g) || []).map((raw) => ({ raw, confidence: r.data.confidence, text }));
+  }).filter((x) => x.raw.length > 0);
+  if (!candidates.length) throw new Error('OCR_READING_NOT_DETECTED');
+  candidates.sort((a,b) => (b.confidence - a.confidence) || (b.raw.length - a.raw.length));
+  const best = candidates[0];
+  const readingValue = Number(best.raw);
+  if (!Number.isFinite(readingValue)) throw new Error('OCR_READING_INVALID');
+  return { readingValue, confidence: best.confidence, rawText: best.text };
+}
+
 export interface MRXSyncResult {
   capture: MRXCapture;
   reading: unknown;
