@@ -515,6 +515,11 @@ SECURITY DEFINER
 SET search_path = ''
 AS $
 BEGIN
+  -- Service-role provisioning (no end-user JWT) is handled by controlled auth setup.
+  IF (SELECT auth.uid()) IS NULL THEN
+    RETURN NEW;
+  END IF;
+
   IF NEW.role = 'accountant' THEN
     RAISE EXCEPTION 'ROLE_REMOVED';
   END IF;
