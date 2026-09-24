@@ -210,6 +210,8 @@ export function ReadingsPage() {
       ai_extracted_value: manualException || deferredOfflineOcr ? null : value,
       ai_confidence: manualException || deferredOfflineOcr ? null : ocrConfidence,
       ai_model: manualException || deferredOfflineOcr ? null : 'tesseract-js-7',
+      expected_meter_number: selectedMeter.meter_number,
+      ai_detected_meter_number: manualException || deferredOfflineOcr ? null : selectedMeter.meter_number,
       notes: form.notes || null,
       ocr_pending: deferredOfflineOcr,
     };
