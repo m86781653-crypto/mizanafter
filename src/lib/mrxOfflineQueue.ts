@@ -16,8 +16,10 @@ export interface MRXCapture {
   ai_model?: string | null;
   notes?: string | null;
   retry_count?: number;
-  status?: 'pending' | 'failed';
+  status?: 'pending' | 'failed' | 'conflict';
   last_error?: string | null;
+  /** Server accepted the capture as structurally valid but rejected it because the meter advanced while this capture was offline. */
+  conflict_reason?: 'STALE_READING' | null;
   retry_at?: string | null;
   /** When true, the photo is durably queued and OCR must run before server sync. */
   ocr_pending?: boolean;
@@ -118,6 +120,10 @@ async function deleteCapture(clientCaptureId: string): Promise<void> {
   db.close();
 }
 
+export function isMRXConflictError(message: string): boolean {
+  return /READING_DECREASE_REQUIRES_EXCEPTION|STALE_READING|CONFLICT/i.test(message);
+}
+
 export function isPermanentMRXError(message: string): boolean {
   // Only classify deterministic business/data failures as permanent. Runtime,
   // network, and OCR availability failures must remain retryable.
@@ -130,7 +136,8 @@ async function markCaptureRetry(capture: MRXCapture, errorMessage: string): Prom
     const tx = db.transaction(STORE, 'readwrite');
     tx.objectStore(STORE).put({
       ...capture,
-      status: isPermanentMRXError(errorMessage) ? 'failed' : 'pending',
+      status: isMRXConflictError(errorMessage) ? 'conflict' : (isPermanentMRXError(errorMessage) ? 'failed' : 'pending'),
+      conflict_reason: isMRXConflictError(errorMessage) ? 'STALE_READING' : null,
       last_error: errorMessage,
       retry_at: new Date(Date.now() + 30_000).toISOString(),
       retry_count: Number((capture as MRXCapture & { retry_count?: number }).retry_count ?? 0) + 1,
@@ -205,6 +212,24 @@ export async function syncMRXCapture(capture: MRXCapture): Promise<MRXSyncResult
 
   await deleteCapture(capture.client_capture_id);
   return { capture, reading: data };
+}
+
+export async function listConflictMRXCaptures(): Promise<MRXCapture[]> {
+  const db = await openDb();
+  const rows = await new Promise<MRXCapture[]>((resolve, reject) => {
+    const request = db.transaction(STORE, 'readonly')
+      .objectStore(STORE).index('status').getAll('conflict');
+    request.onsuccess = () => resolve((request.result || []) as MRXCapture[]);
+    request.onerror = () => reject(request.error);
+  });
+  db.close();
+  return rows;
+}
+
+export async function retryConflictMRXCapture(clientCaptureId: string): Promise<void> {
+  const conflict = (await listConflictMRXCaptures()).find((capture) => capture.client_capture_id === clientCaptureId);
+  if (!conflict) throw new Error('CAPTURE_NOT_FOUND');
+  await queueMRXCapture({ ...conflict, status: 'pending', last_error: null, conflict_reason: null, retry_at: null });
 }
 
 export async function listFailedMRXCaptures(): Promise<MRXCapture[]> {
