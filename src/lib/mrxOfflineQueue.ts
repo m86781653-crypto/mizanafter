@@ -19,6 +19,8 @@ export interface MRXCapture {
   status?: 'pending' | 'failed';
   last_error?: string | null;
   retry_at?: string | null;
+  /** When true, the photo is durably queued and OCR must run before server sync. */
+  ocr_pending?: boolean;
 }
 
 export interface MRXOcrResult {
@@ -143,7 +145,19 @@ export async function listPendingMRXCaptures(): Promise<MRXCapture[]> {
   return rows;
 }
 
+async function replaceQueuedMRXCapture(capture: MRXCapture): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(capture);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
 export async function syncMRXCapture(capture: MRXCapture): Promise<MRXSyncResult> {
+  if (capture.ocr_pending) throw new Error('OCR_PENDING');
   const { data, error } = await supabase.rpc('mrx_capture_meter_reading', {
     p_meter_id: capture.meter_id,
     p_reading_value: capture.reading_value,
@@ -203,9 +217,17 @@ export async function syncPendingMRXCaptures(): Promise<{
 
   for (const capture of pending) {
     try {
-      await syncMRXCapture(capture);
+      let readyCapture = capture;
+      if (capture.ocr_pending) {
+        if (!capture.image_url) throw new Error('OCR_IMAGE_MISSING');
+        const ocr = await extractMeterReading(capture.image_url);
+        readyCapture = { ...capture, reading_value: ocr.readingValue, ai_extracted_value: ocr.readingValue, ai_confidence: ocr.confidence, ai_model: 'tesseract-js-7', ocr_pending: false, last_error: null, retry_at: null };
+        await replaceQueuedMRXCapture(readyCapture);
+      }
+      await syncMRXCapture(readyCapture);
       synced += 1;
-    } catch {
+    } catch (error) {
+      await markCaptureRetry(capture, error instanceof Error ? error.message : 'MRX_SYNC_FAILED');
       failed += 1;
     }
   }
