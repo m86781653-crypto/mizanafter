@@ -169,6 +169,24 @@ export async function syncMRXCapture(capture: MRXCapture): Promise<MRXSyncResult
   return { capture, reading: data };
 }
 
+export async function listFailedMRXCaptures(): Promise<MRXCapture[]> {
+  const db = await openDb();
+  const rows = await new Promise<MRXCapture[]>((resolve, reject) => {
+    const request = db.transaction(STORE, 'readonly')
+      .objectStore(STORE).index('status').getAll('failed');
+    request.onsuccess = () => resolve((request.result || []) as MRXCapture[]);
+    request.onerror = () => reject(request.error);
+  });
+  db.close();
+  return rows;
+}
+
+export async function retryFailedMRXCapture(clientCaptureId: string): Promise<void> {
+  const failed = (await listFailedMRXCaptures()).find((capture) => capture.client_capture_id === clientCaptureId);
+  if (!failed) throw new Error('CAPTURE_NOT_FOUND');
+  await queueMRXCapture({ ...failed, status: 'pending', last_error: null, retry_at: null });
+}
+
 export async function syncPendingMRXCaptures(): Promise<{
   synced: number;
   failed: number;
