@@ -124,7 +124,7 @@ Deno.serve(async (req: Request) => {
 
     // 2. Create the 3 users
     const users: UserSpec[] = [
-      { role: "operations_officer", full_name: manager_name || "مسؤول التشغيل", email: manager_email },
+      { role: "tenant_manager", full_name: manager_name || "مدير المستأجر", email: manager_email },
       { role: "meter_reader", full_name: reader_name || "قارئ العدادات", email: reader_email },
       { role: "collection_officer", full_name: collector_name || "مسؤول التحصيل", email: collector_email },
     ];
@@ -135,8 +135,8 @@ Deno.serve(async (req: Request) => {
       const password = generatePassword();
 
       // Check if user already exists
-      const { data: existingUsers } = await supabase.auth.admin.listUsers();
-      const existing = existingUsers?.users?.find((u: any) => u.email === userSpec.email);
+      const { data: existingUsers } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const existing = existingUsers?.users?.find((u: any) => u.email?.toLowerCase() === userSpec.email.toLowerCase());
 
       let userId: string;
 
@@ -148,8 +148,12 @@ Deno.serve(async (req: Request) => {
             password,
             user_metadata: {
               full_name: userSpec.full_name,
-              role: userSpec.role,
               must_change_password: true,
+            },
+            app_metadata: {
+              tenant_id: callerProfile.tenant_id,
+              role: userSpec.role,
+              project_id: projectId,
             },
           }
         );
@@ -174,8 +178,12 @@ Deno.serve(async (req: Request) => {
           email_confirm: true,
           user_metadata: {
             full_name: userSpec.full_name,
-            role: userSpec.role,
             must_change_password: true,
+          },
+          app_metadata: {
+            tenant_id: callerProfile.tenant_id,
+            role: userSpec.role,
+            project_id: projectId,
           },
         });
         if (createErr) throw new Error(`فشل إنشاء ${userSpec.email}: ${createErr.message}`);
