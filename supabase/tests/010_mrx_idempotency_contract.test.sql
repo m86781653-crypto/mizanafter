@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(9);
+SELECT plan(11);
 
 SELECT ok(
   EXISTS (
@@ -133,6 +133,55 @@ SELECT ok(
     'INSERT INTO public.meter_readings'
   ),
   'MRX idempotent replay is evaluated before a second production insert'
+);
+
+
+SELECT ok(
+  strpos(
+    pg_get_functiondef((
+      SELECT p.oid
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'mrx_capture_meter_reading'
+    )),
+    'EXCEPTION_REASON_REQUIRED'
+  ) > 0
+  AND strpos(
+    pg_get_functiondef((
+      SELECT p.oid
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'mrx_capture_meter_reading'
+    )),
+    'METER_EXCEPTION_FORBIDDEN'
+  ) > 0,
+  'MRX manual exceptions require a permission gate and non-empty notes'
+);
+
+SELECT ok(
+  strpos(
+    pg_get_functiondef((
+      SELECT p.oid
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'mrx_capture_meter_reading'
+    )),
+    'IF FOUND THEN RETURN v_reading; END IF;'
+  ) > 0
+  AND strpos(
+    pg_get_functiondef((
+      SELECT p.oid
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'mrx_capture_meter_reading'
+    )),
+    'INSERT INTO public.audit_logs'
+  ) > 0,
+  'MRX replay returns the existing reading before the audit-producing insert path'
 );
 
 SELECT * FROM finish();
