@@ -462,7 +462,7 @@ export function ReadingsPage() {
 
             <div className="flex gap-3">
               <button onClick={() => setShowReadingModal(false)} className="btn-secondary flex-1">إلغاء</button>
-              <button onClick={handleSaveReading} disabled={saving || !form.reading_value} className="btn-primary flex-1">
+              <button onClick={handleSaveReading} disabled={saving || ocrProcessing || !photoData || !form.reading_value} className="btn-primary flex-1">
                 {saving ? <><Loader2 size={16} className="animate-spin" /> جاري الحفظ...</> : <><Save size={16} /> حفظ القراءة</>}
               </button>
             </div>
