@@ -188,7 +188,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$;
+$$;
 
 DROP TRIGGER IF EXISTS trg_profile_tenant_alignment ON public.profiles;
 CREATE TRIGGER trg_profile_tenant_alignment
@@ -549,7 +549,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$;
+$$;
 
 DROP TRIGGER IF EXISTS trg_validate_profile_role_change ON public.profiles;
 CREATE TRIGGER trg_validate_profile_role_change
