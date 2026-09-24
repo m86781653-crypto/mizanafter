@@ -21,12 +21,16 @@ export interface MRXCapture {
   retry_at?: string | null;
   /** When true, the photo is durably queued and OCR must run before server sync. */
   ocr_pending?: boolean;
+  /** Meter identity expected by the master record at capture time; used for offline OCR verification. */
+  expected_meter_number?: string | null;
+  ai_detected_meter_number?: string | null;
 }
 
 export interface MRXOcrResult {
   readingValue: number;
   confidence: number;
   rawText: string;
+  detectedMeterNumber: string;
 }
 
 let ocrWorkerPromise: Promise<TesseractWorker> | null = null;
@@ -39,7 +43,7 @@ function normalizeMeterDigits(text: string): string {
     .replace(/[٫]/g, '.');
 }
 
-export async function extractMeterReading(imageUrl: string): Promise<MRXOcrResult> {
+export async function extractMeterReading(imageUrl: string, expectedMeterNumber?: string): Promise<MRXOcrResult> {
   if (!navigator.onLine && !ocrWorkerPromise) throw new Error('OCR_OFFLINE_NOT_READY');
   if (!window.Tesseract) throw new Error('OCR_RUNTIME_UNAVAILABLE');
   if (!ocrWorkerPromise) {
@@ -60,7 +64,24 @@ export async function extractMeterReading(imageUrl: string): Promise<MRXOcrResul
   const best = candidates[0];
   const readingValue = Number(best.raw);
   if (!Number.isFinite(readingValue)) throw new Error('OCR_READING_INVALID');
-  return { readingValue, confidence: best.confidence, rawText: best.text };
+
+  const normalizeIdentity = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const expected = normalizeIdentity(expectedMeterNumber ?? '');
+  if (!expected) throw new Error('METER_IDENTITY_REQUIRED');
+
+  const identityCandidates = [...new Set(
+    [first.data.text, second.data.text]
+      .map(normalizeMeterDigits)
+      .flatMap((text) => text.match(/[a-zA-Z0-9]+/g) || [])
+      .map(normalizeIdentity)
+      .filter(Boolean)
+  )];
+  const detectedMeterNumber = identityCandidates.find((candidate) => candidate === expected);
+  if (!detectedMeterNumber) {
+    throw new Error('METER_IDENTITY_MISMATCH');
+  }
+
+  return { readingValue, confidence: best.confidence, rawText: best.text, detectedMeterNumber };
 }
 
 export interface MRXSyncResult {
@@ -174,6 +195,7 @@ export async function syncMRXCapture(capture: MRXCapture): Promise<MRXSyncResult
     p_gps_accuracy: capture.gps_accuracy ?? null,
     p_notes: capture.notes ?? null,
     p_client_capture_id: capture.client_capture_id,
+    p_detected_meter_number: capture.ai_detected_meter_number ?? null,
   });
 
   if (error) {
@@ -222,8 +244,8 @@ export async function syncPendingMRXCaptures(): Promise<{
     try {
       if (capture.ocr_pending) {
         if (!capture.image_url) throw new Error('OCR_IMAGE_MISSING');
-        const ocr = await extractMeterReading(capture.image_url);
-        readyCapture = { ...capture, reading_value: ocr.readingValue, ai_extracted_value: ocr.readingValue, ai_confidence: ocr.confidence, ai_model: 'tesseract-js-7', ocr_pending: false, last_error: null, retry_at: null };
+        const ocr = await extractMeterReading(capture.image_url, capture.expected_meter_number);
+        readyCapture = { ...capture, reading_value: ocr.readingValue, ai_extracted_value: ocr.readingValue, ai_confidence: ocr.confidence, ai_model: 'tesseract-js-7', ai_detected_meter_number: ocr.detectedMeterNumber, ocr_pending: false, last_error: null, retry_at: null };
         await replaceQueuedMRXCapture(readyCapture);
       }
       await syncMRXCapture(readyCapture);
