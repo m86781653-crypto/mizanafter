@@ -1,6 +1,8 @@
 /* MIZAN — sequence execution hardening */
 REVOKE ALL ON FUNCTION public.next_seq_number(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.next_seq_number(text) TO authenticated;
+REVOKE ALL ON FUNCTION public.next_project_seq_number(text,uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.next_project_seq_number(text,uuid) TO authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.seq_counters FROM authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.project_seq_counters FROM authenticated;
 COMMENT ON TABLE public.seq_counters IS 'Server-owned sequence counters; direct client mutation is forbidden.';
