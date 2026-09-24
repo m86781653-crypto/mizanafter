@@ -170,7 +170,7 @@ REVOKE ALL ON FUNCTION public.mrx_capture_meter_reading(
 ) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION public.mrx_capture_meter_reading(
-  uuid, numeric, timestamptz, text, text, numeric, numeric, numeric, numeric, numeric, text, text
+  uuid, numeric, timestamptz, text, text, numeric, numeric, numeric, numeric, numeric, text, text, uuid
 ) TO authenticated;
 
 COMMENT ON FUNCTION public.mrx_capture_meter_reading IS
