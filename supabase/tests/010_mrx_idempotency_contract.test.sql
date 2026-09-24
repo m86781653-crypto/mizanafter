@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(7);
+SELECT plan(9);
 
 SELECT ok(
   EXISTS (
@@ -101,6 +101,41 @@ SELECT is(
   'MRX exposes exactly one production capture signature'
 );
 
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM pg_trigger t
+    WHERE t.tgrelid = 'public.audit_logs'::regclass
+      AND t.tgname = 'trg_audit_logs_immutable'
+      AND NOT t.tgisinternal
+  ),
+  'audit_logs has an append-only mutation guard'
+);
+
+SELECT ok(
+  strpos(
+    pg_get_functiondef((
+      SELECT p.oid
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'mrx_capture_meter_reading'
+    )),
+    'WHERE client_capture_id = p_client_capture_id'
+  ) < strpos(
+    pg_get_functiondef((
+      SELECT p.oid
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'mrx_capture_meter_reading'
+    )),
+    'INSERT INTO public.meter_readings'
+  ),
+  'MRX idempotent replay is evaluated before a second production insert'
+);
+
 SELECT * FROM finish();
 
 ROLLBACK;
+
