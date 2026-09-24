@@ -244,7 +244,7 @@ export async function syncPendingMRXCaptures(): Promise<{
     try {
       if (capture.ocr_pending) {
         if (!capture.image_url) throw new Error('OCR_IMAGE_MISSING');
-        const ocr = await extractMeterReading(capture.image_url, capture.expected_meter_number);
+        const ocr = await extractMeterReading(capture.image_url, capture.expected_meter_number ?? undefined);
         readyCapture = { ...capture, reading_value: ocr.readingValue, ai_extracted_value: ocr.readingValue, ai_confidence: ocr.confidence, ai_model: 'tesseract-js-7', ai_detected_meter_number: ocr.detectedMeterNumber, ocr_pending: false, last_error: null, retry_at: null };
         await replaceQueuedMRXCapture(readyCapture);
       }
