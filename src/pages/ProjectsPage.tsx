@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { useAuth } from '@/context/AuthContext';
 import { Modal } from '@/components/ui/Modal';
@@ -7,7 +6,6 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { formatNumber, formatDate, projectStatusLabels } from '@/lib/utils';
 import { Plus, Building2, MapPin, Users, Droplets, Calendar, Check, UserCheck, Copy, AlertCircle, KeyRound } from 'lucide-react';
-import type { Project } from '@/types';
 
 interface CreatedCredential {
   role: string;
