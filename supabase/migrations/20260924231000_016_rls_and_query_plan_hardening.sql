@@ -1,0 +1,94 @@
+-- MIZAN RLS and query-plan hardening.
+-- Remove legacy permissive policy duplicates, deduplicate indexes, and cover
+-- foreign keys identified by Supabase performance analysis.
+
+begin;
+
+drop policy if exists del_assets on public.assets;
+drop policy if exists ins_assets on public.assets;
+drop policy if exists sel_assets on public.assets;
+drop policy if exists upd_assets on public.assets;
+drop policy if exists del_customers on public.customers;
+drop policy if exists ins_customers on public.customers;
+drop policy if exists sel_customers on public.customers;
+drop policy if exists upd_customers on public.customers;
+drop policy if exists del_faults on public.faults;
+drop policy if exists ins_faults on public.faults;
+drop policy if exists sel_faults on public.faults;
+drop policy if exists upd_faults on public.faults;
+drop policy if exists del_ftasks on public.field_tasks;
+drop policy if exists ins_ftasks on public.field_tasks;
+drop policy if exists sel_ftasks on public.field_tasks;
+drop policy if exists upd_ftasks on public.field_tasks;
+drop policy if exists del_invoices on public.invoices;
+drop policy if exists ins_invoices on public.invoices;
+drop policy if exists sel_invoices on public.invoices;
+drop policy if exists upd_invoices on public.invoices;
+drop policy if exists del_kpi on public.kpi_snapshots;
+drop policy if exists ins_kpi on public.kpi_snapshots;
+drop policy if exists sel_kpi on public.kpi_snapshots;
+drop policy if exists upd_kpi on public.kpi_snapshots;
+drop policy if exists del_mwo on public.maintenance_work_orders;
+drop policy if exists ins_mwo on public.maintenance_work_orders;
+drop policy if exists sel_mwo on public.maintenance_work_orders;
+drop policy if exists upd_mwo on public.maintenance_work_orders;
+drop policy if exists del_readings on public.meter_readings;
+drop policy if exists ins_readings on public.meter_readings;
+drop policy if exists sel_readings on public.meter_readings;
+drop policy if exists upd_readings on public.meter_readings;
+drop policy if exists del_meters on public.meters;
+drop policy if exists ins_meters on public.meters;
+drop policy if exists sel_meters on public.meters;
+drop policy if exists upd_meters on public.meters;
+drop policy if exists del_notifs on public.notifications;
+drop policy if exists ins_notifs on public.notifications;
+drop policy if exists sel_notifs on public.notifications;
+drop policy if exists upd_notifs on public.notifications;
+drop policy if exists del_payments on public.payments;
+drop policy if exists ins_payments on public.payments;
+drop policy if exists sel_payments on public.payments;
+drop policy if exists upd_payments on public.payments;
+drop policy if exists del_pumps on public.pumps;
+drop policy if exists ins_pumps on public.pumps;
+drop policy if exists sel_pumps on public.pumps;
+drop policy if exists upd_pumps on public.pumps;
+drop policy if exists del_tanks on public.tanks;
+drop policy if exists ins_tanks on public.tanks;
+drop policy if exists sel_tanks on public.tanks;
+drop policy if exists upd_tanks on public.tanks;
+drop policy if exists del_tariffs on public.tariffs;
+drop policy if exists ins_tariffs on public.tariffs;
+drop policy if exists sel_tariffs on public.tariffs;
+drop policy if exists upd_tariffs on public.tariffs;
+drop policy if exists del_wells on public.wells;
+drop policy if exists ins_wells on public.wells;
+drop policy if exists sel_wells on public.wells;
+drop policy if exists upd_wells on public.wells;
+
+drop index if exists public.idx_customers_project;
+drop index if exists public.idx_faults_project;
+drop index if exists public.idx_invoices_project;
+drop index if exists public.idx_mwo_project;
+drop index if exists public.idx_readings_project;
+drop index if exists public.idx_meters_project;
+drop index if exists public.idx_payments_project;
+drop index if exists public.idx_profiles_tenant;
+
+create index if not exists idx_districts_region_id on public.districts(region_id);
+create index if not exists idx_faults_asset_id on public.faults(asset_id);
+create index if not exists idx_faults_pump_id on public.faults(pump_id);
+create index if not exists idx_faults_well_id on public.faults(well_id);
+create index if not exists idx_invoices_meter_id on public.invoices(meter_id);
+create index if not exists idx_mwo_asset_id on public.maintenance_work_orders(asset_id);
+create index if not exists idx_mwo_fault_id on public.maintenance_work_orders(fault_id);
+create index if not exists idx_mwo_pump_id on public.maintenance_work_orders(pump_id);
+create index if not exists idx_mwo_well_id on public.maintenance_work_orders(well_id);
+create index if not exists idx_meter_readings_customer_id on public.meter_readings(customer_id);
+create index if not exists idx_mizan_role_permissions_permission_code on public.mizan_role_permissions(permission_code);
+create index if not exists idx_notifications_project_id on public.notifications(project_id);
+create index if not exists idx_payments_customer_id on public.payments(customer_id);
+create index if not exists idx_project_seq_counters_project_id on public.project_seq_counters(project_id);
+create index if not exists idx_projects_district_id on public.projects(district_id);
+create index if not exists idx_tariff_tiers_tariff_id on public.tariff_tiers(tariff_id);
+
+commit;
