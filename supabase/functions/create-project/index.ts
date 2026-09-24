@@ -56,15 +56,53 @@ Deno.serve(async (req: Request) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const authorization = req.headers.get("Authorization");
+    if (!authorization?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "AUTH_REQUIRED" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // 1. Create the project
+    const { data: authData, error: authError } = await supabase.auth.getUser(authorization.slice(7));
+    if (authError || !authData.user) {
+      return new Response(JSON.stringify({ error: "AUTH_INVALID" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    const { data: callerProfile, error: callerProfileError } = await supabase
+      .from("profiles")
+      .select("id, role, tenant_id, project_id")
+      .eq("id", authData.user.id)
+      .maybeSingle();
+
+    if (callerProfileError || !callerProfile) {
+      return new Response(JSON.stringify({ error: "PROFILE_NOT_FOUND" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    if (!["platform_admin", "tenant_manager", "operations_officer"].includes(callerProfile.role)) {
+      return new Response(JSON.stringify({ error: "PROJECT_MANAGE_FORBIDDEN" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    if (!callerProfile.tenant_id) {
+      return new Response(JSON.stringify({ error: "TENANT_REQUIRED" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    // 1. Create the project inside the caller's tenant.
     const projectPayload: Record<string, unknown> = {
       name_ar: project_name,
       status: status || "active",
+      tenant_id: callerProfile.tenant_id,
     };
     if (project_name_en) projectPayload.name_en = project_name_en;
     if (funding_source) projectPayload.funding_source = funding_source;
@@ -86,7 +124,7 @@ Deno.serve(async (req: Request) => {
 
     // 2. Create the 3 users
     const users: UserSpec[] = [
-      { role: "tenant_manager", full_name: manager_name || "مدير المستأجر", email: manager_email },
+      { role: "operations_officer", full_name: manager_name || "مسؤول التشغيل", email: manager_email },
       { role: "meter_reader", full_name: reader_name || "قارئ العدادات", email: reader_email },
       { role: "collection_officer", full_name: collector_name || "مسؤول التحصيل", email: collector_email },
     ];
@@ -125,6 +163,7 @@ Deno.serve(async (req: Request) => {
           full_name: userSpec.full_name,
           role: userSpec.role,
           project_id: projectId,
+          tenant_id: callerProfile.tenant_id,
           must_change_password: true,
         });
       } else {
@@ -149,6 +188,7 @@ Deno.serve(async (req: Request) => {
           full_name: userSpec.full_name,
           role: userSpec.role,
           project_id: projectId,
+          tenant_id: callerProfile.tenant_id,
           must_change_password: true,
         });
       }
