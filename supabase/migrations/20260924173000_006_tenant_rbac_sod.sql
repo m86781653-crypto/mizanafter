@@ -163,6 +163,38 @@ CREATE TRIGGER trg_project_tenant_alignment
 BEFORE INSERT OR UPDATE OF tenant_id ON public.projects
 FOR EACH ROW EXECUTE FUNCTION public.enforce_project_tenant_alignment();
 
+-- Profile project/tenant alignment is a database invariant. A profile may
+-- be tenant-scoped without a project assignment, but when project_id exists
+-- it must belong to the same tenant.
+CREATE OR REPLACE FUNCTION public.enforce_profile_tenant_alignment()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $
+BEGIN
+  IF NEW.tenant_id IS NULL THEN
+    RAISE EXCEPTION 'PROFILE_TENANT_REQUIRED';
+  END IF;
+
+  IF NEW.project_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1
+    FROM public.projects p
+    WHERE p.id = NEW.project_id
+      AND p.tenant_id = NEW.tenant_id
+  ) THEN
+    RAISE EXCEPTION 'PROFILE_PROJECT_TENANT_MISMATCH';
+  END IF;
+
+  RETURN NEW;
+END;
+$;
+
+DROP TRIGGER IF EXISTS trg_profile_tenant_alignment ON public.profiles;
+CREATE TRIGGER trg_profile_tenant_alignment
+BEFORE INSERT OR UPDATE OF tenant_id, project_id ON public.profiles
+FOR EACH ROW EXECUTE FUNCTION public.enforce_profile_tenant_alignment();
+
 -- ---------------------------------------------------------------------------
 -- 2. Explicit permission catalogue
 -- ---------------------------------------------------------------------------
