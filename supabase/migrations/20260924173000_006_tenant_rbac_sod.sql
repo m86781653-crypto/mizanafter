@@ -505,6 +505,52 @@ CREATE POLICY delete_profile_admin ON public.profiles
 FOR DELETE TO authenticated
 USING (private.mizan_is_platform_admin());
 
+-- Tenant managers may manage users inside their tenant, but may never grant
+-- platform-level or legacy privileged roles. Role assignment is enforced in
+-- the database, not only by the UI.
+CREATE OR REPLACE FUNCTION private.mizan_validate_profile_role_change()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $
+BEGIN
+  IF NEW.role = 'accountant' THEN
+    RAISE EXCEPTION 'ROLE_REMOVED';
+  END IF;
+
+  IF private.mizan_is_platform_admin() THEN
+    RETURN NEW;
+  END IF;
+
+  IF private.mizan_user_role() = 'tenant_manager'
+     AND (
+       NEW.role IN (
+         'platform_admin',
+         'super_admin',
+         'tenant_manager',
+         'project_manager',
+         'accountant'
+       )
+     ) THEN
+    RAISE EXCEPTION 'ROLE_ASSIGNMENT_FORBIDDEN';
+  END IF;
+
+  IF private.mizan_user_role() <> 'tenant_manager' THEN
+    IF TG_OP = 'INSERT' OR NEW.role IS DISTINCT FROM OLD.role THEN
+      RAISE EXCEPTION 'ROLE_ASSIGNMENT_FORBIDDEN';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$;
+
+DROP TRIGGER IF EXISTS trg_validate_profile_role_change ON public.profiles;
+CREATE TRIGGER trg_validate_profile_role_change
+BEFORE INSERT OR UPDATE OF role ON public.profiles
+FOR EACH ROW EXECUTE FUNCTION private.mizan_validate_profile_role_change();
+
 -- ---------------------------------------------------------------------------
 -- 5. Project RLS: tenant isolation, with project management permissions
 -- ---------------------------------------------------------------------------
