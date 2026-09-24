@@ -218,8 +218,8 @@ export async function syncPendingMRXCaptures(): Promise<{
   let failed = 0;
 
   for (const capture of pending) {
+    let readyCapture = capture;
     try {
-      let readyCapture = capture;
       if (capture.ocr_pending) {
         if (!capture.image_url) throw new Error('OCR_IMAGE_MISSING');
         const ocr = await extractMeterReading(capture.image_url);
