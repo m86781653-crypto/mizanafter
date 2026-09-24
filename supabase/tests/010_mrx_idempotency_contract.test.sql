@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(6);
+SELECT plan(7);
 
 SELECT ok(
   EXISTS (
@@ -73,6 +73,20 @@ SELECT ok(
       AND pg_get_functiondef(p.oid) LIKE '%READING_DECREASE_REQUIRES_EXCEPTION%'
   ),
   'MRX retains identity, OCR, and monotonic-reading gates'
+);
+
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'mrx_capture_meter_reading'
+      AND pg_get_functiondef(p.oid) LIKE '%INSERT INTO public.audit_logs%'
+      AND pg_get_functiondef(p.oid) LIKE '%MRX_CAPTURE%'
+      AND pg_get_functiondef(p.oid) LIKE '%accepted%'
+  ),
+  'MRX writes an accepted capture event to the audit trail'
 );
 
 SELECT is(
