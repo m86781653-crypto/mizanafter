@@ -1,0 +1,77 @@
+import { supabase } from '@/lib/supabase';
+
+export interface MRXCapture {
+  client_capture_id: string;
+  meter_id: string;
+  project_id: string;
+  reading_value: number;
+  reading_date: string;
+  reading_method: string;
+  image_url?: string | null;
+  gps_lat?: number | null;
+  gps_lng?: number | null;
+  gps_accuracy?: number | null;
+  ai_extracted_value?: number | null;
+  ai_confidence?: number | null;
+  ai_model?: string | null;
+  notes?: string | null;
+}
+
+const DB_NAME = 'mizan-mrx';
+const STORE = 'captures';
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        const store = db.createObjectStore(STORE, { keyPath: 'client_capture_id' });
+        store.createIndex('status', 'status', { unique: false });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function queueMRXCapture(capture: MRXCapture): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put({ ...capture, status: 'pending', queued_at: new Date().toISOString() });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
+export async function listPendingMRXCaptures(): Promise<MRXCapture[]> {
+  const db = await openDb();
+  const rows = await new Promise<any[]>((resolve, reject) => {
+    const request = db.transaction(STORE, 'readonly').objectStore(STORE).index('status').getAll('pending');
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+  db.close();
+  return rows;
+}
+
+export async function syncMRXCapture(capture: MRXCapture): Promise<void> {
+  const { error } = await supabase.rpc('mrx_capture_meter_reading', {
+    p_meter_id: capture.meter_id,
+    p_reading_value: capture.reading_value,
+    p_reading_date: capture.reading_date,
+    p_reading_method: capture.reading_method,
+    p_image_url: capture.image_url ?? null,
+    p_ai_extracted_value: capture.ai_extracted_value ?? null,
+    p_ai_confidence: capture.ai_confidence ?? null,
+    p_ai_model: capture.ai_model ?? null,
+    p_gps_lat: capture.gps_lat ?? null,
+    p_gps_lng: capture.gps_lng ?? null,
+    p_gps_accuracy: capture.gps_accuracy ?? null,
+    p_notes: capture.notes ?? null,
+    p_client_capture_id: capture.client_capture_id,
+  });
+  if (error) throw error;
+}
