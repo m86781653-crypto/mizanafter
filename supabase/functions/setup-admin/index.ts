@@ -54,12 +54,12 @@ Deno.serve(async (req: Request) => {
         );
       }
       // Same email: this is a password reset for the existing super_admin
-      const { data: updated, error: updateErr } = await supabase.auth.admin.updateUserById(
+      const { error: updateErr } = await supabase.auth.admin.updateUserById(
         existing.id,
         {
           password,
           email_confirm: true,
-          user_metadata: { full_name, role: "super_admin", must_change_password: true },
+          user_metadata: { full_name, role: "platform_admin", must_change_password: true },
         }
       );
       if (updateErr) throw new Error(updateErr.message);
@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
 
     // Check if user with this email already exists
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find((u: any) => u.email === email);
+    const existingUser = existingUsers?.users?.find((u) => u.email === email);
 
     let userId: string;
 
