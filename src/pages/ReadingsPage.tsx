@@ -153,7 +153,7 @@ export function ReadingsPage() {
             setForm((prev) => ({
               ...prev,
               reading_value: result.readingValue.toString(),
-              reading_method: manualException ? 'manual_exception' : 'photo',
+              reading_method: 'photo',
               ai_extracted_value: result.readingValue.toString(),
               ai_confidence: result.confidence.toString(),
             }));
