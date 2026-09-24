@@ -1,6 +1,7 @@
 /* MIZAN — billing reconciliation with MRX */
 ALTER TABLE public.invoices ADD COLUMN IF NOT EXISTS source_reading_id uuid REFERENCES public.meter_readings(id) ON DELETE RESTRICT;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_invoices_source_reading_id ON public.invoices(source_reading_id) WHERE source_reading_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_payments_project_reference ON public.payments(project_id,reference_number) WHERE reference_number IS NOT NULL;
 
 CREATE OR REPLACE FUNCTION public.mizan_create_invoice(p_project_id uuid,p_customer_id uuid,p_meter_id uuid,p_current_reading numeric,p_period_start date,p_period_end date)
 RETURNS public.invoices LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
@@ -36,5 +37,12 @@ IF p_reference_number IS NOT NULL THEN SELECT * INTO pay FROM public.payments WH
 IF p_amount>COALESCE(inv.balance,0) THEN RAISE EXCEPTION 'PAYMENT_EXCEEDS_BALANCE'; END IF;
 new_paid:=COALESCE(inv.amount_paid,0)+p_amount; new_balance:=GREATEST(COALESCE(inv.grand_total,0)-new_paid,0); new_status:=CASE WHEN new_balance=0 THEN 'paid' ELSE 'partial' END;
 INSERT INTO public.payments(project_id,invoice_id,customer_id,receipt_number,amount,payment_method,collector_name,reference_number,notes) VALUES(inv.project_id,inv.id,inv.customer_id,public.next_seq_number('RCP'),p_amount,COALESCE(NULLIF(p_payment_method,''),'cash'),NULL,p_reference_number,p_notes) RETURNING * INTO pay;
-UPDATE public.invoices SET amount_paid=new_paid,balance=new_balance,status=new_status,updated_at=now() WHERE id=inv.id; RETURN pay; END; $$;
+UPDATE public.invoices SET amount_paid=new_paid,balance=new_balance,status=new_status,updated_at=now() WHERE id=inv.id; RETURN pay;
+EXCEPTION WHEN unique_violation THEN
+  IF p_reference_number IS NOT NULL THEN
+    SELECT * INTO pay FROM public.payments WHERE project_id=inv.project_id AND reference_number=p_reference_number LIMIT 1;
+    IF FOUND THEN RETURN pay; END IF;
+  END IF;
+  RAISE;
+END; $;
 REVOKE ALL ON FUNCTION public.mizan_record_payment(uuid,numeric,text,text,text) FROM PUBLIC; GRANT EXECUTE ON FUNCTION public.mizan_record_payment(uuid,numeric,text,text,text) TO authenticated;
