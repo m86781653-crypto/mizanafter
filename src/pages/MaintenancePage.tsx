@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatCard } from '@/components/ui/StatCard';
 import {
-  formatNumber, formatCurrency, formatDate, formatRelativeTime,
+  formatNumber, formatCurrency, formatRelativeTime,
   faultStatusLabels, workOrderStatusLabels, severityLabels, statusColor,
 } from '@/lib/utils';
 import {
