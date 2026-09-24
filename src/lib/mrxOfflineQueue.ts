@@ -37,6 +37,37 @@ export interface MRXOcrResult {
 
 let ocrWorkerPromise: Promise<TesseractWorker> | null = null;
 
+const OCR_RUNTIME_PATHS = [
+  '/mizan-ocr/tesseract.min.js',
+  '/mizan-ocr/worker.min.js',
+  '/mizan-ocr/core/tesseract-core-lstm.wasm.js',
+  '/mizan-ocr/core/tesseract-core-lstm.wasm',
+  '/mizan-ocr/core/tesseract-core-simd-lstm.wasm.js',
+  '/mizan-ocr/core/tesseract-core-simd-lstm.wasm',
+  '/mizan-ocr/core/tesseract-core-relaxedsimd-lstm.wasm.js',
+  '/mizan-ocr/core/tesseract-core-relaxedsimd-lstm.wasm',
+  '/mizan-ocr/lang/eng.traineddata.gz',
+  '/mizan-ocr/lang/ara.traineddata.gz',
+];
+
+async function assertOfflineOcrRuntimeReady(): Promise<void> {
+  if (!('caches' in window)) throw new Error('OCR_OFFLINE_CACHE_UNAVAILABLE');
+  const missing = [];
+  for (const path of OCR_RUNTIME_PATHS) {
+    if (!(await caches.match(new Request(path)))) missing.push(path);
+  }
+  if (missing.length) throw new Error(`OCR_OFFLINE_NOT_READY:${missing.length}`);
+}
+
+export async function isOfflineOcrRuntimeReady(): Promise<boolean> {
+  try {
+    await assertOfflineOcrRuntimeReady();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function normalizeMeterDigits(text: string): string {
   return text
     .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
@@ -46,10 +77,14 @@ function normalizeMeterDigits(text: string): string {
 }
 
 export async function extractMeterReading(imageUrl: string, expectedMeterNumber?: string): Promise<MRXOcrResult> {
-  if (!navigator.onLine && !ocrWorkerPromise) throw new Error('OCR_OFFLINE_NOT_READY');
+  if (!navigator.onLine) await assertOfflineOcrRuntimeReady();
   if (!window.Tesseract) throw new Error('OCR_RUNTIME_UNAVAILABLE');
   if (!ocrWorkerPromise) {
-    ocrWorkerPromise = window.Tesseract.createWorker('eng', 1);
+    ocrWorkerPromise = window.Tesseract.createWorker('eng+ara', 1, {
+      workerPath: '/mizan-ocr/worker.min.js',
+      corePath: '/mizan-ocr/core',
+      langPath: '/mizan-ocr/lang',
+    });
     const worker = await ocrWorkerPromise;
     await worker.setParameters({ tessedit_char_whitelist: '0123456789.,٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', tessedit_pageseg_mode: '7' });
   }
@@ -297,7 +332,7 @@ export async function syncPendingMRXCaptures(): Promise<{
       if (capture.ocr_pending) {
         if (!capture.image_url) throw new Error('OCR_IMAGE_MISSING');
         const ocr = await extractMeterReading(capture.image_url, capture.expected_meter_number ?? undefined);
-        readyCapture = { ...capture, reading_value: ocr.readingValue, ai_extracted_value: ocr.readingValue, ai_confidence: ocr.confidence, ai_model: 'tesseract-js-7', ai_detected_meter_number: ocr.detectedMeterNumber, ocr_pending: false, last_error: null, retry_at: null };
+        readyCapture = { ...capture, reading_value: ocr.readingValue, ai_extracted_value: ocr.readingValue, ai_confidence: ocr.confidence, ai_model: 'tesseract-js-7.0.0-eng+ara', ai_detected_meter_number: ocr.detectedMeterNumber, ocr_pending: false, last_error: null, retry_at: null };
         await replaceQueuedMRXCapture(readyCapture);
       }
       serverSyncAttempted = true;
