@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { extractMeterReading, isPermanentMRXError, queueMRXCapture, syncMRXCapture, syncPendingMRXCaptures } from '@/lib/mrxOfflineQueue';
+import { extractMeterReading, isPermanentMRXError, listFailedMRXCaptures, queueMRXCapture, syncMRXCapture, syncPendingMRXCaptures } from '@/lib/mrxOfflineQueue';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { Modal } from '@/components/ui/Modal';
@@ -29,6 +29,7 @@ export function ReadingsPage() {
   const [manualException, setManualException] = useState(false);
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
+  const [failedCaptures, setFailedCaptures] = useState(0);
   const [form, setForm] = useState({
     reading_value: '', reading_method: 'manual',
     gps_lat: '', gps_lng: '', gps_accuracy: '',
@@ -40,18 +41,26 @@ export function ReadingsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const refreshQueueState = async () => {
+      try { setFailedCaptures((await listFailedMRXCaptures()).length); } catch { setFailedCaptures(0); }
+    };
+    const syncAndRefresh = async () => {
+      if (navigator.onLine) await syncPendingMRXCaptures().catch(() => undefined);
+      await refreshQueueState();
+    };
     const updateOnline = () => {
       setOnline(navigator.onLine);
-      if (navigator.onLine) {
-        void syncPendingMRXCaptures().catch(() => undefined);
-      }
+      void syncAndRefresh();
     };
+    const handleVisibility = () => { if (document.visibilityState === 'visible') void syncAndRefresh(); };
     window.addEventListener('online', updateOnline);
     window.addEventListener('offline', updateOnline);
-    if (navigator.onLine) void syncPendingMRXCaptures().catch(() => undefined);
+    document.addEventListener('visibilitychange', handleVisibility);
+    void syncAndRefresh();
     return () => {
       window.removeEventListener('online', updateOnline);
       window.removeEventListener('offline', updateOnline);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
 
@@ -215,9 +224,11 @@ export function ReadingsPage() {
 
       try {
         await syncMRXCapture(capture);
+        setFailedCaptures((await listFailedMRXCaptures()).length);
       } catch (syncError) {
         const syncMessage = syncError instanceof Error ? syncError.message : 'تعذر الإرسال الآن.';
         if (!isPermanentMRXError(syncMessage)) await queueMRXCapture(capture);
+        setFailedCaptures((await listFailedMRXCaptures()).length);
         throw new Error(
           syncError instanceof Error
             ? (isPermanentMRXError(syncMessage)
@@ -280,6 +291,13 @@ export function ReadingsPage() {
       </div>
 
       {/* Stats */}
+      {failedCaptures > 0 && (
+        <div className="bg-error-50 border border-error-200 rounded-lg p-3 flex items-center gap-2">
+          <AlertTriangle size={18} className="text-error-600" />
+          <p className="text-sm text-error-700">يوجد {formatNumber(failedCaptures)} قراءة مرفوضة تحتاج معالجة يدوية.</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="إجمالي القراءات" value={formatNumber(stats.total)} icon={Gauge} color="primary" />
         <StatCard title="بانتظار المراجعة" value={formatNumber(stats.pending)} icon={Clock} color="warning" />
