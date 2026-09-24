@@ -1,0 +1,32 @@
+name: database-contract
+
+on:
+  pull_request:
+    branches:
+      - main
+      - production/unified-integration
+  push:
+    branches:
+      - production/unified-integration
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v2
+        with:
+          version: latest
+      - name: Start local Supabase
+        run: supabase db start
+      - name: Run MRX contract tests
+        run: supabase test db supabase/tests/010_mrx_idempotency_contract.test.sql
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
