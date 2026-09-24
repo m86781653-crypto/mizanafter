@@ -193,7 +193,11 @@ export async function syncPendingMRXCaptures(): Promise<{
 }> {
   if (!navigator.onLine) return { synced: 0, failed: 0 };
 
-  const pending = await listPendingMRXCaptures();
+  const pending = (await listPendingMRXCaptures()).filter((capture) => {
+    if (!capture.retry_at) return true;
+    const retryAt = Date.parse(capture.retry_at);
+    return !Number.isFinite(retryAt) || retryAt <= Date.now();
+  });
   let synced = 0;
   let failed = 0;
 
