@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { useAuth, roleLabels } from '@/context/AuthContext';
-import { Badge } from '@/components/ui/Badge';
 import { formatDateTime, formatRelativeTime } from '@/lib/utils';
 import { Settings, Shield, Database, Bot, Bell, FileText, Activity, History, Cpu, CheckCircle, AlertCircle, KeyRound, Lock, Eye, EyeOff, User } from 'lucide-react';
 import type { AuditLog, AiLog, Notification, UserRole } from '@/types';
