@@ -1,4 +1,4 @@
-import { BarChart3, Bell, Building2, Bot, Droplets, Gauge, Receipt, Settings, Users, Wrench, type LucideIcon } from 'lucide-react';
+import { BarChart3, Building2, Bot, Droplets, Gauge, Receipt, Settings, Users, Wrench, type LucideIcon } from 'lucide-react';
 
 export interface NavItem {
   id: string;
