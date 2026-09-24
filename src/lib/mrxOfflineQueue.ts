@@ -232,6 +232,32 @@ export async function retryConflictMRXCapture(clientCaptureId: string): Promise<
   await queueMRXCapture({ ...conflict, status: 'pending', last_error: null, conflict_reason: null, retry_at: null });
 }
 
+export async function resolveConflictMRXCapture(
+  clientCaptureId: string,
+  verifiedReading: number,
+  resolutionNotes: string,
+): Promise<void> {
+  if (!Number.isFinite(verifiedReading) || verifiedReading < 0) throw new Error('INVALID_RESOLVED_READING');
+  if (!resolutionNotes.trim()) throw new Error('RESOLUTION_NOTES_REQUIRED');
+  const conflict = (await listConflictMRXCaptures()).find((capture) => capture.client_capture_id === clientCaptureId);
+  if (!conflict) throw new Error('CAPTURE_NOT_FOUND');
+
+  await queueMRXCapture({
+    ...conflict,
+    reading_value: verifiedReading,
+    reading_method: 'manual_exception',
+    ai_extracted_value: null,
+    ai_confidence: null,
+    ai_model: null,
+    ai_detected_meter_number: conflict.ai_detected_meter_number ?? null,
+    notes: resolutionNotes.trim(),
+    status: 'pending',
+    last_error: null,
+    conflict_reason: null,
+    retry_at: null,
+  });
+}
+
 export async function listFailedMRXCaptures(): Promise<MRXCapture[]> {
   const db = await openDb();
   const rows = await new Promise<MRXCapture[]>((resolve, reject) => {
