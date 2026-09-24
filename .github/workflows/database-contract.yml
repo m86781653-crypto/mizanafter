@@ -27,6 +27,8 @@ jobs:
         run: supabase db start
       - name: Run MRX contract tests
         run: supabase test db supabase/tests/010_mrx_idempotency_contract.test.sql
+      - name: Run billing reconciliation contract tests
+        run: supabase test db supabase/tests/011_billing_reconciliation_contract.test.sql
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
