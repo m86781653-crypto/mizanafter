@@ -86,9 +86,9 @@ Deno.serve(async (req: Request) => {
 
     // 2. Create the 3 users
     const users: UserSpec[] = [
-      { role: "project_manager", full_name: manager_name || "مدير المشروع", email: manager_email },
+      { role: "tenant_manager", full_name: manager_name || "مدير المستأجر", email: manager_email },
       { role: "meter_reader", full_name: reader_name || "قارئ العدادات", email: reader_email },
-      { role: "collector", full_name: collector_name || "المحصل", email: collector_email },
+      { role: "collection_officer", full_name: collector_name || "مسؤول التحصيل", email: collector_email },
     ];
 
     const credentials: any[] = [];
@@ -104,7 +104,7 @@ Deno.serve(async (req: Request) => {
 
       if (existing) {
         // Update password and metadata
-        const { data: updated, error: updateErr } = await supabase.auth.admin.updateUserById(
+        const { error: updateErr } = await supabase.auth.admin.updateUserById(
           existing.id,
           {
             password,
@@ -154,9 +154,9 @@ Deno.serve(async (req: Request) => {
       }
 
       const roleLabels: Record<string, string> = {
-        project_manager: "مدير مشروع",
+        tenant_manager: "مدير المستأجر",
         meter_reader: "قارئ عدادات",
-        collector: "محصل",
+        collection_officer: "مسؤول التحصيل",
       };
 
       credentials.push({
