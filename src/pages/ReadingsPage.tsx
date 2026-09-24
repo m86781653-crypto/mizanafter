@@ -192,7 +192,7 @@ export function ReadingsPage() {
       project_id: currentProject.id,
       reading_value: value,
       reading_date: new Date().toISOString(),
-      reading_method: 'photo',
+      reading_method: manualException ? 'manual_exception' : 'photo',
       image_url: photoData,
       gps_lat: form.gps_lat ? parseFloat(form.gps_lat) : null,
       gps_lng: form.gps_lng ? parseFloat(form.gps_lng) : null,
