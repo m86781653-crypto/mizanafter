@@ -7,11 +7,11 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatCard } from '@/components/ui/StatCard';
 import {
-  formatNumber, formatDateTime, formatRelativeTime,
-  readingStatusLabels, syncStatusLabels, statusColor,
+  formatNumber, formatRelativeTime,
+  readingStatusLabels, syncStatusLabels,
 } from '@/lib/utils';
 import {
-  Gauge, Camera, MapPin, Bot, Save, AlertTriangle,
+  Gauge, Camera, MapPin, Save, AlertTriangle,
   CheckCircle, Cloud, CloudOff, Clock, Loader2,
 } from 'lucide-react';
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';
@@ -191,6 +191,7 @@ export function ReadingsPage() {
     setPhotoData(null);
     setError('');
     setShowReadingModal(true);
+    window.setTimeout(() => getLocation(), 0);
   };
 
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
