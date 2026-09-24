@@ -10,7 +10,7 @@ import {
   faultStatusLabels, workOrderStatusLabels, severityLabels, statusColor,
 } from '@/lib/utils';
 import {
-  Wrench, AlertTriangle, Plus, Activity, Clock, CheckCircle,
+  Wrench, AlertTriangle, Plus, Activity,
   Loader2, Boxes, AlertCircle,
 } from 'lucide-react';
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';
