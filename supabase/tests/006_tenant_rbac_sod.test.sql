@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(20);
+SELECT plan(21);
 
 SELECT has_table('public', 'tenants', 'tenant hierarchy exists');
 SELECT has_column('public', 'profiles', 'tenant_id', 'profiles have tenant scope');
@@ -36,11 +36,12 @@ SELECT has_policy('public', 'payments', 'mizan_tenant_insert', 'payment insert p
 SELECT has_column('public', 'audit_logs', 'event_id', 'audit events have immutable event ids');
 SELECT has_column('public', 'audit_logs', 'project_id', 'audit logs have governance scope');
 SELECT has_column('public', 'meter_readings', 'client_capture_id', 'MRX captures have idempotency key');
+SELECT has_column('public', 'meter_readings', 'ai_detected_meter_number', 'MRX captures store verified meter identity');
 SELECT has_function(
   'public',
   'mrx_capture_meter_reading',
-  ARRAY['uuid','numeric','timestamptz','text','text','numeric','numeric','numeric','numeric','numeric','text','text','uuid']::text[],
-  'MRX server capture uses idempotent 13-argument contract'
+  ARRAY['uuid','numeric','timestamptz','text','text','numeric','numeric','numeric','numeric','numeric','text','text','uuid','text']::text[],
+  'MRX server capture uses idempotent 14-argument identity-verified contract'
 );
 SELECT has_function(
   'public',
