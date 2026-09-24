@@ -241,6 +241,7 @@ export async function syncPendingMRXCaptures(): Promise<{
 
   for (const capture of pending) {
     let readyCapture = capture;
+    let serverSyncAttempted = false;
     try {
       if (capture.ocr_pending) {
         if (!capture.image_url) throw new Error('OCR_IMAGE_MISSING');
@@ -248,10 +249,15 @@ export async function syncPendingMRXCaptures(): Promise<{
         readyCapture = { ...capture, reading_value: ocr.readingValue, ai_extracted_value: ocr.readingValue, ai_confidence: ocr.confidence, ai_model: 'tesseract-js-7', ai_detected_meter_number: ocr.detectedMeterNumber, ocr_pending: false, last_error: null, retry_at: null };
         await replaceQueuedMRXCapture(readyCapture);
       }
+      serverSyncAttempted = true;
       await syncMRXCapture(readyCapture);
       synced += 1;
     } catch (error) {
-      await markCaptureRetry(readyCapture, error instanceof Error ? error.message : 'MRX_SYNC_FAILED');
+      // syncMRXCapture already persists server-side failures. OCR failures
+      // occur before that call and must be persisted here exactly once.
+      if (!serverSyncAttempted) {
+        await markCaptureRetry(readyCapture, error instanceof Error ? error.message : 'MRX_SYNC_FAILED');
+      }
       failed += 1;
     }
   }
