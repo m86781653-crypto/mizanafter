@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(14);
+SELECT plan(13);
 
 SELECT has_table('public', 'tenants', 'tenant hierarchy exists');
 SELECT has_column('public', 'profiles', 'tenant_id', 'profiles have tenant scope');
