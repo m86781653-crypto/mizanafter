@@ -95,7 +95,7 @@ async function deleteCapture(clientCaptureId: string): Promise<void> {
   db.close();
 }
 
-function isPermanentMRXError(message: string): boolean {
+export function isPermanentMRXError(message: string): boolean {
   return /READING_DECREASE|DUPLICATE|METER_INACTIVE|PROJECT_ACCESS|UNAUTHORIZED|FORBIDDEN|IDENTITY|VALIDATION|CONFIDENCE|OCR/i.test(message);
 }
 
