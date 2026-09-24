@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { queueMRXCapture, syncMRXCapture, syncPendingMRXCaptures } from '@/lib/mrxOfflineQueue';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { Modal } from '@/components/ui/Modal';
@@ -6,11 +7,11 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatCard } from '@/components/ui/StatCard';
 import {
-  formatNumber, formatDateTime, formatRelativeTime,
-  readingStatusLabels, syncStatusLabels, statusColor,
+  formatNumber, formatRelativeTime,
+  readingStatusLabels, syncStatusLabels,
 } from '@/lib/utils';
 import {
-  Gauge, Camera, MapPin, Bot, Save, AlertTriangle,
+  Gauge, Camera, MapPin, Save, AlertTriangle,
   CheckCircle, Cloud, CloudOff, Clock, Loader2,
 } from 'lucide-react';
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';
@@ -23,7 +24,7 @@ export function ReadingsPage() {
   const [selectedMeter, setSelectedMeter] = useState<(Meter & { customers?: Customer }) | null>(null);
   const [showReadingModal, setShowReadingModal] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [aiSimulating, setAiSimulating] = useState(false);
+  const [photoData, setPhotoData] = useState<string | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
   const [form, setForm] = useState({
     reading_value: '', reading_method: 'manual',
@@ -36,9 +37,15 @@ export function ReadingsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const updateOnline = () => setOnline(navigator.onLine);
+    const updateOnline = () => {
+      setOnline(navigator.onLine);
+      if (navigator.onLine) {
+        void syncPendingMRXCaptures().catch(() => undefined);
+      }
+    };
     window.addEventListener('online', updateOnline);
     window.addEventListener('offline', updateOnline);
+    if (navigator.onLine) void syncPendingMRXCaptures().catch(() => undefined);
     return () => {
       window.removeEventListener('online', updateOnline);
       window.removeEventListener('offline', updateOnline);
@@ -95,101 +102,96 @@ export function ReadingsPage() {
     );
   };
 
-  const simulateAI = () => {
-    if (!selectedMeter) return;
-    setAiSimulating(true);
-    setError('');
-    setTimeout(() => {
-      const prev = selectedMeter.last_reading;
-      const consumption = Math.floor(Math.random() * 20) + 5;
-      const extracted = prev + consumption;
-      const confidence = Math.floor(Math.random() * 30) + 70;
-      setForm({
-        ...form,
-        ai_extracted_value: extracted.toString(),
-        ai_confidence: confidence.toString(),
-        reading_value: extracted.toString(),
-        reading_method: 'ai_vision',
-      });
-      setAiSimulating(false);
-    }, 1500);
+  const handlePhotoCapture = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('الملف المحدد ليس صورة');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotoData(typeof reader.result === 'string' ? reader.result : null);
+      setError('');
+    };
+    reader.onerror = () => setError('تعذر قراءة صورة العداد');
+    reader.readAsDataURL(file);
   };
 
   const handleSaveReading = async () => {
     if (!selectedMeter || !currentProject) return;
     setError('');
+
     const value = parseFloat(form.reading_value);
-    if (isNaN(value)) { setError('الرجاء إدخال قراءة صحيحة'); return; }
-
-    const prev = selectedMeter.last_reading;
-    let anomaly = false;
-    let anomalyReason = '';
-
-    if (value < prev && !form.notes.includes('استبدال') && !form.notes.includes('تجاوز')) {
-      setError(`القراءة (${value}) أقل من السابقة (${prev}). إذا تم استبدال العداد أو تجاوز العداد الصفر، يرجى ذكر ذلك في الملاحظات.`);
+    if (!Number.isFinite(value) || value < 0) {
+      setError('الرجاء إدخال قراءة صحيحة');
       return;
-    }
-
-    const consumption = value - prev;
-    if (consumption > 50) {
-      anomaly = true;
-      anomalyReason = `استهلاك مرتفع بشكل غير اعتيادي: ${consumption} م³`;
-    }
-    if (consumption < 0) {
-      anomaly = true;
-      anomalyReason = `قراءة أقل من السابقة (قد يكون استبدال أو تجاوز العداد)`;
     }
 
     setSaving(true);
-    const readingData = {
+    const capture = {
+      client_capture_id: crypto.randomUUID(),
       meter_id: selectedMeter.id,
       project_id: currentProject.id,
-      customer_id: selectedMeter.customer_id,
       reading_value: value,
-      previous_reading: prev,
-      consumption: Math.max(consumption, 0),
-      reading_method: form.reading_method,
-      status: anomaly ? 'anomaly' : 'pending',
-      anomaly_flag: anomaly,
-      anomaly_reason: anomalyReason || null,
+      reading_date: new Date().toISOString(),
+      reading_method: form.reading_method || 'photo',
+      image_url: photoData,
       gps_lat: form.gps_lat ? parseFloat(form.gps_lat) : null,
       gps_lng: form.gps_lng ? parseFloat(form.gps_lng) : null,
       gps_accuracy: form.gps_accuracy ? parseFloat(form.gps_accuracy) : null,
-      reader_name: form.reader_name || null,
+      ai_extracted_value: null,
+      ai_confidence: null,
+      ai_model: null,
       notes: form.notes || null,
-      sync_status: online ? 'synced' : 'pending',
-      ai_extracted_value: form.ai_extracted_value ? parseFloat(form.ai_extracted_value) : null,
-      ai_confidence: form.ai_confidence ? parseFloat(form.ai_confidence) : null,
-      ai_model: form.ai_extracted_value ? 'simulated-ocr-v1' : null,
     };
 
-    const { data, error: insErr } = await supabase.from('meter_readings').insert(readingData).select().single();
+    try {
+      if (!online) {
+        await queueMRXCapture(capture);
+        setError('تم الحفظ محلياً وسيتم رفع القراءة تلقائياً عند عودة الاتصال.');
+        setSaving(false);
+        setShowReadingModal(false);
+        setSelectedMeter(null);
+        return;
+      }
 
-    if (insErr) {
-      setError(insErr.message);
-      setSaving(false);
-      return;
-    }
+      try {
+        await syncMRXCapture(capture);
+      } catch (syncError) {
+        await queueMRXCapture(capture);
+        throw new Error(
+          syncError instanceof Error
+            ? `تعذر الإرسال الآن؛ حُفظت القراءة محلياً للمزامنة التلقائية: ${syncError.message}`
+            : 'تعذر الإرسال الآن؛ حُفظت القراءة محلياً للمزامنة التلقائية.'
+        );
+      }
 
-    if (data) {
-      await supabase.from('meters').update({
-        last_reading: value,
-        last_reading_date: new Date().toISOString(),
-      }).eq('id', selectedMeter.id);
+      const { data: refreshed } = await supabase
+        .from('meter_readings')
+        .select('*')
+        .eq('project_id', currentProject.id)
+        .order('reading_date', { ascending: false })
+        .limit(20);
 
-      setReadings([data as MeterReading, ...readings]);
+      if (refreshed) setReadings(refreshed as MeterReading[]);
       setShowReadingModal(false);
       setSelectedMeter(null);
-      setForm({ reading_value: '', reading_method: 'manual', gps_lat: '', gps_lng: '', gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: '' });
+      setPhotoData(null);
+      setForm({ reading_value: '', reading_method: 'photo', gps_lat: '', gps_lng: '', gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: '' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر حفظ القراءة');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const openReadingModal = (meter: Meter & { customers?: Customer }) => {
     setSelectedMeter(meter);
-    setForm({ reading_value: '', reading_method: 'manual', gps_lat: '', gps_lng: '', gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: '' });
+    setForm({ reading_value: '', reading_method: 'photo', gps_lat: '', gps_lng: '', gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: '' });
+    setPhotoData(null);
     setError('');
     setShowReadingModal(true);
+    window.setTimeout(() => getLocation(), 0);
   };
 
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
@@ -307,33 +309,24 @@ export function ReadingsPage() {
               </div>
             </div>
 
-            {/* AI Simulation Panel */}
-            <div className="border-2 border-dashed border-accent-300 rounded-xl p-4 bg-accent-50/30">
+            {/* Meter photo capture */}
+            <div className="border-2 border-dashed border-primary-200 rounded-xl p-4 bg-primary-50/30">
               <div className="flex items-center gap-2 mb-2">
-                <Bot size={18} className="text-accent-600" />
-                <h4 className="font-bold text-neutral-800">استخراج القراءة بالذكاء الاصطناعي</h4>
-                <span className="text-xs text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded">محاكاة تجريبية</span>
+                <Camera size={18} className="text-primary-600" />
+                <h4 className="font-bold text-neutral-800">صورة العداد</h4>
               </div>
-              <p className="text-xs text-neutral-500 mb-3">في الإنتاج، يتم إرسال صورة العداد إلى مزود رؤية حاسوبية لاستخراج القراءة تلقائياً. هذه محاكاة للأغراض التوضيحية.</p>
-              <button onClick={simulateAI} disabled={aiSimulating} className="btn-secondary text-sm">
-                {aiSimulating ? <><Loader2 size={16} className="animate-spin" /> جاري التحليل...</> : <><Camera size={16} /> محاكاة استخراج القراءة</>}
-              </button>
-              {form.ai_extracted_value && (
-                <div className="mt-3 grid grid-cols-2 gap-3 animate-slide-up">
-                  <div className="bg-white rounded-lg p-3 border border-accent-200">
-                    <p className="text-xs text-neutral-400">القراءة المستخرجة</p>
-                    <p className="text-lg font-bold text-accent-700">{formatNumber(parseFloat(form.ai_extracted_value))}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-accent-200">
-                    <p className="text-xs text-neutral-400">نسبة الثقة</p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-neutral-200 rounded-full overflow-hidden">
-                        <div className={`h-full ${parseFloat(form.ai_confidence) > 85 ? 'bg-success-500' : 'bg-warning-500'}`} style={{ width: `${form.ai_confidence}%` }} />
-                      </div>
-                      <span className="text-sm font-bold text-neutral-700">{form.ai_confidence}%</span>
-                    </div>
-                  </div>
-                </div>
+              <p className="text-xs text-neutral-500 mb-3">
+                التقط صورة العداد واحفظها مع القراءة. استخراج القراءة آلياً عبر الرؤية الحاسوبية سيُربط في طبقة MRX لاحقاً؛ لا توجد محاكاة للذكاء الاصطناعي في مسار الإنتاج.
+              </p>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="input-field"
+                onChange={(e) => handlePhotoCapture(e.target.files?.[0])}
+              />
+              {photoData && (
+                <img src={photoData} alt="صورة العداد" className="mt-3 max-h-48 w-full object-contain rounded-lg bg-white border" />
               )}
             </div>
 
@@ -341,14 +334,13 @@ export function ReadingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="label-field">القراءة الجديدة *</label>
-                <input type="number" className="input-field text-lg font-semibold" value={form.reading_value} onChange={(e) => setForm({ ...form, reading_value: e.target.value })} placeholder={selectedMeter.last_reading.toString()} />
+                <input type="number" min="0" step="0.01" className="input-field text-lg font-semibold" value={form.reading_value} onChange={(e) => setForm({ ...form, reading_value: e.target.value })} placeholder={selectedMeter.last_reading.toString()} />
               </div>
               <div>
                 <label className="label-field">طريقة القراءة</label>
                 <select className="input-field" value={form.reading_method} onChange={(e) => setForm({ ...form, reading_method: e.target.value })}>
-                  <option value="manual">يدوي</option>
-                  <option value="ai_vision">ذكاء اصطناعي</option>
                   <option value="photo">صورة</option>
+                  <option value="manual">إدخال يدوي استثنائي</option>
                 </select>
               </div>
             </div>
@@ -370,10 +362,10 @@ export function ReadingsPage() {
             <div>
               <label className="label-field">الموقع الجغرافي (GPS)</label>
               <div className="flex gap-2">
-                <input className="input-field flex-1" value={form.gps_lat} onChange={(e) => setForm({ ...form, gps_lat: e.target.value })} placeholder="خط العرض" />
-                <input className="input-field flex-1" value={form.gps_lng} onChange={(e) => setForm({ ...form, gps_lng: e.target.value })} placeholder="خط الطول" />
+                <input className="input-field flex-1" value={form.gps_lat} readOnly placeholder="خط العرض" />
+                <input className="input-field flex-1" value={form.gps_lng} readOnly placeholder="خط الطول" />
                 <button onClick={getLocation} className="btn-secondary shrink-0">
-                  <MapPin size={16} /> تحديد
+                  <MapPin size={16} /> تحديث الموقع
                 </button>
               </div>
               {form.gps_accuracy && <p className="text-xs text-neutral-400 mt-1">الدقة: ±{form.gps_accuracy} متر</p>}
@@ -381,8 +373,8 @@ export function ReadingsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="label-field">اسم القارئ</label>
-                <input className="input-field" value={form.reader_name} onChange={(e) => setForm({ ...form, reader_name: e.target.value })} placeholder="قارئ العداد" />
+                <label className="label-field">المستخدم المنفذ</label>
+                <input className="input-field bg-neutral-50" value="المستخدم الحالي" readOnly />
               </div>
               <div>
                 <label className="label-field">ملاحظات</label>
