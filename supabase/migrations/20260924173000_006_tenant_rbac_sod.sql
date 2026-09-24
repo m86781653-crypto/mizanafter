@@ -607,6 +607,17 @@ USING (
   )
 );
 
+-- Governance scope for existing logs. Historical rows may remain NULL; new
+-- system-generated entries should carry project_id.
+ALTER TABLE public.audit_logs
+  ADD COLUMN IF NOT EXISTS project_id uuid REFERENCES public.projects(id) ON DELETE SET NULL;
+
+ALTER TABLE public.ai_logs
+  ADD COLUMN IF NOT EXISTS project_id uuid REFERENCES public.projects(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_project_id ON public.audit_logs(project_id);
+CREATE INDEX IF NOT EXISTS idx_ai_logs_project_id ON public.ai_logs(project_id);
+
 -- ---------------------------------------------------------------------------
 -- 7. Audit log: users can never write their own privileged history
 -- ---------------------------------------------------------------------------
