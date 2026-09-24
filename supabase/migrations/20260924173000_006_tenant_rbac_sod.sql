@@ -171,7 +171,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 BEGIN
   IF NEW.tenant_id IS NULL THEN
     RAISE EXCEPTION 'PROFILE_TENANT_REQUIRED';
@@ -513,7 +513,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $
+AS $$
 BEGIN
   -- Service-role provisioning (no end-user JWT) is handled by controlled auth setup.
   IF (SELECT auth.uid()) IS NULL THEN
