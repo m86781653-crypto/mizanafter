@@ -2,6 +2,8 @@ const CACHE = 'mizan-offline-v2';
 const APP_SHELL = ['/', '/index.html'];
 
 const OCR_ASSETS = {
+  '/mizan-ocr/core/tesseract-core.wasm.js': 'https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0/tesseract-core.wasm.js',
+  '/mizan-ocr/core/tesseract-core-simd.wasm.js': 'https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0/tesseract-core-simd.wasm.js',
   '/mizan-ocr/tesseract.min.js': 'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js',
   '/mizan-ocr/worker.min.js': 'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/worker.min.js',
   '/mizan-ocr/core/tesseract-core-lstm.wasm.js': 'https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0/tesseract-core-lstm.wasm.js',
