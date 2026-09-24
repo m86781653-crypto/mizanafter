@@ -122,6 +122,43 @@ BEGIN
   SET last_reading = p_reading_value, last_reading_date = v_reading_date, updated_at = now()
   WHERE id = p_meter_id;
 
+  -- Record the accepted MRX event in the existing audit trail. The RPC is
+  -- SECURITY DEFINER so the audit write remains server-controlled and atomic
+  -- with the meter reading transaction.
+  INSERT INTO public.audit_logs (
+    table_name, record_id, action, user_id, actor_user_id,
+    project_id, entity_type, entity_id, reason, result,
+    before_data, after_data
+  )
+  VALUES (
+    'meter_readings',
+    v_reading.id,
+    'MRX_CAPTURE',
+    (SELECT auth.uid()),
+    (SELECT auth.uid()),
+    v_project_id,
+    'meter_reading',
+    v_reading.id,
+    CASE WHEN lower(coalesce(p_reading_method, '')) = 'manual_exception' THEN p_notes ELSE NULL END,
+    'accepted',
+    jsonb_build_object(
+      'previous_reading', v_previous,
+      'client_capture_id', p_client_capture_id
+    ),
+    jsonb_build_object(
+      'reading_value', p_reading_value,
+      'reading_method', p_reading_method,
+      'reading_date', v_reading_date,
+      'ai_confidence', p_ai_confidence,
+      'ai_model', p_ai_model,
+      'detected_meter_number', p_detected_meter_number,
+      'gps_lat', p_gps_lat,
+      'gps_lng', p_gps_lng,
+      'gps_accuracy', p_gps_accuracy,
+      'client_capture_id', p_client_capture_id
+    )
+  );
+
   RETURN v_reading;
 END;
 $$;
