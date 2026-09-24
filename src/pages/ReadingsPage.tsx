@@ -108,10 +108,33 @@ export function ReadingsPage() {
       setError('الملف المحدد ليس صورة');
       return;
     }
+
     const reader = new FileReader();
     reader.onload = () => {
-      setPhotoData(typeof reader.result === 'string' ? reader.result : null);
-      setError('');
+      const source = typeof reader.result === 'string' ? reader.result : null;
+      if (!source) {
+        setError('تعذر قراءة صورة العداد');
+        return;
+      }
+
+      const image = new Image();
+      image.onload = () => {
+        const maxDimension = 1280;
+        const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          setError('تعذر تجهيز صورة العداد');
+          return;
+        }
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        setPhotoData(canvas.toDataURL('image/jpeg', 0.78));
+        setError('');
+      };
+      image.onerror = () => setError('تعذر معالجة صورة العداد');
+      image.src = source;
     };
     reader.onerror = () => setError('تعذر قراءة صورة العداد');
     reader.readAsDataURL(file);
