@@ -15,6 +15,10 @@ export interface MRXCapture {
   ai_confidence?: number | null;
   ai_model?: string | null;
   notes?: string | null;
+  retry_count?: number;
+  status?: 'pending' | 'failed';
+  last_error?: string | null;
+  retry_at?: string | null;
 }
 
 export interface MRXOcrResult {
@@ -91,13 +95,17 @@ async function deleteCapture(clientCaptureId: string): Promise<void> {
   db.close();
 }
 
+function isPermanentMRXError(message: string): boolean {
+  return /READING_DECREASE|DUPLICATE|METER_INACTIVE|PROJECT_ACCESS|UNAUTHORIZED|FORBIDDEN|IDENTITY|VALIDATION|CONFIDENCE|OCR/i.test(message);
+}
+
 async function markCaptureRetry(capture: MRXCapture, errorMessage: string): Promise<void> {
   const db = await openDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
     tx.objectStore(STORE).put({
       ...capture,
-      status: 'pending',
+      status: isPermanentMRXError(errorMessage) ? 'failed' : 'pending',
       last_error: errorMessage,
       retry_at: new Date(Date.now() + 30_000).toISOString(),
       retry_count: Number((capture as MRXCapture & { retry_count?: number }).retry_count ?? 0) + 1,
