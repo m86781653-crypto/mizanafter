@@ -8,11 +8,9 @@ const corsHeaders = {
 
 function generatePassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#";
-  let pwd = "";
-  for (let i = 0; i < 12; i++) {
-    pwd += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return pwd;
+  const values = new Uint32Array(16);
+  crypto.getRandomValues(values);
+  return Array.from(values, (n) => chars[n % chars.length]).join("");
 }
 
 interface UserSpec {
@@ -129,7 +127,7 @@ Deno.serve(async (req: Request) => {
       { role: "collection_officer", full_name: collector_name || "مسؤول التحصيل", email: collector_email },
     ];
 
-    const credentials: any[] = [];
+    const credentials: Array<{ role: string; role_label: string; full_name: string; email: string; password: string; must_change_password: boolean }> = [];
 
     for (const userSpec of users) {
       const password = generatePassword();
