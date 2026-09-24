@@ -102,8 +102,11 @@ BEGIN
     RAISE EXCEPTION 'INVALID_AI_CONFIDENCE';
   END IF;
   IF lower(coalesce(p_reading_method, '')) = 'photo' THEN
-    IF p_image_url IS NULL OR p_ai_extracted_value IS NULL OR p_ai_confidence IS NULL THEN
+    IF p_image_url IS NULL OR p_ai_extracted_value IS NULL OR p_ai_confidence IS NULL OR p_ai_model IS NULL THEN
       RAISE EXCEPTION 'PHOTO_OCR_REQUIRED';
+    END IF;
+    IF p_ai_confidence < 70 THEN
+      RAISE EXCEPTION 'OCR_CONFIDENCE_TOO_LOW';
     END IF;
     IF abs(p_reading_value - p_ai_extracted_value) > 0.01 THEN
       RAISE EXCEPTION 'READING_MUST_MATCH_OCR';
