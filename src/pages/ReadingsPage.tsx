@@ -28,6 +28,7 @@ export function ReadingsPage() {
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const [manualException, setManualException] = useState(false);
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
+  const [detectedMeterNumber, setDetectedMeterNumber] = useState<string | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
   const [failedCaptures, setFailedCaptures] = useState(0);
   const [form, setForm] = useState({
@@ -147,8 +148,9 @@ export function ReadingsPage() {
         setOcrProcessing(true);
         setManualException(false);
         setOcrConfidence(null);
+        setDetectedMeterNumber(null);
         setError('');
-        void extractMeterReading(compressed)
+        void extractMeterReading(compressed, selectedMeter?.meter_number)
           .then((result) => {
             setForm((prev) => ({
               ...prev,
@@ -158,8 +160,10 @@ export function ReadingsPage() {
               ai_confidence: result.confidence.toString(),
             }));
             setOcrConfidence(result.confidence);
+            setDetectedMeterNumber(result.detectedMeterNumber);
           })
           .catch((err) => {
+            setDetectedMeterNumber(null);
             setForm((prev) => ({ ...prev, reading_value: '', ai_extracted_value: '', ai_confidence: '' }));
             setError(err instanceof Error ? 'تعذر استخراج القراءة آلياً. فعّل الاستثناء اليدوي فقط بعد التحقق من العداد.' : 'تعذر استخراج القراءة آلياً.');
           })
@@ -211,7 +215,7 @@ export function ReadingsPage() {
       ai_confidence: manualException || deferredOfflineOcr ? null : ocrConfidence,
       ai_model: manualException || deferredOfflineOcr ? null : 'tesseract-js-7',
       expected_meter_number: selectedMeter.meter_number,
-      ai_detected_meter_number: manualException || deferredOfflineOcr ? null : selectedMeter.meter_number,
+      ai_detected_meter_number: manualException || deferredOfflineOcr ? null : detectedMeterNumber,
       notes: form.notes || null,
       ocr_pending: deferredOfflineOcr,
     };
@@ -254,6 +258,7 @@ export function ReadingsPage() {
       setSelectedMeter(null);
       setPhotoData(null);
       setOcrConfidence(null);
+      setDetectedMeterNumber(null);
       setManualException(false);
       setForm({ reading_value: '', reading_method: 'photo', gps_lat: '', gps_lng: '', gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: '' });
     } catch (err) {
