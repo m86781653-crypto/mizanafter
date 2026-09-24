@@ -16,13 +16,15 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const roleLabels: Record<UserRole, string> = {
-  super_admin: 'مدير عام',
-  project_manager: 'مدير مشروع',
-  meter_reader: 'قارئ عدادات',
-  collector: 'محصل',
-  accountant: 'محاسب',
-  maintenance_tech: 'فني صيانة',
-  read_only: 'عرض فقط',
+  platform_admin: 'مسؤول المنصة',
+  tenant_manager: 'مدير المستأجر',
+  operations_officer: 'مسؤول التشغيل',
+  meter_reader: 'قارئ العدادات',
+  collection_officer: 'مسؤول التحصيل',
+  maintenance_officer: 'مسؤول الصيانة',
+  technician: 'فني',
+  data_exception_officer: 'مسؤول البيانات والاستثناءات',
+  viewer: 'مطلع',
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
