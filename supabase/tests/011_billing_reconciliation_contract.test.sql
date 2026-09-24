@@ -1,0 +1,16 @@
+BEGIN;
+SELECT plan(10);
+
+SELECT ok(EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='mizan_create_invoice' AND p.prosecdef AND pg_get_functiondef(p.oid) LIKE '%SET search_path TO ''''%'),'invoice creation is SECURITY DEFINER with empty search_path');
+SELECT ok(EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='mizan_create_invoice' AND pg_get_functiondef(p.oid) LIKE '%mizan_has_permission(''billing.manage'')%' AND pg_get_functiondef(p.oid) LIKE '%mizan_can_access_project%'),'invoice creation enforces billing permission and project scope');
+SELECT ok(EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='mizan_create_invoice' AND pg_get_functiondef(p.oid) LIKE '%APPROVED_MRX_READING_REQUIRED%' AND pg_get_functiondef(p.oid) LIKE '%CURRENT_READING_MUST_MATCH_MRX%'),'invoice creation requires approved MRX and exact reading match');
+SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public' AND tablename='invoices' AND indexname='ux_invoices_source_reading_id'),'one invoice per source MRX reading');
+SELECT ok(EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='mizan_create_invoice' AND pg_get_functiondef(p.oid) LIKE '%IF EXISTS(SELECT 1 FROM public.invoices WHERE source_reading_id=r.id)%'),'invoice creation is idempotent for source MRX');
+SELECT ok(EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='mizan_record_payment' AND p.prosecdef AND pg_get_functiondef(p.oid) LIKE '%SET search_path TO ''''%'),'payment recording is SECURITY DEFINER with empty search_path');
+SELECT ok(EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='mizan_record_payment' AND pg_get_functiondef(p.oid) LIKE '%mizan_has_permission(''collection.record'')%' AND pg_get_functiondef(p.oid) LIKE '%mizan_can_access_project%'),'payment recording enforces collection permission and project scope');
+SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname='public' AND tablename='payments' AND indexname='ux_payments_project_reference'),'payment reference is unique within a project');
+SELECT ok(EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='mizan_record_payment' AND pg_get_functiondef(p.oid) LIKE '%IF p_reference_number IS NOT NULL%' AND pg_get_functiondef(p.oid) LIKE '%RETURN pay%'),'payment reference replay is idempotent');
+SELECT ok(EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='mizan_record_payment' AND pg_get_functiondef(p.oid) LIKE '%PAYMENT_EXCEEDS_BALANCE%' AND pg_get_functiondef(p.oid) LIKE '%UPDATE public.invoices%'),'payment prevents overpayment and updates invoice balance');
+
+SELECT * FROM finish();
+ROLLBACK;
