@@ -109,3 +109,5 @@ DROP TRIGGER IF EXISTS trg_audit_maintenance_work_orders ON public.maintenance_w
 CREATE TRIGGER trg_audit_maintenance_work_orders AFTER INSERT OR UPDATE OR DELETE ON public.maintenance_work_orders FOR EACH ROW EXECUTE FUNCTION private.mizan_audit_row_change();
 
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.audit_logs FROM authenticated, anon;
+
+DROP POLICY IF EXISTS ins_audit ON public.audit_logs;
