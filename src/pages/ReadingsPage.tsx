@@ -185,7 +185,8 @@ export function ReadingsPage() {
       return;
     }
     const value = parseFloat(form.reading_value);
-    if (!Number.isFinite(value) || value < 0) {
+    const deferredOfflineOcr = !online && !manualException && !form.reading_value;
+    if ((!deferredOfflineOcr && (!Number.isFinite(value) || value < 0)) || (manualException && (!Number.isFinite(value) || value < 0))) {
       setError('الرجاء إدخال قراءة صحيحة');
       return;
     }
@@ -199,17 +200,18 @@ export function ReadingsPage() {
       client_capture_id: crypto.randomUUID(),
       meter_id: selectedMeter.id,
       project_id: currentProject.id,
-      reading_value: value,
+      reading_value: Number.isFinite(value) ? value : 0,
       reading_date: new Date().toISOString(),
       reading_method: manualException ? 'manual_exception' : 'photo',
       image_url: photoData,
       gps_lat: form.gps_lat ? parseFloat(form.gps_lat) : null,
       gps_lng: form.gps_lng ? parseFloat(form.gps_lng) : null,
       gps_accuracy: form.gps_accuracy ? parseFloat(form.gps_accuracy) : null,
-      ai_extracted_value: manualException ? null : value,
-      ai_confidence: manualException ? null : ocrConfidence,
-      ai_model: manualException ? null : 'tesseract-js-7',
+      ai_extracted_value: manualException || deferredOfflineOcr ? null : value,
+      ai_confidence: manualException || deferredOfflineOcr ? null : ocrConfidence,
+      ai_model: manualException || deferredOfflineOcr ? null : 'tesseract-js-7',
       notes: form.notes || null,
+      ocr_pending: deferredOfflineOcr,
     };
 
     try {
@@ -483,7 +485,7 @@ export function ReadingsPage() {
 
             <div className="flex gap-3">
               <button onClick={() => setShowReadingModal(false)} className="btn-secondary flex-1">إلغاء</button>
-              <button onClick={handleSaveReading} disabled={saving || ocrProcessing || !photoData || !form.reading_value} className="btn-primary flex-1">
+              <button onClick={handleSaveReading} disabled={saving || ocrProcessing || !photoData || (online && !form.reading_value) || (manualException && !form.reading_value)} className="btn-primary flex-1">
                 {saving ? <><Loader2 size={16} className="animate-spin" /> جاري الحفظ...</> : <><Save size={16} /> حفظ القراءة</>}
               </button>
             </div>
