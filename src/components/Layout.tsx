@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import {
   LayoutDashboard, Building2, Droplets, Users, Gauge,
   Receipt, Wrench, BarChart3, Bot, Settings,
-  Menu, X, Bell, Search, ChevronDown, Scale, LogOut, KeyRound,
+  Menu, X, Bell, Search, ChevronDown, Scale, LogOut,
 } from 'lucide-react';
 import { useProject } from '@/context/ProjectContext';
 import { useAuth, roleLabels } from '@/context/AuthContext';
