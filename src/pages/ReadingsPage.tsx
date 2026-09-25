@@ -17,6 +17,7 @@ import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import type { Meter, MeterReading, Customer } from '@/types';
 import { MeterCamera } from '@/components/MeterCamera';
 import { recognizeMeterImage } from '@/lib/meter-ocr';
+import { toast } from 'sonner';
 import { addPendingReading, startMeterReadingSync } from '@/lib/mirrorSync';
 
 export function ReadingsPage() {
@@ -219,7 +220,9 @@ export function ReadingsPage() {
       });
 
       if (invoiceError) {
-        setError(`تم اعتماد القراءة، لكن تعذر إنشاء الفاتورة تلقائياً: ${invoiceError.message}`);
+        toast.error(`تم اعتماد القراءة، لكن تعذر إنشاء الفاتورة تلقائياً: ${invoiceError.message}`);
+      } else {
+        toast.success('تم اعتماد القراءة وإنشاء الفاتورة بنجاح');
       }
 
       setReadings([approvedReading, ...readings]);
