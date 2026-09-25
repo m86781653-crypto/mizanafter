@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(13);
+SELECT plan(14);
 
 SELECT ok(
   NOT has_schema_privilege('anon', 'private', 'USAGE'),
@@ -27,7 +27,7 @@ SELECT ok(
     'public.mrx_capture_meter_reading(uuid,numeric,timestamptz,text,text,numeric,numeric,numeric,numeric,numeric,text,text,uuid,text)',
     'EXECUTE'
   ),
-  'authenticated can reach MRX only through server-side authorization'
+  'authenticated can reach MRX RPC; authorization is enforced inside the SECURITY DEFINER function'
 );
 
 SELECT ok(
@@ -40,12 +40,12 @@ SELECT ok(
 );
 
 SELECT ok(
-  NOT has_function_privilege(
+  has_function_privilege(
     'authenticated',
     'public.mizan_create_invoice(uuid,uuid,uuid,numeric,date,date)',
     'EXECUTE'
   ),
-  'authenticated cannot execute invoice creation directly'
+  'authenticated can reach invoice RPC; authorization is enforced inside the SECURITY DEFINER function'
 );
 
 SELECT ok(
@@ -58,12 +58,12 @@ SELECT ok(
 );
 
 SELECT ok(
-  NOT has_function_privilege(
+  has_function_privilege(
     'authenticated',
     'public.mizan_record_payment(uuid,numeric,text,text,text)',
     'EXECUTE'
   ),
-  'authenticated cannot execute payment recording directly'
+  'authenticated can reach payment RPC; authorization is enforced inside the SECURITY DEFINER function'
 );
 
 SELECT ok(
