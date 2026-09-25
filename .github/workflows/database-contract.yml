@@ -5,6 +5,7 @@ name: database-contract
 # Migration-chain repair is verified on every push.
 # Governed object reconstruction is part of the clean-room gate.
 # Tenant prerequisites are validated before role enforcement.
+# Authorization policies are applied only after the private kernel exists.
 on:
   pull_request:
     branches:
