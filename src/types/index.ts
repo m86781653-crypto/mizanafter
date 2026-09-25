@@ -43,6 +43,7 @@ export interface Project {
   name_en: string | null;
   organization_id: string | null;
   district_id: string | null;
+  tenant_id: string | null;
   status: string;
   funding_source: string | null;
   donor: string | null;
