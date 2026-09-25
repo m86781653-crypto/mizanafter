@@ -100,7 +100,7 @@ export function ReadingsPage() {
     })();
   }, [currentProject]);
 
-  const stats = {
+  const filteredMeters = meters.filter((m) => {\n    const q = search.trim();\n    if (!q) return true;\n    return (m.customers?.name_ar || '').includes(q)\n      || (m.customers?.customer_number || '').includes(q)\n      || m.meter_number.includes(q)\n      || (m.serial_number || '').includes(q);\n  });\n\n  const stats = {
     total: readings.length,
     pending: readings.filter(r => r.status === 'pending').length,
     anomalies: readings.filter(r => r.anomaly_flag).length,
@@ -368,10 +368,10 @@ export function ReadingsPage() {
       <div>
         <h2 className="text-lg font-bold text-neutral-800 mb-3">العدادات بانتظار القراءة</h2>
         {meters.length === 0 ? (
-          <div className="card"><EmptyState icon={Gauge} title="لا توجد عدادات نشطة" description="أضف عدادات أولاً من صفحة المشتركين" /></div>
+          <div className="card"><EmptyState icon={Gauge} title="لا توجد عدادات نشطة" description="أضف المشترك مع العداد من صفحة المشتركين" /></div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {meters.map((m) => (
+            {filteredMeters.map((m) => (
               <div key={m.id} className="card-hover p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div className="p-2.5 rounded-xl bg-primary-50 text-primary-700"><Gauge size={20} /></div>
