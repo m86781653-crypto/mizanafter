@@ -10,7 +10,7 @@ export const navItems: NavItem[] = [
   { id: 'dashboard', label: 'لوحة القيادة', icon: BarChart3 },
   { id: 'projects', label: 'المشاريع', icon: Building2 },
   { id: 'infrastructure', label: 'البنية التحتية', icon: Droplets },
-  { id: 'customers', label: 'المشتركين والعدادات', icon: Users },
+  { id: 'customers', label: 'المشتركون', icon: Users },
   { id: 'readings', label: 'قراءة العدادات', icon: Gauge },
   { id: 'billing', label: 'الفوترة والتحصيل', icon: Receipt },
   { id: 'maintenance', label: 'الصيانة والأعطال', icon: Wrench },
