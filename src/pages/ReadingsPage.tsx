@@ -127,6 +127,11 @@ export function ReadingsPage() {
     if (!selectedMeter || !currentProject) return;
     setError('');
 
+    if (!selectedMeter.customer_id) {
+      setError('هذا العداد غير مرتبط بمشترك فعّال ولا يمكن اعتماد القراءة.');
+      return;
+    }
+
     const value = Number(form.reading_value);
     if (!Number.isFinite(value) || value < 0) {
       setError('الرجاء إدخال قراءة صحيحة غير سالبة');
