@@ -7,12 +7,10 @@ const corsHeaders = {
 };
 
 function generatePassword(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#";
-  let pwd = "";
-  for (let i = 0; i < 12; i++) {
-    pwd += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return pwd;
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
 }
 
 interface UserSpec {
@@ -128,65 +126,45 @@ Deno.serve(async (req: Request) => {
 
     const credentials: any[] = [];
 
+    // Never silently take over an existing identity or reset its password.
+    const { data: authUsers, error: authListErr } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (authListErr) throw new Error("فشل التحقق من الحسابات الحالية");
+    const existingEmails = new Set((authUsers?.users ?? []).map((u: any) => (u.email || "").toLowerCase()));
+    const duplicateEmails = users.filter((u) => existingEmails.has(u.email.toLowerCase())).map((u) => u.email);
+    if (duplicateEmails.length) {
+      throw new Error(`الحسابات موجودة مسبقاً ولا يمكن إعادة تعيينها تلقائياً: ${duplicateEmails.join(", ")}`);
+    }
+
     for (const userSpec of users) {
       const password = generatePassword();
 
-      // Check if user already exists
-      const { data: existingUsers } = await supabase.auth.admin.listUsers();
-      const existing = existingUsers?.users?.find((u: any) => u.email === userSpec.email);
-
-      let userId: string;
-
-      if (existing) {
-        // Update password and metadata
-        const { data: updated, error: updateErr } = await supabase.auth.admin.updateUserById(
-          existing.id,
-          {
-            password,
-            user_metadata: {
-              full_name: userSpec.full_name,
-              role: userSpec.role,
-              must_change_password: true,
-            },
-          }
-        );
-        if (updateErr) throw new Error(`فشل تحديث ${userSpec.email}: ${updateErr.message}`);
-        userId = existing.id;
-
-        // Update profile
-        await supabase.from("profiles").upsert({
-          id: userId,
-          email: userSpec.email,
-          full_name: userSpec.full_name,
-          role: userSpec.role,
+      const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
+        email: userSpec.email,
+        password,
+        email_confirm: true,
+        app_metadata: {
+          tenant_id: tenantId,
           project_id: projectId,
-          must_change_password: true,
-        });
-      } else {
-        // Create new user
-        const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
-          email: userSpec.email,
-          password,
-          email_confirm: true,
-          user_metadata: {
-            full_name: userSpec.full_name,
-            role: userSpec.role,
-            must_change_password: true,
-          },
-        });
-        if (createErr) throw new Error(`فشل إنشاء ${userSpec.email}: ${createErr.message}`);
-        userId = newUser.user.id;
-
-        // Update profile with project_id (trigger creates it without project_id)
-        await supabase.from("profiles").upsert({
-          id: userId,
-          email: userSpec.email,
-          full_name: userSpec.full_name,
           role: userSpec.role,
-          project_id: projectId,
+        },
+        user_metadata: {
+          full_name: userSpec.full_name,
           must_change_password: true,
-        });
-      }
+        },
+      });
+      if (createErr || !newUser.user) throw new Error(`فشل إنشاء ${userSpec.email}: ${createErr?.message || "unknown"}`);
+      const userId = newUser.user.id;
+
+      const { error: profileErr } = await supabase.from("profiles").upsert({
+        id: userId,
+        email: userSpec.email,
+        full_name: userSpec.full_name,
+        role: userSpec.role,
+        project_id: projectId,
+        tenant_id: tenantId,
+        must_change_password: true,
+      });
+      if (profileErr) throw new Error(`فشل إعداد ملف ${userSpec.email}`);
 
       const roleLabels: Record<string, string> = {
         tenant_manager: "مدير المستأجر",
