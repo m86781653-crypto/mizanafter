@@ -42,7 +42,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setProjects(projectList);
 
       // For non-super-admin, force their assigned project
-      if (profile.role !== 'super_admin' && profile.project_id) {
+      if (profile.role !== 'platform_admin' && profile.project_id) {
         setProjectId(profile.project_id);
         const p = projectList.find((p) => p.id === profile.project_id);
         if (p) {
@@ -74,7 +74,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 
   const setCurrentProjectId = (id: string | null) => {
     // Non-super-admin can't switch projects
-    if (profile && profile.role !== 'super_admin' && profile.project_id && id !== profile.project_id) {
+    if (profile && profile.role !== 'platform_admin' && profile.project_id && id !== profile.project_id) {
       return;
     }
     setProjectId(id);
