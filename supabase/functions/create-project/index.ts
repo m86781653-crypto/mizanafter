@@ -16,7 +16,7 @@ function generatePassword(): string {
 }
 
 interface UserSpec {
-  role: string;
+  role: "tenant_manager" | "meter_reader" | "collection_officer";
   full_name: string;
   email: string;
 }
@@ -102,13 +102,28 @@ Deno.serve(async (req: Request) => {
       tenant_id: tenantId,
       name_ar: project_name,
       status: status || "active",
-    };\n    const projectId = project.id;
+    };
+    if (funding_source) projectPayload.funding_source = funding_source;
+    if (donor) projectPayload.donor = donor;
+    if (beneficiary_count) projectPayload.beneficiary_count = parseInt(beneficiary_count, 10);
+    if (design_capacity) projectPayload.design_capacity = parseFloat(design_capacity);
+    if (operational_capacity) projectPayload.operational_capacity = parseFloat(operational_capacity);
+    if (address) projectPayload.address = address;
+    if (established_date) projectPayload.established_date = established_date;
+
+    const { data: project, error: projectErr } = await supabase
+      .from("projects")
+      .insert(projectPayload)
+      .select()
+      .single();
+    if (projectErr || !project) throw new Error("فشل إنشاء المشروع: " + (projectErr?.message || "unknown"));
+    const projectId = project.id;
 
     // 2. Create the 3 users
     const users: UserSpec[] = [
-      { role: "project_manager", full_name: manager_name || "مدير المشروع", email: manager_email },
+      { role: "tenant_manager", full_name: manager_name || "مدير المشروع", email: manager_email },
       { role: "meter_reader", full_name: reader_name || "قارئ العدادات", email: reader_email },
-      { role: "collector", full_name: collector_name || "المحصل", email: collector_email },
+      { role: "collection_officer", full_name: collector_name || "المحصل", email: collector_email },
     ];
 
     const credentials: any[] = [];
@@ -174,9 +189,9 @@ Deno.serve(async (req: Request) => {
       }
 
       const roleLabels: Record<string, string> = {
-        project_manager: "مدير مشروع",
+        tenant_manager: "مدير المستأجر",
         meter_reader: "قارئ عدادات",
-        collector: "محصل",
+        collection_officer: "مسؤول التحصيل",
       };
 
       credentials.push({
