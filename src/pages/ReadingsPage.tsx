@@ -17,6 +17,7 @@ import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import type { Meter, MeterReading, Customer } from '@/types';
 import { MeterCamera } from '@/components/MeterCamera';
 import { recognizeMeterImage } from '@/lib/meter-ocr';
+import { addPendingReading, startMeterReadingSync } from '@/lib/mirrorSync';
 
 export function ReadingsPage() {
   const { currentProject } = useProject();
@@ -38,6 +39,8 @@ export function ReadingsPage() {
   const [error, setError] = useState('');
   const [pageError, setPageError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => startMeterReadingSync(), []);
 
   useEffect(() => {
     const updateOnline = () => setOnline(navigator.onLine);
@@ -130,8 +133,32 @@ export function ReadingsPage() {
     }
 
     if (!online) {
-      setError('لا يمكن اعتماد القراءة من الخادم أثناء انقطاع الاتصال. سيتم تفعيل الطابور المحلي والمزامنة الآمنة في المسار التالي.');
-      return;
+      try {
+        await addPendingReading({
+          customerId: selectedMeter.customer_id,
+          meterId: selectedMeter.id,
+          meterNumber: selectedMeter.meter_number,
+          projectId: currentProject.id,
+          current: value,
+          readingDate: new Date().toISOString(),
+          latitude: form.gps_lat ? Number(form.gps_lat) : null,
+          longitude: form.gps_lng ? Number(form.gps_lng) : null,
+          accuracy: form.gps_accuracy ? Number(form.gps_accuracy) : null,
+          readingSource: form.reading_method === 'photo' ? 'OCR' : 'MANUAL',
+          aiExtractedValue: form.ai_extracted_value ? Number(form.ai_extracted_value) : null,
+          aiConfidence: form.ai_confidence ? Number(form.ai_confidence) : null,
+          aiModel: form.reading_method === 'photo' ? 'local-ocr-v1' : null,
+          notes: form.notes || null,
+        }, capturedPhoto?.file ?? null);
+        setError('تم حفظ القراءة والصورة في الجهاز. ستتم المزامنة والتحقق تلقائياً عند عودة الاتصال.');
+        setShowReadingModal(false);
+        setSelectedMeter(null);
+        setCapturedPhoto(null);
+        return;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'تعذر حفظ القراءة محلياً');
+        return;
+      }
     }
 
     if (form.reading_method === 'photo' && !capturedPhoto) {
