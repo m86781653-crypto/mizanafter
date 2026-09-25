@@ -65,6 +65,11 @@ Deno.serve(async (req) => {
   const projectName = String(body.project_name_ar ?? "").trim();
   const nameEn = body.tenant_name_en ? String(body.tenant_name_en).trim() : null;
   const districtId = body.district_id ? String(body.district_id) : null;
+  const requestedNames = {
+    tenant_manager: String(body.manager_name ?? "").trim(),
+    meter_reader: String(body.reader_name ?? "").trim(),
+    collection_officer: String(body.collector_name ?? "").trim(),
+  };
   if (!tenantName || !projectName) return response({ error: "اسم المشروع واسم المستأجر مطلوبان" }, 400);
 
   const tenantId = crypto.randomUUID();
@@ -102,7 +107,7 @@ Deno.serve(async (req) => {
     for (const item of roles) {
       const email = makeEmail(projectName, item.role);
       const pwd = password();
-      const fullName = `${item.label} - ${projectName}`;
+      const fullName = requestedNames[item.role] || `${item.label} - ${projectName}`;
 
       const { data: created, error: createError } = await admin.auth.admin.createUser({
         email,
