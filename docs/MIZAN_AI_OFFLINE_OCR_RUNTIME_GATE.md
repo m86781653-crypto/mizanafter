@@ -6,7 +6,7 @@ MRX must not claim true offline OCR merely because a capture can be stored in In
 
 ## Runtime contract
 
-The production web client pins Tesseract.js 7.0.0 and uses a service-worker-managed offline cache for:
+The production web client pins Tesseract.js 7.0.0. The application shell loads the runtime from the same-origin path `/mizan-ocr/tesseract.min.js`; the service worker installs that path and the remaining OCR assets into its offline cache. The app must not depend on the Tesseract CDN URL at runtime after installation. The service-worker-managed offline cache contains:
 
 - Tesseract browser runtime and worker.
 - LSTM core variants for baseline, SIMD, and relaxed-SIMD capable browsers.
