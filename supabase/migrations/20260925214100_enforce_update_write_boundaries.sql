@@ -1,10 +1,62 @@
 -- UPDATE policies must enforce the same role/resource write boundary as INSERT/DELETE.
 -- Access to a child project for oversight must never imply mutation rights.
-do $$
-declare t text;
-begin
-  foreach t in array array['assets','customers','faults','field_tasks','invoices','kpi_snapshots','maintenance_work_orders','meter_readings','meters','notifications','payments','pumps','tanks','tariffs','wells'] loop
-    execute format('drop policy if exists mizan_tenant_update on public.%I', t);
-    execute format('create policy mizan_tenant_update on public.%I for update to authenticated using (private.mizan_can_write_project(project_id,%L,%L)) with check (private.mizan_can_write_project(project_id,%L,%L))', t,t,'update',t,'update');
-  end loop;
-end $$;
+drop policy if exists "mizan_tenant_update" on public.assets;
+create policy "mizan_tenant_update" on public.assets for update to authenticated
+using (private.mizan_can_write_project(project_id,'assets','update'))
+with check (private.mizan_can_write_project(project_id,'assets','update'));
+drop policy if exists "mizan_tenant_update" on public.customers;
+create policy "mizan_tenant_update" on public.customers for update to authenticated
+using (private.mizan_can_write_project(project_id,'customers','update'))
+with check (private.mizan_can_write_project(project_id,'customers','update'));
+drop policy if exists "mizan_tenant_update" on public.faults;
+create policy "mizan_tenant_update" on public.faults for update to authenticated
+using (private.mizan_can_write_project(project_id,'faults','update'))
+with check (private.mizan_can_write_project(project_id,'faults','update'));
+drop policy if exists "mizan_tenant_update" on public.field_tasks;
+create policy "mizan_tenant_update" on public.field_tasks for update to authenticated
+using (private.mizan_can_write_project(project_id,'field_tasks','update'))
+with check (private.mizan_can_write_project(project_id,'field_tasks','update'));
+drop policy if exists "mizan_tenant_update" on public.invoices;
+create policy "mizan_tenant_update" on public.invoices for update to authenticated
+using (private.mizan_can_write_project(project_id,'invoices','update'))
+with check (private.mizan_can_write_project(project_id,'invoices','update'));
+drop policy if exists "mizan_tenant_update" on public.kpi_snapshots;
+create policy "mizan_tenant_update" on public.kpi_snapshots for update to authenticated
+using (private.mizan_can_write_project(project_id,'kpi_snapshots','update'))
+with check (private.mizan_can_write_project(project_id,'kpi_snapshots','update'));
+drop policy if exists "mizan_tenant_update" on public.maintenance_work_orders;
+create policy "mizan_tenant_update" on public.maintenance_work_orders for update to authenticated
+using (private.mizan_can_write_project(project_id,'maintenance_work_orders','update'))
+with check (private.mizan_can_write_project(project_id,'maintenance_work_orders','update'));
+drop policy if exists "mizan_tenant_update" on public.meter_readings;
+create policy "mizan_tenant_update" on public.meter_readings for update to authenticated
+using (private.mizan_can_write_project(project_id,'meter_readings','update'))
+with check (private.mizan_can_write_project(project_id,'meter_readings','update'));
+drop policy if exists "mizan_tenant_update" on public.meters;
+create policy "mizan_tenant_update" on public.meters for update to authenticated
+using (private.mizan_can_write_project(project_id,'meters','update'))
+with check (private.mizan_can_write_project(project_id,'meters','update'));
+drop policy if exists "mizan_tenant_update" on public.notifications;
+create policy "mizan_tenant_update" on public.notifications for update to authenticated
+using (private.mizan_can_write_project(project_id,'notifications','update'))
+with check (private.mizan_can_write_project(project_id,'notifications','update'));
+drop policy if exists "mizan_tenant_update" on public.payments;
+create policy "mizan_tenant_update" on public.payments for update to authenticated
+using (private.mizan_can_write_project(project_id,'payments','update'))
+with check (private.mizan_can_write_project(project_id,'payments','update'));
+drop policy if exists "mizan_tenant_update" on public.pumps;
+create policy "mizan_tenant_update" on public.pumps for update to authenticated
+using (private.mizan_can_write_project(project_id,'pumps','update'))
+with check (private.mizan_can_write_project(project_id,'pumps','update'));
+drop policy if exists "mizan_tenant_update" on public.tanks;
+create policy "mizan_tenant_update" on public.tanks for update to authenticated
+using (private.mizan_can_write_project(project_id,'tanks','update'))
+with check (private.mizan_can_write_project(project_id,'tanks','update'));
+drop policy if exists "mizan_tenant_update" on public.tariffs;
+create policy "mizan_tenant_update" on public.tariffs for update to authenticated
+using (private.mizan_can_write_project(project_id,'tariffs','update'))
+with check (private.mizan_can_write_project(project_id,'tariffs','update'));
+drop policy if exists "mizan_tenant_update" on public.wells;
+create policy "mizan_tenant_update" on public.wells for update to authenticated
+using (private.mizan_can_write_project(project_id,'wells','update'))
+with check (private.mizan_can_write_project(project_id,'wells','update'));
