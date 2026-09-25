@@ -183,7 +183,7 @@ export function Layout({ activePage, onNavigate, allowedPages, children }: Layou
           )}
 
           {/* Child-tenant users are fixed to their assigned project */}
-          {!isSuperAdmin && currentProject && (
+          {!isCentralTenant && currentProject && (
             <div className="flex items-center gap-2 px-3 py-2">
               <div className="p-1.5 rounded-lg bg-primary-50 text-primary-700 shrink-0">
                 <Building2 size={16} />
