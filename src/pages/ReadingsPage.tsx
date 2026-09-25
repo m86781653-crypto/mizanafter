@@ -100,7 +100,16 @@ export function ReadingsPage() {
     })();
   }, [currentProject]);
 
-  const filteredMeters = meters.filter((m) => {\n    const q = search.trim();\n    if (!q) return true;\n    return (m.customers?.name_ar || '').includes(q)\n      || (m.customers?.customer_number || '').includes(q)\n      || m.meter_number.includes(q)\n      || (m.serial_number || '').includes(q);\n  });\n\n  const stats = {
+  const filteredMeters = meters.filter((m) => {
+    const q = search.trim();
+    if (!q) return true;
+    return (m.customers?.name_ar || '').includes(q)
+      || (m.customers?.customer_number || '').includes(q)
+      || m.meter_number.includes(q)
+      || (m.serial_number || '').includes(q);
+  });
+
+  const stats = {
     total: readings.length,
     pending: readings.filter(r => r.status === 'pending').length,
     anomalies: readings.filter(r => r.anomaly_flag).length,
