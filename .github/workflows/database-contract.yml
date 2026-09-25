@@ -10,6 +10,7 @@ name: database-contract
 # RPC ACL hardening runs only after governed function definitions.
 # Policy contracts normalize PostgreSQL's expression serialization.
 # SQL assertions use dollar-quoted patterns to avoid parser ambiguity.
+# Final policy convergence is checked after the complete migration chain.
 on:
   pull_request:
     branches:
