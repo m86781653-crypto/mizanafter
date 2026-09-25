@@ -11,17 +11,17 @@ import type { Project } from '@/types';
 
 interface CreatedCredential {
   role: string;
-  role_label: string;
+  role_label?: string;
   full_name: string;
   email: string;
   password: string;
-  must_change_password: boolean;
+  must_change_password?: boolean;
 }
 
 export function ProjectsPage() {
   const { projects, setCurrentProjectId, currentProject } = useProject();
   const { session, profile } = useAuth();
-  const canCreateSubtenant = profile?.role === 'platform_admin';
+  const canCreateSubtenant = profile?.role === 'platform_admin' || (profile?.role === 'tenant_manager' && profile?.tenant_id === 'b9295364-d688-4e20-b2a3-433f08bfdcaa');
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,17 +39,11 @@ export function ProjectsPage() {
 
   const handleSave = async () => {
     if (!form.name_ar.trim()) return;
-    if (!form.manager_email.trim() || !form.reader_email.trim() || !form.collector_email.trim()) {
-      setError('يرجى إدخال البريد الإلكتروني للمستخدمين الثلاثة');
-      return;
-    }
-
     setSaving(true);
     setError(null);
-
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/create-project`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1/provision-subtenant`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -57,53 +51,32 @@ export function ProjectsPage() {
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
-          project_name: form.name_ar,
-          project_name_en: form.name_en || undefined,
-          status: form.status,
-          funding_source: form.funding_source || undefined,
-          donor: form.donor || undefined,
-          beneficiary_count: form.beneficiary_count || undefined,
-          design_capacity: form.design_capacity || undefined,
-          operational_capacity: form.operational_capacity || undefined,
-          address: form.address || undefined,
-          established_date: form.established_date || undefined,
-          manager_name: form.manager_name || undefined,
-          manager_email: form.manager_email,
-          reader_name: form.reader_name || undefined,
-          reader_email: form.reader_email,
-          collector_name: form.collector_name || undefined,
-          collector_email: form.collector_email,
+          tenant_name_ar: form.name_ar,
+          tenant_name_en: form.name_en || undefined,
+          project_name_ar: form.name_ar,
+          district_id: undefined,
         }),
       });
-
       const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'فشل إنشاء المشروع');
-      }
-
-      setCreatedCreds(result.credentials);
+      if (!response.ok) throw new Error(result.error || 'فشل إنشاء المستأجر الفرعي');
+      setCreatedCreds((result.credentials || []).map((item: any) => ({
+        ...item,
+        role_label: item.role === 'tenant_manager' ? 'مدير المشروع' : item.role === 'meter_reader' ? 'قارئ العدادات' : 'مسؤول التحصيل',
+        must_change_password: true,
+      })));
       setCreatedProjectName(result.project?.name_ar || form.name_ar);
       setShowForm(false);
-      setForm({
-        name_ar: '', name_en: '', status: 'active', funding_source: '',
-        donor: '', beneficiary_count: '', design_capacity: '',
-        operational_capacity: '', address: '', established_date: '',
-        manager_name: '', manager_email: '',
-        reader_name: '', reader_email: '',
-        collector_name: '', collector_email: '',
-      });
-
-      // Refresh projects list
+      setForm({name_ar:'',name_en:'',status:'active',funding_source:'',donor:'',beneficiary_count:'',design_capacity:'',operational_capacity:'',address:'',established_date:'',manager_name:'',manager_email:'',reader_name:'',reader_email:'',collector_name:'',collector_email:''});
       window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const copyCredential = (cred: CreatedCredential, idx: number) => {
-    const text = `اسم المستخدم: ${cred.full_name}\nالبريد: ${cred.email}\nكلمة المرور: ${cred.password}\nالدور: ${cred.role_label}\nالمشروع: ${createdProjectName}`;
+    const text = `اسم المستخدم: ${cred.full_name}\nالبريد: ${cred.email}\nكلمة المرور: ${cred.password}\nالدور: ${cred.role_label || cred.role}\nالمشروع: ${createdProjectName}`;
     navigator.clipboard.writeText(text);
     setCopiedIdx(idx);
     setTimeout(() => setCopiedIdx(null), 2000);
@@ -112,7 +85,7 @@ export function ProjectsPage() {
   const copyAll = () => {
     if (!createdCreds) return;
     const text = createdCreds.map(c =>
-      `--- ${c.role_label} ---\nالاسم: ${c.full_name}\nالبريد: ${c.email}\nكلمة المرور: ${c.password}\n`
+      `--- ${c.role_label || c.role} ---\nالاسم: ${c.full_name}\nالبريد: ${c.email}\nكلمة المرور: ${c.password}\n`
     ).join('\n');
     navigator.clipboard.writeText(text);
     setCopiedIdx(-1);
@@ -249,7 +222,7 @@ export function ProjectsPage() {
         {/* User accounts section */}
         <div className="mt-6 pt-6 border-t border-neutral-200">
           <h3 className="font-bold text-neutral-800 mb-1">حسابات المستخدمين</h3>
-          <p className="text-xs text-neutral-500 mb-4">سيتم إنشاء 3 حسابات مع كلمات مرور عشوائية آمنة</p>
+          <p className="text-xs text-neutral-500 mb-4">سيتم توليد 3 حسابات دخول وكلمات مرور آمنة تلقائياً، دون الحاجة إلى إدخال بريد مسبق</p>
 
           <div className="space-y-4">
             {/* Manager */}
@@ -260,7 +233,7 @@ export function ProjectsPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <input className="input-field" placeholder="الاسم الكامل" value={form.manager_name} onChange={(e) => setForm({ ...form, manager_name: e.target.value })} />
-                <input className="input-field" placeholder="البريد الإلكتروني *" type="email" value={form.manager_email} onChange={(e) => setForm({ ...form, manager_email: e.target.value })} dir="ltr" style={{ textAlign: 'right' }} />
+                <div className="text-xs text-neutral-400 p-3 bg-neutral-50 rounded-lg">سيتم توليد بيانات الدخول تلقائياً</div>
               </div>
             </div>
 
@@ -272,7 +245,7 @@ export function ProjectsPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <input className="input-field" placeholder="الاسم الكامل" value={form.reader_name} onChange={(e) => setForm({ ...form, reader_name: e.target.value })} />
-                <input className="input-field" placeholder="البريد الإلكتروني *" type="email" value={form.reader_email} onChange={(e) => setForm({ ...form, reader_email: e.target.value })} dir="ltr" style={{ textAlign: 'right' }} />
+                <div className="text-xs text-neutral-400 p-3 bg-neutral-50 rounded-lg">سيتم توليد بيانات الدخول تلقائياً</div>
               </div>
             </div>
 
@@ -284,7 +257,7 @@ export function ProjectsPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <input className="input-field" placeholder="الاسم الكامل" value={form.collector_name} onChange={(e) => setForm({ ...form, collector_name: e.target.value })} />
-                <input className="input-field" placeholder="البريد الإلكتروني *" type="email" value={form.collector_email} onChange={(e) => setForm({ ...form, collector_email: e.target.value })} dir="ltr" style={{ textAlign: 'right' }} />
+                <div className="text-xs text-neutral-400 p-3 bg-neutral-50 rounded-lg">سيتم توليد بيانات الدخول تلقائياً</div>
               </div>
             </div>
           </div>
@@ -292,7 +265,7 @@ export function ProjectsPage() {
 
         <div className="flex gap-3 mt-6">
           <button onClick={() => setShowForm(false)} className="btn-secondary flex-1">إلغاء</button>
-          <button onClick={handleSave} disabled={saving || !form.name_ar.trim() || !form.manager_email.trim() || !form.reader_email.trim() || !form.collector_email.trim()} className="btn-primary flex-1">
+          <button onClick={handleSave} disabled={saving || !form.name_ar.trim()} className="btn-primary flex-1">
             {saving ? 'جاري الإنشاء...' : 'إنشاء المشروع والحسابات'}
           </button>
         </div>
