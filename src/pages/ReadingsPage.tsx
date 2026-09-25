@@ -19,7 +19,8 @@ import type { Meter, MeterReading, Customer } from '@/types';
 
 export function ReadingsPage() {
   const { currentProject } = useProject();
-  const [meters, setMeters] = useState<(Meter & { customers?: Customer })[]>([]);
+  const [meters, setMeters] = useState<(Meter & { customers?: Customer & { balance?: number } })[]>([]);
+  const [search, setSearch] = useState('');
   const [readings, setReadings] = useState<MeterReading[]>([]);
   const [selectedMeter, setSelectedMeter] = useState<(Meter & { customers?: Customer }) | null>(null);
   const [showReadingModal, setShowReadingModal] = useState(false);
@@ -84,13 +85,18 @@ export function ReadingsPage() {
       setLoading(true);
       setPageError(null);
       try {
-        const [m, r] = await Promise.all([
-          supabase.from('meters').select('*, customers(name_ar, customer_number, phone)').eq('project_id', pid).eq('status', 'active').order('meter_number'),
+        const [m, r, i] = await Promise.all([
+          supabase.from('meters').select('*, customers(name_ar, customer_number, phone, address)').eq('project_id', pid).eq('status', 'active').order('meter_number'),
           supabase.from('meter_readings').select('*').eq('project_id', pid).order('reading_date', { ascending: false }).limit(20),
+          supabase.from('invoices').select('customer_id, balance').eq('project_id', pid).neq('status', 'cancelled'),
         ]);
         if (m.error) throw m.error;
         if (r.error) throw r.error;
-        setMeters((m.data as any[]) || []);
+        if (i.error) throw i.error;
+        const balances = new Map<string, number>();
+        for (const row of (i.data || []) as Array<{ customer_id: string; balance: number | null }>) balances.set(row.customer_id, (balances.get(row.customer_id) || 0) + Number(row.balance || 0));
+        setMeters(((m.data as any[]) || []).map((meter) => ({ ...meter, customers: meter.customers ? { ...meter.customers, balance: balances.get(meter.customer_id) || 0 } : meter.customers })));
+
         setReadings((r.data as MeterReading[]) || []);
       } catch (err) {
         setPageError(err instanceof Error ? err.message : 'فشل تحميل البيانات');
@@ -105,6 +111,8 @@ export function ReadingsPage() {
     if (!q) return true;
     return (m.customers?.name_ar || '').includes(q)
       || (m.customers?.customer_number || '').includes(q)
+      || (m.customers?.phone || '').includes(q)
+      || (m.customers?.address || '').includes(q)
       || m.meter_number.includes(q)
       || (m.serial_number || '').includes(q);
   });
@@ -376,6 +384,9 @@ export function ReadingsPage() {
       {/* Meters to read */}
       <div>
         <h2 className="text-lg font-bold text-neutral-800 mb-3">العدادات بانتظار القراءة</h2>
+        <div className="card mb-4 p-4">
+          <input className="input-field" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث باسم المشترك أو الهاتف أو العنوان أو رقم العداد..." aria-label="بحث عن مشترك أو عداد" />
+        </div>
         {meters.length === 0 ? (
           <div className="card"><EmptyState icon={Gauge} title="لا توجد عدادات نشطة" description="أضف المشترك مع العداد من صفحة المشتركين" /></div>
         ) : (
@@ -388,9 +399,11 @@ export function ReadingsPage() {
                 </div>
                 <h3 className="font-bold text-neutral-900">{m.meter_number}</h3>
                 <p className="text-sm text-neutral-500 mt-0.5">{m.customers?.name_ar || 'بدون مشترك'}</p>
+                <p className="text-xs text-neutral-400 mt-1">{m.customers?.phone || 'لا يوجد هاتف'}{m.customers?.address ? ` • ${m.customers.address}` : ''}</p>
                 <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
                   <div><p className="text-xs text-neutral-400">القراءة السابقة</p><p className="font-semibold text-neutral-700">{formatNumber(m.last_reading)}</p></div>
                   <div><p className="text-xs text-neutral-400">تاريخها</p><p className="font-semibold text-neutral-700 text-xs">{m.last_reading_date ? formatRelativeTime(m.last_reading_date) : '—'}</p></div>
+                  <div><p className="text-xs text-neutral-400">الرصيد المستحق</p><p className="font-semibold text-warning-700">{formatNumber(m.customers?.balance || 0)}</p></div>
                 </div>
                 <button onClick={() => openReadingModal(m)} className="btn-primary w-full mt-4 text-sm">
                   <Camera size={16} /> تسجيل قراءة
@@ -531,7 +544,9 @@ export function ReadingsPage() {
                 <p className="text-sm text-neutral-500">{selectedMeter.customers?.name_ar}</p>
               </div>
               <div className="text-left">
-                <p className="text-xs text-neutral-400">القراءة السابقة</p>
+                <p className="text-xs text-neutral-400">الرصيد المستحق</p>
+                <p className="text-sm font-bold text-warning-700">{formatNumber(selectedMeter.customers?.balance || 0)}</p>
+                <p className="text-xs text-neutral-400 mt-2">القراءة السابقة</p>
                 <p className="text-xl font-bold text-primary-700">{formatNumber(selectedMeter.last_reading)}</p>
               </div>
             </div>
