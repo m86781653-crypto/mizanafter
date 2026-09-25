@@ -6,6 +6,7 @@ name: database-contract
 # Governed object reconstruction is part of the clean-room gate.
 # Tenant prerequisites are validated before role enforcement.
 # Authorization policies are applied only after the private kernel exists.
+# Permission catalog is bootstrapped before the kernel.
 on:
   pull_request:
     branches:
