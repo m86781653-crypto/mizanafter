@@ -8,6 +8,7 @@ name: database-contract
 # Authorization policies are applied only after the private kernel exists.
 # Permission catalog is bootstrapped before the kernel.
 # RPC ACL hardening runs only after governed function definitions.
+# Policy contracts normalize PostgreSQL's expression serialization.
 on:
   pull_request:
     branches:
