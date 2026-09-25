@@ -55,6 +55,9 @@ export function ProjectsPage() {
           tenant_name_en: form.name_en || undefined,
           project_name_ar: form.name_ar,
           district_id: undefined,
+          manager_name: form.manager_name || undefined,
+          reader_name: form.reader_name || undefined,
+          collector_name: form.collector_name || undefined,
         }),
       });
       const result = await response.json();
