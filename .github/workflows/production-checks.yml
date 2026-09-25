@@ -33,6 +33,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate offline OCR runtime wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f public/mizan-offline.js
+          test -f index.html
+          grep -Fq '/mizan-ocr/tesseract.min.js' index.html
+          grep -Fq "'/mizan-ocr/tesseract.min.js'" public/mizan-offline.js
+          if grep -Fq 'cdn.jsdelivr.net/npm/tesseract.js@' index.html; then
+            echo 'index.html must not load Tesseract directly from CDN; use the local offline runtime path.' >&2
+            exit 1
+          fi
+
       - name: Typecheck
         run: npm run typecheck
 
