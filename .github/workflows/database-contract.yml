@@ -4,6 +4,7 @@ name: database-contract
 # The gate intentionally executes against a clean local database.
 # Migration-chain repair is verified on every push.
 # Governed object reconstruction is part of the clean-room gate.
+# Tenant prerequisites are validated before role enforcement.
 on:
   pull_request:
     branches:
