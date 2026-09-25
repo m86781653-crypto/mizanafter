@@ -18,7 +18,8 @@ interface CreatedCredential {
 
 export function ProjectsPage() {
   const { projects, setCurrentProjectId, currentProject } = useProject();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
+  const isMainTenantManager = profile?.role === 'tenant_manager';
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,11 +121,11 @@ export function ProjectsPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">إدارة المشاريع</h1>
-          <p className="text-sm text-neutral-500 mt-1">{formatNumber(projects.length)} مشروع مسجل</p>
+          <h1 className="text-2xl font-bold text-neutral-900">{isMainTenantManager ? 'المستأجرون والمشاريع' : 'إدارة المشاريع'}</h1>
+          <p className="text-sm text-neutral-500 mt-1">{formatNumber(projects.length)} مشروع متاح لك {isMainTenantManager ? 'للمتابعة والإشراف' : ''}</p>
         </div>
         <button onClick={() => setShowForm(true)} className="btn-primary">
-          <Plus size={18} /> إنشاء مشروع جديد
+          <Plus size={18} /> {isMainTenantManager ? 'إنشاء مستأجر فرعي ومشروع' : 'إنشاء مشروع جديد'}
         </button>
       </div>
 
@@ -133,7 +134,7 @@ export function ProjectsPage() {
           <EmptyState
             icon={Building2}
             title="لا توجد مشاريع بعد"
-            description="أنشئ أول مشروع مياه. سيتم إنشاء 3 حسابات (مدير مشروع، قارئ عدادات، محصل) تلقائياً مع كلمات مرور جاهزة للتسليم."
+            description={isMainTenantManager ? "أنشئ مستأجراً فرعياً جديداً ومشروعه التشغيلي. سيتم عزل بياناته عن بقية المستأجرين مع بقاء الإشراف المركزي." : "أنشئ أول مشروع مياه. سيتم إنشاء 3 حسابات (مدير مشروع، قارئ عدادات، محصل) تلقائياً مع كلمات مرور جاهزة للتسليم."}
             action={{ label: 'إنشاء مشروع جديد', onClick: () => setShowForm(true) }}
           />
         </div>
@@ -151,7 +152,7 @@ export function ProjectsPage() {
                 </div>
                 <Badge status={p.status} label={projectStatusLabels[p.status] || p.status} />
               </div>
-              <h3 className="font-bold text-lg text-neutral-900 mb-1">{p.name_ar}</h3>
+              <div className="flex items-center gap-2 mb-1"><h3 className="font-bold text-lg text-neutral-900">{p.name_ar}</h3>{isMainTenantManager && <span className={`badge ${p.tenant_id === profile?.tenant_id ? "bg-primary-100 text-primary-700" : "bg-accent-100 text-accent-700"}`}>{p.tenant_id === profile?.tenant_id ? "المستأجر المركزي" : "مستأجر فرعي"}</span>}</div>
               {p.name_en && <p className="text-xs text-neutral-400 mb-3">{p.name_en}</p>}
               <div className="space-y-2 text-sm">
                 {p.address && (
@@ -182,10 +183,10 @@ export function ProjectsPage() {
       )}
 
       {/* Create Project Modal */}
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="إنشاء مشروع جديد مع 3 حسابات مستخدمين" size="lg">
+      <Modal open={showForm} onClose={() => setShowForm(false)} title={isMainTenantManager ? "إنشاء مستأجر فرعي ومشروع مع 3 حسابات" : "إنشاء مشروع جديد مع 3 حسابات مستخدمين"} size="lg">
         <div className="mb-4 flex items-start gap-2 px-4 py-3 rounded-xl bg-primary-50 text-primary-700 text-sm">
           <UserCheck size={18} className="shrink-0 mt-0.5" />
-          <span>سيتم إنشاء المشروع و3 حسابات تلقائياً: مدير مشروع، قارئ عدادات، محصل. ستحصل على كلمات مرور جاهزة لتسليمها للعميل.</span>
+          <span>سيتم إنشاء المستأجر الفرعي والمشروع و3 حسابات تلقائياً: مدير المستأجر، قارئ عدادات، محصل. المستأجر المركزي يحتفظ بالاطلاع والرقابة، بينما تبقى العمليات اليومية داخل نطاق المستأجر الفرعي.</span>
         </div>
 
         {error && (
