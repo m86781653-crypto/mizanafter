@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(12);
+SELECT plan(13);
 
 SELECT ok(
   NOT has_schema_privilege('anon', 'private', 'USAGE'),
@@ -41,11 +41,29 @@ SELECT ok(
 
 SELECT ok(
   NOT has_function_privilege(
+    'authenticated',
+    'public.mizan_create_invoice(uuid,uuid,uuid,numeric,date,date)',
+    'EXECUTE'
+  ),
+  'authenticated cannot execute invoice creation directly'
+);
+
+SELECT ok(
+  NOT has_function_privilege(
     'anon',
     'public.mizan_record_payment(uuid,numeric,text,text,text)',
     'EXECUTE'
   ),
   'anon cannot execute payment recording'
+);
+
+SELECT ok(
+  NOT has_function_privilege(
+    'authenticated',
+    'public.mizan_record_payment(uuid,numeric,text,text,text)',
+    'EXECUTE'
+  ),
+  'authenticated cannot execute payment recording directly'
 );
 
 SELECT ok(
