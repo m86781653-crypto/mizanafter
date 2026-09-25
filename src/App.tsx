@@ -16,53 +16,30 @@ import { CopilotPage } from '@/pages/CopilotPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import type { UserRole } from '@/types';
 
-const allPages = [
-  'dashboard', 'projects', 'infrastructure', 'customers', 'readings',
-  'billing', 'maintenance', 'reports', 'copilot', 'settings',
-] as const;
+const allPages = ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','reports','copilot','settings'] as const;
 type PageId = typeof allPages[number];
 
+const managerPages: PageId[] = [...allPages];
 const roleAccess: Record<UserRole, PageId[]> = {
-  super_admin: [...allPages],
-  project_manager: ['dashboard', 'infrastructure', 'customers', 'readings', 'billing', 'maintenance', 'reports', 'copilot', 'settings'],
-  meter_reader: ['dashboard', 'readings', 'customers', 'copilot'],
-  collector: ['dashboard', 'billing', 'customers', 'copilot'],
-  accountant: ['dashboard', 'billing', 'reports', 'copilot'],
-  maintenance_tech: ['dashboard', 'maintenance', 'infrastructure', 'copilot'],
-  read_only: ['dashboard', 'reports', 'copilot'],
+  platform_admin: [...allPages],
+  tenant_manager: managerPages,
+  operations_officer: ['dashboard','infrastructure','maintenance','reports','copilot','settings'],
+  meter_reader: ['dashboard','readings','copilot','settings'],
+  collection_officer: ['dashboard','billing','copilot','settings'],
+  maintenance_officer: ['dashboard','maintenance','infrastructure','copilot','settings'],
+  technician: ['dashboard','maintenance','infrastructure','copilot','settings'],
+  data_exception_officer: ['dashboard','readings','reports','copilot','settings'],
+  viewer: ['dashboard','reports','copilot','settings'],
 };
 
 function AuthedApp() {
   const { profile, loading } = useAuth();
   const [page, setPage] = useState<PageId>('dashboard');
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-neutral-500">جاري التحميل...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return <LoginPage />;
-  }
-
-  // Force password change
-  if (profile.must_change_password) {
-    return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
-        <ChangePasswordPage />
-      </div>
-    );
-  }
-
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-neutral-50"><div className="text-center"><div className="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-3" /><p className="text-sm text-neutral-500">جاري التحميل...</p></div></div>;
+  if (!profile) return <LoginPage />;
+  if (profile.must_change_password) return <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4"><ChangePasswordPage /></div>;
   const allowedPages = roleAccess[profile.role] || ['dashboard'];
   const effectivePage = allowedPages.includes(page) ? page : 'dashboard';
-
   const renderPage = () => {
     switch (effectivePage) {
       case 'dashboard': return <DashboardPage />;
@@ -78,28 +55,8 @@ function AuthedApp() {
       default: return <DashboardPage />;
     }
   };
-
-  const handleNavigate = (p: string) => {
-    if (allowedPages.includes(p as PageId)) {
-      setPage(p as PageId);
-    }
-  };
-
-  return (
-    <ProjectProvider>
-      <Layout activePage={effectivePage} onNavigate={handleNavigate} allowedPages={allowedPages}>
-        {renderPage()}
-      </Layout>
-    </ProjectProvider>
-  );
+  const handleNavigate = (p: string) => { if (allowedPages.includes(p as PageId)) setPage(p as PageId); };
+  return <ProjectProvider><Layout activePage={effectivePage} onNavigate={handleNavigate} allowedPages={allowedPages}>{renderPage()}</Layout></ProjectProvider>;
 }
-
-function App() {
-  return (
-    <AuthProvider>
-      <AuthedApp />
-    </AuthProvider>
-  );
-}
-
+function App() { return <AuthProvider><AuthedApp /></AuthProvider>; }
 export default App;
