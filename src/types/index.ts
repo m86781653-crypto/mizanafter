@@ -114,6 +114,7 @@ export interface Customer {
   customer_type: string;
   status: string;
   connection_date: string | null;
+  household_members: number | null;
   notes: string | null;
   location: string | null;
 }
