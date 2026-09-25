@@ -41,7 +41,7 @@ export function Layout({ activePage, onNavigate, allowedPages, children }: Layou
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const isSuperAdmin = profile?.role === 'super_admin';
+  const isCentralTenant = profile?.role === 'platform_admin';
   const visibleNav = navConfig.filter((item) => allowedPages.includes(item.id));
 
   useEffect(() => {
@@ -140,8 +140,8 @@ export function Layout({ activePage, onNavigate, allowedPages, children }: Layou
             <Menu size={22} className="text-neutral-700" />
           </button>
 
-          {/* Project Selector - only for super_admin or multi-project users */}
-          {isSuperAdmin && (
+          {/* Project selector is reserved for the central platform tenant */}
+          {isCentralTenant && (
             <div className="relative">
               <button
                 onClick={() => setProjectMenuOpen(!projectMenuOpen)}
@@ -182,7 +182,7 @@ export function Layout({ activePage, onNavigate, allowedPages, children }: Layou
             </div>
           )}
 
-          {/* For non-super-admin, show project name without selector */}
+          {/* Child-tenant users are fixed to their assigned project */}
           {!isSuperAdmin && currentProject && (
             <div className="flex items-center gap-2 px-3 py-2">
               <div className="p-1.5 rounded-lg bg-primary-50 text-primary-700 shrink-0">
