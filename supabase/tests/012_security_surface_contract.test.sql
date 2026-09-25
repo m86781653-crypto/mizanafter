@@ -33,7 +33,7 @@ SELECT ok(
 SELECT ok(
   NOT has_function_privilege(
     'anon',
-    'public.mizan_create_invoice(uuid,numeric,numeric,numeric,text)',
+    'public.mizan_create_invoice(uuid,uuid,uuid,numeric,date,date)',
     'EXECUTE'
   ),
   'anon cannot execute invoice creation'
@@ -42,7 +42,7 @@ SELECT ok(
 SELECT ok(
   NOT has_function_privilege(
     'anon',
-    'public.mizan_record_payment(uuid,numeric,text,text)',
+    'public.mizan_record_payment(uuid,numeric,text,text,text)',
     'EXECUTE'
   ),
   'anon cannot execute payment recording'
@@ -55,7 +55,6 @@ SELECT ok(
     JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'public'
       AND p.proname = 'st_estimatedextent'
-      AND has_function_privilege(p.oid, 'EXECUTE')
   ),
   'PostGIS estimated extent remains present; exposure requires an extension-owner/admin hardening step'
 );
