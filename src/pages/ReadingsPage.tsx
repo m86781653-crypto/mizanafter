@@ -15,6 +15,10 @@ import {
 } from 'lucide-react';
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import type { Meter, MeterReading, Customer } from '@/types';
+import { MeterCamera } from '@/components/MeterCamera';
+import { recognizeMeterImage } from '@/lib/meter-ocr';
+import { toast } from 'sonner';
+import { addPendingReading, startMeterReadingSync } from '@/lib/mirrorSync';
 
 export function ReadingsPage() {
   const { currentProject } = useProject();
@@ -24,6 +28,8 @@ export function ReadingsPage() {
   const [showReadingModal, setShowReadingModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [aiSimulating, setAiSimulating] = useState(false);
+  const [capturedPhoto, setCapturedPhoto] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [ocrProcessing, setOcrProcessing] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
   const [form, setForm] = useState({
     reading_value: '', reading_method: 'manual',
@@ -34,6 +40,8 @@ export function ReadingsPage() {
   const [error, setError] = useState('');
   const [pageError, setPageError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => startMeterReadingSync(), []);
 
   useEffect(() => {
     const updateOnline = () => setOnline(navigator.onLine);
@@ -118,71 +126,128 @@ export function ReadingsPage() {
   const handleSaveReading = async () => {
     if (!selectedMeter || !currentProject) return;
     setError('');
-    const value = parseFloat(form.reading_value);
-    if (isNaN(value)) { setError('الرجاء إدخال قراءة صحيحة'); return; }
 
-    const prev = selectedMeter.last_reading;
-    let anomaly = false;
-    let anomalyReason = '';
-
-    if (value < prev && !form.notes.includes('استبدال') && !form.notes.includes('تجاوز')) {
-      setError(`القراءة (${value}) أقل من السابقة (${prev}). إذا تم استبدال العداد أو تجاوز العداد الصفر، يرجى ذكر ذلك في الملاحظات.`);
+    if (!selectedMeter.customer_id) {
+      setError('هذا العداد غير مرتبط بمشترك فعّال ولا يمكن اعتماد القراءة.');
       return;
     }
 
-    const consumption = value - prev;
-    if (consumption > 50) {
-      anomaly = true;
-      anomalyReason = `استهلاك مرتفع بشكل غير اعتيادي: ${consumption} م³`;
+    const value = Number(form.reading_value);
+    if (!Number.isFinite(value) || value < 0) {
+      setError('الرجاء إدخال قراءة صحيحة غير سالبة');
+      return;
     }
-    if (consumption < 0) {
-      anomaly = true;
-      anomalyReason = `قراءة أقل من السابقة (قد يكون استبدال أو تجاوز العداد)`;
+
+    if (!online) {
+      try {
+        await addPendingReading({
+          customerId: selectedMeter.customer_id,
+          meterId: selectedMeter.id,
+          meterNumber: selectedMeter.meter_number,
+          projectId: currentProject.id,
+          current: value,
+          readingDate: new Date().toISOString(),
+          latitude: form.gps_lat ? Number(form.gps_lat) : null,
+          longitude: form.gps_lng ? Number(form.gps_lng) : null,
+          accuracy: form.gps_accuracy ? Number(form.gps_accuracy) : null,
+          readingSource: form.reading_method === 'photo' ? 'OCR' : 'MANUAL',
+          aiExtractedValue: form.ai_extracted_value ? Number(form.ai_extracted_value) : null,
+          aiConfidence: form.ai_confidence ? Number(form.ai_confidence) : null,
+          aiModel: form.reading_method === 'photo' ? 'local-ocr-v1' : null,
+          notes: form.notes || null,
+        }, capturedPhoto?.file ?? null);
+        setError('تم حفظ القراءة والصورة في الجهاز. ستتم المزامنة والتحقق تلقائياً عند عودة الاتصال.');
+        setShowReadingModal(false);
+        setSelectedMeter(null);
+        setCapturedPhoto(null);
+        return;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'تعذر حفظ القراءة محلياً');
+        return;
+      }
+    }
+
+    if (form.reading_method === 'photo' && !capturedPhoto) {
+      setError('يجب تصوير العداد قبل اعتماد قراءة الصورة');
+      return;
     }
 
     setSaving(true);
-    const readingData = {
-      meter_id: selectedMeter.id,
-      project_id: currentProject.id,
-      customer_id: selectedMeter.customer_id,
-      reading_value: value,
-      previous_reading: prev,
-      consumption: Math.max(consumption, 0),
-      reading_method: form.reading_method,
-      status: anomaly ? 'anomaly' : 'pending',
-      anomaly_flag: anomaly,
-      anomaly_reason: anomalyReason || null,
-      gps_lat: form.gps_lat ? parseFloat(form.gps_lat) : null,
-      gps_lng: form.gps_lng ? parseFloat(form.gps_lng) : null,
-      gps_accuracy: form.gps_accuracy ? parseFloat(form.gps_accuracy) : null,
-      reader_name: form.reader_name || null,
-      notes: form.notes || null,
-      sync_status: online ? 'synced' : 'pending',
-      ai_extracted_value: form.ai_extracted_value ? parseFloat(form.ai_extracted_value) : null,
-      ai_confidence: form.ai_confidence ? parseFloat(form.ai_confidence) : null,
-      ai_model: form.ai_extracted_value ? 'simulated-ocr-v1' : null,
-    };
+    try {
+      const clientCaptureId = crypto.randomUUID();
+      let imagePath: string | null = null;
 
-    const { data, error: insErr } = await supabase.from('meter_readings').insert(readingData).select().single();
+      if (capturedPhoto) {
+        const extension = capturedPhoto.file.type.includes('png') ? 'png' : capturedPhoto.file.type.includes('webp') ? 'webp' : 'jpg';
+        imagePath = `${currentProject.id}/${selectedMeter.id}/${clientCaptureId}.${extension}`;
+        const upload = await supabase.storage.from('meter-readings').upload(imagePath, capturedPhoto.file, {
+          contentType: capturedPhoto.file.type || 'image/jpeg',
+          upsert: false,
+        });
+        if (upload.error) throw new Error(`تعذر حفظ صورة العداد: ${upload.error.message}`);
+      }
 
-    if (insErr) {
-      setError(insErr.message);
-      setSaving(false);
-      return;
-    }
+      const { data: reading, error: captureError } = await supabase.rpc('mrx_capture_meter_reading', {
+        p_meter_id: selectedMeter.id,
+        p_reading_value: value,
+        p_reading_date: new Date().toISOString(),
+        p_reading_method: form.reading_method === 'photo' ? 'photo' : 'manual',
+        p_image_url: imagePath,
+        p_gps_lat: form.gps_lat ? Number(form.gps_lat) : null,
+        p_gps_lng: form.gps_lng ? Number(form.gps_lng) : null,
+        p_gps_accuracy: form.gps_accuracy ? Number(form.gps_accuracy) : null,
+        p_ai_extracted_value: form.ai_extracted_value ? Number(form.ai_extracted_value) : null,
+        p_ai_confidence: form.ai_confidence ? Number(form.ai_confidence) : null,
+        p_ai_model: form.reading_method === 'photo' ? 'local-ocr-v1' : null,
+        p_notes: form.notes || null,
+        p_client_capture_id: clientCaptureId,
+        p_detected_meter_number: selectedMeter.meter_number,
+      });
 
-    if (data) {
-      await supabase.from('meters').update({
-        last_reading: value,
-        last_reading_date: new Date().toISOString(),
-      }).eq('id', selectedMeter.id);
+      if (captureError) {
+        if (imagePath) await supabase.storage.from('meter-readings').remove([imagePath]);
+        throw new Error(captureError.message);
+      }
 
-      setReadings([data as MeterReading, ...readings]);
+      const approvedReading = reading as MeterReading;
+      const periodEnd = new Date();
+      const periodStart = selectedMeter.last_reading_date
+        ? new Date(selectedMeter.last_reading_date)
+        : new Date(periodEnd.getTime() - 30 * 86400000);
+
+      const { error: invoiceError } = await supabase.rpc('mizan_create_invoice', {
+        p_project_id: currentProject.id,
+        p_customer_id: selectedMeter.customer_id,
+        p_meter_id: selectedMeter.id,
+        p_current_reading: value,
+        p_period_start: periodStart.toISOString().slice(0, 10),
+        p_period_end: periodEnd.toISOString().slice(0, 10),
+      });
+
+      if (invoiceError) {
+        toast.error(`تم اعتماد القراءة، لكن تعذر إنشاء الفاتورة تلقائياً: ${invoiceError.message}`);
+      } else {
+        toast.success('تم اعتماد القراءة وإنشاء الفاتورة بنجاح');
+      }
+
+      setReadings([approvedReading, ...readings]);
+      setMeters((current) => current.map((meter) =>
+        meter.id === selectedMeter.id
+          ? { ...meter, last_reading: value, last_reading_date: periodEnd.toISOString() }
+          : meter
+      ));
       setShowReadingModal(false);
       setSelectedMeter(null);
-      setForm({ reading_value: '', reading_method: 'manual', gps_lat: '', gps_lng: '', gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: '' });
+      setCapturedPhoto(null);
+      setForm({
+        reading_value: '', reading_method: 'manual', gps_lat: '', gps_lng: '',
+        gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: ''
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر اعتماد القراءة');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const openReadingModal = (meter: Meter & { customers?: Customer }) => {
@@ -307,33 +372,47 @@ export function ReadingsPage() {
               </div>
             </div>
 
-            {/* AI Simulation Panel */}
-            <div className="border-2 border-dashed border-accent-300 rounded-xl p-4 bg-accent-50/30">
-              <div className="flex items-center gap-2 mb-2">
-                <Bot size={18} className="text-accent-600" />
-                <h4 className="font-bold text-neutral-800">استخراج القراءة بالذكاء الاصطناعي</h4>
-                <span className="text-xs text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded">محاكاة تجريبية</span>
+            {/* Mirror Runtime field camera — capture is real; OCR/identity verification remains server-authoritative. */}
+            <div className="border rounded-xl p-4 bg-neutral-50/70">
+              <div className="flex items-center gap-2 mb-3">
+                <Camera size={18} className="text-primary-700" />
+                <h4 className="font-bold text-neutral-800">تصوير العداد</h4>
+                <span className="text-xs text-neutral-500">التقاط ميداني حقيقي</span>
               </div>
-              <p className="text-xs text-neutral-500 mb-3">في الإنتاج، يتم إرسال صورة العداد إلى مزود رؤية حاسوبية لاستخراج القراءة تلقائياً. هذه محاكاة للأغراض التوضيحية.</p>
-              <button onClick={simulateAI} disabled={aiSimulating} className="btn-secondary text-sm">
-                {aiSimulating ? <><Loader2 size={16} className="animate-spin" /> جاري التحليل...</> : <><Camera size={16} /> محاكاة استخراج القراءة</>}
-              </button>
-              {form.ai_extracted_value && (
-                <div className="mt-3 grid grid-cols-2 gap-3 animate-slide-up">
-                  <div className="bg-white rounded-lg p-3 border border-accent-200">
-                    <p className="text-xs text-neutral-400">القراءة المستخرجة</p>
-                    <p className="text-lg font-bold text-accent-700">{formatNumber(parseFloat(form.ai_extracted_value))}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-accent-200">
-                    <p className="text-xs text-neutral-400">نسبة الثقة</p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-neutral-200 rounded-full overflow-hidden">
-                        <div className={`h-full ${parseFloat(form.ai_confidence) > 85 ? 'bg-success-500' : 'bg-warning-500'}`} style={{ width: `${form.ai_confidence}%` }} />
-                      </div>
-                      <span className="text-sm font-bold text-neutral-700">{form.ai_confidence}%</span>
-                    </div>
-                  </div>
-                </div>
+              <MeterCamera
+                initialPreview={capturedPhoto?.previewUrl}
+                disabled={saving}
+                onCapture={async (file, previewUrl) => {
+                  setCapturedPhoto({ file, previewUrl });
+                  setForm((current) => ({ ...current, reading_method: 'photo' }));
+                  setError('');
+                  setOcrProcessing(true);
+                  try {
+                    const result = await recognizeMeterImage(file, {
+                      knownMeterNumber: selectedMeter?.meter_number ?? undefined,
+                      previousReading: selectedMeter?.last_reading ?? null,
+                    });
+                    if (result.readingAmbiguous || result.readingValue == null) {
+                      throw new Error('تعذر استخراج قراءة واحدة واضحة من الصورة. أعد التصوير مع إظهار شاشة العداد بوضوح.');
+                    }
+                    setForm((current) => ({
+                      ...current,
+                      reading_value: String(result.readingValue),
+                      ai_extracted_value: String(result.readingValue),
+                      ai_confidence: String(result.readingConfidence),
+                      reading_method: 'photo',
+                    }));
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : 'تعذر تحليل صورة العداد');
+                  } finally {
+                    setOcrProcessing(false);
+                  }
+                }}
+                onClear={() => setCapturedPhoto(null)}
+              />
+              {ocrProcessing && <p className="text-xs text-primary-700 mt-2">جاري قراءة أرقام العداد والتحقق من هويته محلياً…</p>}
+              {capturedPhoto && (
+                <p className="text-xs text-success-700 mt-2">تم التقاط الصورة الأصلية. لن تُعتبر القراءة موثقة آلياً حتى ينجح تحقق هوية العداد واستخراج القراءة على الخادم.</p>
               )}
             </div>
 
