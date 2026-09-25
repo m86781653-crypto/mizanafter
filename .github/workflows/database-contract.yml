@@ -9,6 +9,7 @@ name: database-contract
 # Permission catalog is bootstrapped before the kernel.
 # RPC ACL hardening runs only after governed function definitions.
 # Policy contracts normalize PostgreSQL's expression serialization.
+# SQL assertions use dollar-quoted patterns to avoid parser ambiguity.
 on:
   pull_request:
     branches:
