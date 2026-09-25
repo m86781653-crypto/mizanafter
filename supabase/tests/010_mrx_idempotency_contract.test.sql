@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(11);
+SELECT plan(14);
 
 SELECT ok(
   EXISTS (
@@ -182,6 +182,48 @@ SELECT ok(
     'INSERT INTO public.audit_logs'
   ) > 0,
   'MRX replay returns the existing reading before the audit-producing insert path'
+);
+
+SELECT ok(
+  NOT has_function_privilege(
+    'anon',
+    'public.mrx_capture_meter_reading(uuid,numeric,timestamptz,text,text,numeric,numeric,numeric,numeric,numeric,text,text,uuid,text)',
+    'EXECUTE'
+  ),
+  'MRX capture is not executable by anon'
+);
+
+SELECT ok(
+  has_function_privilege(
+    'authenticated',
+    'public.mrx_capture_meter_reading(uuid,numeric,timestamptz,text,text,numeric,numeric,numeric,numeric,numeric,text,text,uuid,text)',
+    'EXECUTE'
+  ),
+  'MRX capture is executable by authenticated sessions'
+);
+
+SELECT ok(
+  strpos(
+    pg_get_functiondef((
+      SELECT p.oid
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'mrx_capture_meter_reading'
+    )),
+    'auth.uid()'
+  ) > 0
+  AND strpos(
+    pg_get_functiondef((
+      SELECT p.oid
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+        AND p.proname = 'mrx_capture_meter_reading'
+    )),
+    'METER_CAPTURE_FORBIDDEN'
+  ) > 0,
+  'MRX requires an authenticated identity and server-side permission/project authorization'
 );
 
 SELECT * FROM finish();
