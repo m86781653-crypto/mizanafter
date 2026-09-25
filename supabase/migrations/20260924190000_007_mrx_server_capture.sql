@@ -28,7 +28,8 @@ CREATE OR REPLACE FUNCTION public.mrx_capture_meter_reading(
   p_ai_extracted_value numeric DEFAULT NULL,
   p_ai_confidence numeric DEFAULT NULL,
   p_ai_model text DEFAULT NULL,
-  p_notes text DEFAULT NULL
+  p_notes text DEFAULT NULL,
+  p_client_capture_id uuid DEFAULT NULL
 )
 RETURNS public.meter_readings
 LANGUAGE plpgsql
@@ -42,6 +43,7 @@ DECLARE
   v_project_id uuid;
   v_customer_id uuid;
   v_reading public.meter_readings%ROWTYPE;
+  v_existing public.meter_readings%ROWTYPE;
 BEGIN
   IF (SELECT auth.uid()) IS NULL THEN
     RAISE EXCEPTION 'AUTH_REQUIRED';
@@ -74,6 +76,15 @@ BEGIN
   END IF;
 
   v_reading_date := COALESCE(p_reading_date, now());
+
+  IF p_client_capture_id IS NOT NULL THEN
+    SELECT * INTO v_existing
+    FROM public.meter_readings
+    WHERE client_capture_id = p_client_capture_id;
+    IF FOUND THEN
+      RETURN v_existing;
+    END IF;
+  END IF;
 
   SELECT mr.reading_value
   INTO v_previous
@@ -115,7 +126,8 @@ BEGIN
     gps_accuracy,
     sync_status,
     reader_name,
-    notes
+    notes,
+    client_capture_id
   )
   VALUES (
     p_meter_id,
@@ -138,7 +150,8 @@ BEGIN
     p_gps_accuracy,
     'synced',
     NULL,
-    p_notes
+    p_notes,
+    p_client_capture_id
   )
   RETURNING * INTO v_reading;
 
@@ -153,11 +166,11 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.mrx_capture_meter_reading(
-  uuid, numeric, timestamptz, text, text, numeric, numeric, numeric, numeric, numeric, text, text
+  uuid, numeric, timestamptz, text, text, numeric, numeric, numeric, numeric, numeric, text, text, uuid
 ) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION public.mrx_capture_meter_reading(
-  uuid, numeric, timestamptz, text, text, numeric, numeric, numeric, numeric, numeric, text, text
+  uuid, numeric, timestamptz, text, text, numeric, numeric, numeric, numeric, numeric, text, text, uuid
 ) TO authenticated;
 
 COMMENT ON FUNCTION public.mrx_capture_meter_reading IS
