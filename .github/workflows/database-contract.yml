@@ -1,5 +1,6 @@
 name: database-contract
 
+# Full migration-chain contract gate: local Supabase must boot before SQL authorization contracts run.
 on:
   pull_request:
     branches:
