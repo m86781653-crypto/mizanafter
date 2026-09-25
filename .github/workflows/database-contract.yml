@@ -16,6 +16,10 @@ on:
     branches:
       - integration/reference-mirror-sync-complete-v2
 
+concurrency:
+  group: database-contract-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
