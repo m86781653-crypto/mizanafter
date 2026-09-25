@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
+import { useAuth } from '@/context/AuthContext';
 import { StatCard } from '@/components/ui/StatCard';
 import { Badge } from '@/components/ui/Badge';
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import {
   Droplets, Users, Receipt, TrendingDown, AlertTriangle,
-  Wrench, Gauge, Activity, Wallet, Building2, MapPin,
+  Wrench, Gauge, Activity, Wallet, Building2, MapPin, BrainCircuit,
 } from 'lucide-react';
 import {
   formatNumber, formatCurrency, formatRelativeTime, statusColor,
@@ -16,6 +17,7 @@ import type { Invoice, Fault, WorkOrder, MeterReading, Well, Pump } from '@/type
 
 export function DashboardPage() {
   const { currentProject } = useProject();
+  const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
@@ -33,6 +35,9 @@ export function DashboardPage() {
     pumps: [] as Pump[],
     waterProduction: 0,
     waterConsumption: 0,
+    ocrReadings: 0,
+    anomalies: 0,
+    lowConfidence: 0,
   });
 
   const fetchData = async () => {
@@ -41,7 +46,7 @@ export function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const [customers, meters, invoices, payments, faults, wos, readings, wells, pumps] = await Promise.all([
+      const [customers, meters, invoices, payments, faults, wos, readings, wells, pumps, ocrReadings, anomalies, lowConfidence] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('project_id', pid).eq('status', 'active'),
         supabase.from('meters').select('id', { count: 'exact', head: true }).eq('project_id', pid).eq('status', 'active'),
         supabase.from('invoices').select('*').eq('project_id', pid).order('issue_date', { ascending: false }).limit(50),
@@ -51,6 +56,9 @@ export function DashboardPage() {
         supabase.from('meter_readings').select('*').eq('project_id', pid).order('reading_date', { ascending: false }).limit(10),
         supabase.from('wells').select('*').eq('project_id', pid),
         supabase.from('pumps').select('*').eq('project_id', pid),
+        supabase.from('meter_readings').select('id', { count: 'exact', head: true }).eq('project_id', pid).not('ai_extracted_value','is',null),
+        supabase.from('meter_readings').select('id', { count: 'exact', head: true }).eq('project_id', pid).eq('anomaly_flag',true),
+        supabase.from('meter_readings').select('id', { count: 'exact', head: true }).eq('project_id', pid).not('ai_extracted_value','is',null).lt('ai_confidence',0.8),
       ]);
 
       const invData = invoices.data as Invoice[] || [];
@@ -76,6 +84,9 @@ export function DashboardPage() {
         pumps: pumps.data as Pump[] || [],
         waterProduction: production,
         waterConsumption: consumption,
+        ocrReadings: ocrReadings.count || 0,
+        anomalies: anomalies.count || 0,
+        lowConfidence: lowConfidence.count || 0,
       });
     } catch (err: any) {
       setError(err?.message || 'حدث خطأ غير متوقع أثناء تحميل البيانات');
@@ -339,6 +350,36 @@ export function DashboardPage() {
           )}
         </div>
       </div>
+
+      {profile && (profile.role === 'tenant_manager' || profile.role === 'platform_admin') && (
+        <div className="card p-5 border-primary-200 bg-primary-50/40">
+          <div className="flex items-center gap-2 mb-4">
+            <BrainCircuit size={20} className="text-primary-700" />
+            <div>
+              <h3 className="font-bold text-neutral-900">Intelligence Engine</h3>
+              <p className="text-xs text-neutral-500">OCR → Anomaly Detection → Analytics → AI Assistant → Decision Support</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="rounded-xl bg-white p-3 border border-neutral-100"><p className="text-xs text-neutral-400">قراءات OCR</p><p className="text-xl font-bold">{formatNumber(stats.ocrReadings)}</p></div>
+            <div className="rounded-xl bg-white p-3 border border-neutral-100"><p className="text-xs text-neutral-400">شذوذ مكتشف</p><p className="text-xl font-bold text-error-600">{formatNumber(stats.anomalies)}</p></div>
+            <div className="rounded-xl bg-white p-3 border border-neutral-100"><p className="text-xs text-neutral-400">OCR منخفض الثقة</p><p className="text-xl font-bold text-warning-600">{formatNumber(stats.lowConfidence)}</p></div>
+            <div className="rounded-xl bg-white p-3 border border-neutral-100"><p className="text-xs text-neutral-400">فاقد NRW</p><p className="text-xl font-bold">{nrw === null ? '—' : formatNumber(nrw) + '%'}</p></div>
+            <div className="rounded-xl bg-white p-3 border border-neutral-100"><p className="text-xs text-neutral-400">أعطال مفتوحة</p><p className="text-xl font-bold">{formatNumber(openFaults.length)}</p></div>
+          </div>
+          <div className="mt-4 rounded-xl bg-white border border-neutral-100 p-4">
+            <p className="text-sm font-semibold text-neutral-800 mb-2">دعم القرار</p>
+            <ul className="text-sm text-neutral-600 space-y-1">
+              {stats.anomalies > 0 && <li>• مراجعة القراءات الشاذة قبل اعتمادها في الفوترة.</li>}
+              {stats.lowConfidence > 0 && <li>• التحقق من صور العدادات ذات الثقة المنخفضة.</li>}
+              {nrw !== null && nrw > 30 && <li>• فتح تحليل فاقد تشغيلي/شبكي لأن NRW تجاوز 30%.</li>}
+              {openFaults.some(f => f.severity === 'critical') && <li>• إعطاء أولوية للأعطال الحرجة المفتوحة.</li>}
+              {stats.anomalies === 0 && stats.lowConfidence === 0 && (nrw === null || nrw <= 30) && !openFaults.some(f => f.severity === 'critical') && <li>• لا توجد إشارة حرجة تلقائياً من البيانات الحالية؛ استمر في دورة القياس والتحقق.</li>}
+            </ul>
+            <p className="text-xs text-neutral-400 mt-3">التوصيات تفسيرية ولا تنفذ أي تغيير تلقائياً. مساعد ميزان يعمل ضمن صلاحيات المشروع ويعتمد على البيانات المصرح بها.</p>
+          </div>
+        </div>
+      )}
 
       {/* Executive Summary Bar */}
       <div className="card p-5 bg-gradient-to-l from-primary-900 to-primary-800 text-white border-0">

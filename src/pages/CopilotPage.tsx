@@ -38,6 +38,12 @@ export function CopilotPage() {
       return { role: 'assistant', content: 'الرجاء اختيار مشروع أولاً.' };
     }
     const pid = currentProject.id;
+    const { data: aiResult, error: aiError } = await supabase.functions.invoke('mizan-copilot', {
+      body: { project_id: pid, question: query },
+    });
+    if (!aiError && aiResult?.answer) {
+      return { role: 'assistant', content: aiResult.answer };
+    }
     const q = query.toLowerCase();
 
     if (q.includes('فواتير متأخرة') || q.includes('متأخرات')) {
@@ -180,7 +186,7 @@ export function CopilotPage() {
           <div>
             <p className="text-xs text-neutral-500">
               مساعد ميزان يجيب من بيانات النظام الفعلية فقط. لا يستطيع المساعد تعديل البيانات أو إصدار فواتير أو تجاوز الصلاحيات.
-              جميع الأسئلة والردود مسجلة لأغراض التدقيق.
+              الاستجابات التحليلية تمر عبر خدمة خادمية مقيدة بالمشروع، وأي قرار أو تغيير يبقى تحت صلاحيات المستخدم ولا ينفذه المساعد تلقائياً.
             </p>
           </div>
         </div>
