@@ -65,7 +65,7 @@ $$;
 
 create or replace function private.mizan_touch_updated_at()
 returns trigger language plpgsql security invoker set search_path=''
-as $$ begin new.updated_at=now(); return new end $$;
+as $$ begin new.updated_at=now(); return new; end $;
 
 create or replace function private.mizan_write_audit(p_project_id uuid,p_action text,p_entity_type text,p_entity_id uuid default null,p_before_data jsonb default null,p_after_data jsonb default null,p_reason text default null,p_result text default 'success')
 returns uuid language plpgsql security definer set search_path=''
