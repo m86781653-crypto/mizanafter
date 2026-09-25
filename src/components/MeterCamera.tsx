@@ -361,7 +361,6 @@ export const MeterCamera: React.FC<MeterCameraProps> = ({
           </button>
           <button
             type="button"
-            variant="outline"
             disabled={disabled || isStarting}
             onClick={() => nativeInputRef.current?.click()}
             className="gap-2"
@@ -429,7 +428,7 @@ export const MeterCamera: React.FC<MeterCameraProps> = ({
               <Check className="w-4 h-4" />
               {isCapturing ? "جاري التقاط الصورة…" : "التقاط الصورة"}
             </button>
-            <button type="button" onClick={stopCamera} disabled={isCapturing} variant="destructive">
+            <button type="button" onClick={stopCamera} disabled={isCapturing}>
               إلغاء
             </button>
           </div>
@@ -448,7 +447,6 @@ export const MeterCamera: React.FC<MeterCameraProps> = ({
             <button
               type="button"
               onClick={handleReset}
-              variant="outline"
               disabled={disabled}
               className="gap-2 text-destructive border-destructive hover:bg-destructive/10"
             >
