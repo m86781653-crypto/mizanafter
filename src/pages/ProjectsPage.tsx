@@ -20,7 +20,8 @@ interface CreatedCredential {
 
 export function ProjectsPage() {
   const { projects, setCurrentProjectId, currentProject } = useProject();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
+  const canCreateSubtenant = profile?.role === 'platform_admin';
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,9 +126,9 @@ export function ProjectsPage() {
           <h1 className="text-2xl font-bold text-neutral-900">إدارة المشاريع</h1>
           <p className="text-sm text-neutral-500 mt-1">{formatNumber(projects.length)} مشروع مسجل</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="btn-primary">
-          <Plus size={18} /> إنشاء مشروع جديد
-        </button>
+        {canCreateSubtenant && <button onClick={() => setShowForm(true)} className="btn-primary">
+          <Plus size={18} /> إنشاء مستأجر فرعي ومشروع
+        </button>}
       </div>
 
       {projects.length === 0 ? (
@@ -135,8 +136,8 @@ export function ProjectsPage() {
           <EmptyState
             icon={Building2}
             title="لا توجد مشاريع بعد"
-            description="أنشئ أول مشروع مياه. سيتم إنشاء 3 حسابات (مدير مشروع، قارئ عدادات، محصل) تلقائياً مع كلمات مرور جاهزة للتسليم."
-            action={{ label: 'إنشاء مشروع جديد', onClick: () => setShowForm(true) }}
+            description={canCreateSubtenant ? "أنشئ مستأجراً فرعياً ومشروع مياه. سيتم إنشاء 3 حسابات (مدير مشروع، قارئ عدادات، محصل) تلقائياً مع كلمات مرور جاهزة للتسليم." : "هذا هو المشروع المخصص لمستأجرك الفرعي."}
+            action={canCreateSubtenant ? { label: 'إنشاء مستأجر فرعي ومشروع', onClick: () => setShowForm(true) } : undefined}
           />
         </div>
       ) : (
@@ -184,7 +185,7 @@ export function ProjectsPage() {
       )}
 
       {/* Create Project Modal */}
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="إنشاء مشروع جديد مع 3 حسابات مستخدمين" size="lg">
+      <Modal open={showForm} onClose={() => setShowForm(false)} title="إنشاء مستأجر فرعي ومشروع مع 3 حسابات مستخدمين" size="lg">
         <div className="mb-4 flex items-start gap-2 px-4 py-3 rounded-xl bg-primary-50 text-primary-700 text-sm">
           <UserCheck size={18} className="shrink-0 mt-0.5" />
           <span>سيتم إنشاء المشروع و3 حسابات تلقائياً: مدير مشروع، قارئ عدادات، محصل. ستحصل على كلمات مرور جاهزة لتسليمها للعميل.</span>
