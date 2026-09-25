@@ -67,8 +67,7 @@ export function ProjectsPage() {
       setCreatedProjectName(result.project?.name_ar || form.name_ar);
       setShowForm(false);
       setForm({name_ar:'',name_en:'',status:'active',funding_source:'',donor:'',beneficiary_count:'',design_capacity:'',operational_capacity:'',address:'',established_date:'',manager_name:'',manager_email:'',reader_name:'',reader_email:'',collector_name:'',collector_email:''});
-      window.location.reload();
-    } catch (err) {
+          } catch (err) {
       setError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع');
     } finally {
       setSaving(false);
