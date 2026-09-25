@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { useStore } from "./store";
-import { supabase } from "./supabase";
+
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { STORE_BLOBS, STORE_QUEUE, idbDelete, idbGet, idbGetAll, idbPut, idbPutQueueWithPhoto, requestPersistentStorage } from "./offline-db";
-import { verifyMeterImage, saveVerifiedMeterReading } from "./meter-vision.functions";
-import { saveManualMeterReading } from "./meter-manual.functions";
+import { verifyMeterImage, saveVerifiedMeterReading } from "./mirrorMeterVision";
+import { saveManualFallbackMeterReading as saveManualMeterReading } from "./mirrorMeterManual";
 import { fileToDataUrl } from "./meter-ocr";
 
 const MAX_PHOTO_BYTES = 25 * 1024 * 1024;
@@ -106,7 +106,7 @@ export async function syncPending(force=false): Promise<{synced:number;failed:nu
       }catch(e){ failed++; const message=e instanceof Error?e.message:String(e); await setStatus(p,{status:"failed",attempts:p.attempts+1,lastAttemptAt:new Date().toISOString(),lastError:message,photoPath:photoPath??p.photoPath}); }
     }
     await pruneSynced();
-    if(synced>0)void useStore.getState().hydrateFromSupabase().catch(err=>console.warn("[Mizan] hydrate after sync failed (offline data kept):",err));
+    
     return{synced,failed};
   }finally{syncing=false;}
 }
