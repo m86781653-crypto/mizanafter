@@ -7,6 +7,7 @@ name: database-contract
 # Tenant prerequisites are validated before role enforcement.
 # Authorization policies are applied only after the private kernel exists.
 # Permission catalog is bootstrapped before the kernel.
+# RPC ACL hardening runs only after governed function definitions.
 on:
   pull_request:
     branches:
