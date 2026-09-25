@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import type { Meter, MeterReading, Customer } from '@/types';
+import { MeterCamera } from '@/components/MeterCamera';
 
 export function ReadingsPage() {
   const { currentProject } = useProject();
@@ -24,6 +25,7 @@ export function ReadingsPage() {
   const [showReadingModal, setShowReadingModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [aiSimulating, setAiSimulating] = useState(false);
+  const [capturedPhoto, setCapturedPhoto] = useState<{ file: File; previewUrl: string } | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
   const [form, setForm] = useState({
     reading_value: '', reading_method: 'manual',
@@ -181,6 +183,7 @@ export function ReadingsPage() {
       setShowReadingModal(false);
       setSelectedMeter(null);
       setForm({ reading_value: '', reading_method: 'manual', gps_lat: '', gps_lng: '', gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: '' });
+    setCapturedPhoto(null);
     }
     setSaving(false);
   };
@@ -307,33 +310,25 @@ export function ReadingsPage() {
               </div>
             </div>
 
-            {/* AI Simulation Panel */}
-            <div className="border-2 border-dashed border-accent-300 rounded-xl p-4 bg-accent-50/30">
-              <div className="flex items-center gap-2 mb-2">
-                <Bot size={18} className="text-accent-600" />
-                <h4 className="font-bold text-neutral-800">استخراج القراءة بالذكاء الاصطناعي</h4>
-                <span className="text-xs text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded">محاكاة تجريبية</span>
+            {/* Mirror Runtime field camera — capture is real; OCR/identity verification remains server-authoritative. */}
+            <div className="border rounded-xl p-4 bg-neutral-50/70">
+              <div className="flex items-center gap-2 mb-3">
+                <Camera size={18} className="text-primary-700" />
+                <h4 className="font-bold text-neutral-800">تصوير العداد</h4>
+                <span className="text-xs text-neutral-500">التقاط ميداني حقيقي</span>
               </div>
-              <p className="text-xs text-neutral-500 mb-3">في الإنتاج، يتم إرسال صورة العداد إلى مزود رؤية حاسوبية لاستخراج القراءة تلقائياً. هذه محاكاة للأغراض التوضيحية.</p>
-              <button onClick={simulateAI} disabled={aiSimulating} className="btn-secondary text-sm">
-                {aiSimulating ? <><Loader2 size={16} className="animate-spin" /> جاري التحليل...</> : <><Camera size={16} /> محاكاة استخراج القراءة</>}
-              </button>
-              {form.ai_extracted_value && (
-                <div className="mt-3 grid grid-cols-2 gap-3 animate-slide-up">
-                  <div className="bg-white rounded-lg p-3 border border-accent-200">
-                    <p className="text-xs text-neutral-400">القراءة المستخرجة</p>
-                    <p className="text-lg font-bold text-accent-700">{formatNumber(parseFloat(form.ai_extracted_value))}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-accent-200">
-                    <p className="text-xs text-neutral-400">نسبة الثقة</p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-neutral-200 rounded-full overflow-hidden">
-                        <div className={`h-full ${parseFloat(form.ai_confidence) > 85 ? 'bg-success-500' : 'bg-warning-500'}`} style={{ width: `${form.ai_confidence}%` }} />
-                      </div>
-                      <span className="text-sm font-bold text-neutral-700">{form.ai_confidence}%</span>
-                    </div>
-                  </div>
-                </div>
+              <MeterCamera
+                initialPreview={capturedPhoto?.previewUrl}
+                disabled={saving}
+                onCapture={(file, previewUrl) => {
+                  setCapturedPhoto({ file, previewUrl });
+                  setForm((current) => ({ ...current, reading_method: 'photo' }));
+                  setError('');
+                }}
+                onClear={() => setCapturedPhoto(null)}
+              />
+              {capturedPhoto && (
+                <p className="text-xs text-success-700 mt-2">تم التقاط الصورة الأصلية. لن تُعتبر القراءة موثقة آلياً حتى ينجح تحقق هوية العداد واستخراج القراءة على الخادم.</p>
               )}
             </div>
 
