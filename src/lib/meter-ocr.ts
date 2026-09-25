@@ -7,22 +7,22 @@ import { createMeterReadingDeadline, MeterReadingTimeoutError, withMeterReadingD
 import { normalizeMeterReadingCandidate, type MeterReadingProfile } from "./meter-reading-profile";
 
 export const LOCAL_TESSERACT_OPTIONS = {
-  workerPath: "/tesseract/worker.min.js",
-  corePath: "/tesseract/",
-  langPath: "/tesseract",
+  workerPath: "/mizan-ocr/worker.min.js",
+  corePath: "/mizan-ocr/",
+  langPath: "/mizan-ocr",
   gzip: false,
 } as const;
 
 const LOCAL_TESSERACT_CACHE = "mizan-tesseract";
 const LOCAL_TESSERACT_ASSETS = [
-  "/tesseract/worker.min.js",
-  "/tesseract/eng.traineddata",
-  "/tesseract/tesseract-core-lstm.wasm",
-  "/tesseract/tesseract-core-lstm.wasm.js",
-  "/tesseract/tesseract-core-relaxedsimd-lstm.wasm",
-  "/tesseract/tesseract-core-relaxedsimd-lstm.wasm.js",
-  "/tesseract/tesseract-core-simd-lstm.wasm",
-  "/tesseract/tesseract-core-simd-lstm.wasm.js",
+  "/mizan-ocr/worker.min.js",
+  "/mizan-ocr/eng.traineddata",
+  "/mizan-ocr/mizan-ocr-core-lstm.wasm",
+  "/mizan-ocr/mizan-ocr-core-lstm.wasm.js",
+  "/mizan-ocr/mizan-ocr-core-relaxedsimd-lstm.wasm",
+  "/mizan-ocr/mizan-ocr-core-relaxedsimd-lstm.wasm.js",
+  "/mizan-ocr/mizan-ocr-core-simd-lstm.wasm",
+  "/mizan-ocr/mizan-ocr-core-simd-lstm.wasm.js",
 ] as const;
 
 let prewarmed: Promise<boolean> | null = null;
