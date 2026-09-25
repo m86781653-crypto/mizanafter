@@ -16,6 +16,7 @@ import {
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import type { Meter, MeterReading, Customer } from '@/types';
 import { MeterCamera } from '@/components/MeterCamera';
+import { recognizeMeterImage } from '@/lib/meter-ocr';
 
 export function ReadingsPage() {
   const { currentProject } = useProject();
@@ -26,6 +27,7 @@ export function ReadingsPage() {
   const [saving, setSaving] = useState(false);
   const [aiSimulating, setAiSimulating] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [ocrProcessing, setOcrProcessing] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
   const [form, setForm] = useState({
     reading_value: '', reading_method: 'manual',
@@ -320,13 +322,35 @@ export function ReadingsPage() {
               <MeterCamera
                 initialPreview={capturedPhoto?.previewUrl}
                 disabled={saving}
-                onCapture={(file, previewUrl) => {
+                onCapture={async (file, previewUrl) => {
                   setCapturedPhoto({ file, previewUrl });
                   setForm((current) => ({ ...current, reading_method: 'photo' }));
                   setError('');
+                  setOcrProcessing(true);
+                  try {
+                    const result = await recognizeMeterImage(file, {
+                      knownMeterNumber: selectedMeter?.meter_number ?? undefined,
+                      previousReading: selectedMeter?.last_reading ?? null,
+                    });
+                    if (result.readingAmbiguous || result.readingValue == null) {
+                      throw new Error('تعذر استخراج قراءة واحدة واضحة من الصورة. أعد التصوير مع إظهار شاشة العداد بوضوح.');
+                    }
+                    setForm((current) => ({
+                      ...current,
+                      reading_value: String(result.readingValue),
+                      ai_extracted_value: String(result.readingValue),
+                      ai_confidence: String(result.readingConfidence),
+                      reading_method: 'photo',
+                    }));
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : 'تعذر تحليل صورة العداد');
+                  } finally {
+                    setOcrProcessing(false);
+                  }
                 }}
                 onClear={() => setCapturedPhoto(null)}
               />
+              {ocrProcessing && <p className="text-xs text-primary-700 mt-2">جاري قراءة أرقام العداد والتحقق من هويته محلياً…</p>}
               {capturedPhoto && (
                 <p className="text-xs text-success-700 mt-2">تم التقاط الصورة الأصلية. لن تُعتبر القراءة موثقة آلياً حتى ينجح تحقق هوية العداد واستخراج القراءة على الخادم.</p>
               )}
