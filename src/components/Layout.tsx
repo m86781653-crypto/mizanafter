@@ -42,6 +42,8 @@ export function Layout({ activePage, onNavigate, allowedPages, children }: Layou
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const isPlatformAdmin = profile?.role === 'platform_admin';
+  const isMainTenantManager = profile?.role === 'tenant_manager' && !!profile?.tenant_id;
+  const isOversightMode = !!currentProject && isMainTenantManager && currentProject.tenant_id !== profile?.tenant_id;
   const visibleNav = navConfig.filter((item) => allowedPages.includes(item.id));
 
   useEffect(() => {
@@ -140,8 +142,8 @@ export function Layout({ activePage, onNavigate, allowedPages, children }: Layou
             <Menu size={22} className="text-neutral-700" />
           </button>
 
-          {/* Project Selector - only for super_admin or multi-project users */}
-          {isPlatformAdmin && (
+          {/* Project Selector - platform admin and main-tenant manager */}
+          {(isPlatformAdmin || isMainTenantManager) && (
             <div className="relative">
               <button
                 onClick={() => setProjectMenuOpen(!projectMenuOpen)}
@@ -171,6 +173,9 @@ export function Layout({ activePage, onNavigate, allowedPages, children }: Layou
                         }`}
                       >
                         <span className="text-sm font-medium truncate">{p.name_ar}</span>
+                        {isMainTenantManager && p.tenant_id !== profile?.tenant_id && (
+                          <span className="badge bg-accent-100 text-accent-700">إشراف</span>
+                        )}
                         <span className={`badge ${p.status === 'active' ? 'bg-success-100 text-success-700' : 'bg-neutral-100 text-neutral-600'}`}>
                           {p.status === 'active' ? 'نشط' : 'غير نشط'}
                         </span>
@@ -182,8 +187,8 @@ export function Layout({ activePage, onNavigate, allowedPages, children }: Layou
             </div>
           )}
 
-          {/* For non-super-admin, show project name without selector */}
-          {!isPlatformAdmin && currentProject && (
+          {/* For fixed-project operational users, show project name without selector */}
+          {!isPlatformAdmin && !isMainTenantManager && currentProject && (
             <div className="flex items-center gap-2 px-3 py-2">
               <div className="p-1.5 rounded-lg bg-primary-50 text-primary-700 shrink-0">
                 <Building2 size={16} />
@@ -300,6 +305,16 @@ export function Layout({ activePage, onNavigate, allowedPages, children }: Layou
             </div>
           </div>
         </header>
+
+        {/* Governance banner for central oversight */}
+        {isOversightMode && (
+          <div className="border-b border-accent-200 bg-accent-50 px-4 lg:px-6 py-2.5 text-sm text-accent-800">
+            <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-3">
+              <span><strong>وضع الإشراف:</strong> أنت تطّلع على مشروع تابع لمستأجر فرعي. التعديلات التشغيلية محجوزة لفريق المستأجر الفرعي.</span>
+              <span className="text-xs font-semibold">قراءة ومراقبة</span>
+            </div>
+          </div>
+        )}
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto">
