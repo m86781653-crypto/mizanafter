@@ -61,7 +61,7 @@ Deno.serve(async (req: Request) => {
 
     // Verify the caller before any privileged write.
     const { data: caller, error: callerErr } = await supabase.auth.getUser(
-      req.headers.get("Authorization")?.replace(/^Bearer\\s+/i, "") || ""
+      req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") || ""
     );
     if (callerErr || !caller.user) {
       return new Response(JSON.stringify({ error: "AUTH_REQUIRED" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
