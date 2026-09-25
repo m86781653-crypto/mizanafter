@@ -1,6 +1,7 @@
 name: database-contract
 
 # Full migration-chain contract gate: local Supabase must boot before SQL authorization contracts run.
+# The gate intentionally executes against a clean local database.
 on:
   pull_request:
     branches:
@@ -43,7 +44,7 @@ jobs:
               exit 1
             fi
             if [[ -n "${seen[$stamp]:-}" ]]; then
-              echo "Duplicate migration timestamp: $stamp (${file} and ${seen[$stamp]})" >&2
+              echo "Duplicate migration timestamp: $stamp ($file and ${seen[$stamp]})" >&2
               exit 1
             fi
             seen[$stamp]="$file"
