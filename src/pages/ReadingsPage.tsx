@@ -122,72 +122,97 @@ export function ReadingsPage() {
   const handleSaveReading = async () => {
     if (!selectedMeter || !currentProject) return;
     setError('');
-    const value = parseFloat(form.reading_value);
-    if (isNaN(value)) { setError('الرجاء إدخال قراءة صحيحة'); return; }
 
-    const prev = selectedMeter.last_reading;
-    let anomaly = false;
-    let anomalyReason = '';
-
-    if (value < prev && !form.notes.includes('استبدال') && !form.notes.includes('تجاوز')) {
-      setError(`القراءة (${value}) أقل من السابقة (${prev}). إذا تم استبدال العداد أو تجاوز العداد الصفر، يرجى ذكر ذلك في الملاحظات.`);
+    const value = Number(form.reading_value);
+    if (!Number.isFinite(value) || value < 0) {
+      setError('الرجاء إدخال قراءة صحيحة غير سالبة');
       return;
     }
 
-    const consumption = value - prev;
-    if (consumption > 50) {
-      anomaly = true;
-      anomalyReason = `استهلاك مرتفع بشكل غير اعتيادي: ${consumption} م³`;
+    if (!online) {
+      setError('لا يمكن اعتماد القراءة من الخادم أثناء انقطاع الاتصال. سيتم تفعيل الطابور المحلي والمزامنة الآمنة في المسار التالي.');
+      return;
     }
-    if (consumption < 0) {
-      anomaly = true;
-      anomalyReason = `قراءة أقل من السابقة (قد يكون استبدال أو تجاوز العداد)`;
+
+    if (form.reading_method === 'photo' && !capturedPhoto) {
+      setError('يجب تصوير العداد قبل اعتماد قراءة الصورة');
+      return;
     }
 
     setSaving(true);
-    const readingData = {
-      meter_id: selectedMeter.id,
-      project_id: currentProject.id,
-      customer_id: selectedMeter.customer_id,
-      reading_value: value,
-      previous_reading: prev,
-      consumption: Math.max(consumption, 0),
-      reading_method: form.reading_method,
-      status: anomaly ? 'anomaly' : 'pending',
-      anomaly_flag: anomaly,
-      anomaly_reason: anomalyReason || null,
-      gps_lat: form.gps_lat ? parseFloat(form.gps_lat) : null,
-      gps_lng: form.gps_lng ? parseFloat(form.gps_lng) : null,
-      gps_accuracy: form.gps_accuracy ? parseFloat(form.gps_accuracy) : null,
-      reader_name: form.reader_name || null,
-      notes: form.notes || null,
-      sync_status: online ? 'synced' : 'pending',
-      ai_extracted_value: form.ai_extracted_value ? parseFloat(form.ai_extracted_value) : null,
-      ai_confidence: form.ai_confidence ? parseFloat(form.ai_confidence) : null,
-      ai_model: form.ai_extracted_value ? 'simulated-ocr-v1' : null,
-    };
+    try {
+      const clientCaptureId = crypto.randomUUID();
+      let imagePath: string | null = null;
 
-    const { data, error: insErr } = await supabase.from('meter_readings').insert(readingData).select().single();
+      if (capturedPhoto) {
+        const extension = capturedPhoto.file.type.includes('png') ? 'png' : capturedPhoto.file.type.includes('webp') ? 'webp' : 'jpg';
+        imagePath = `${currentProject.id}/${selectedMeter.id}/${clientCaptureId}.${extension}`;
+        const upload = await supabase.storage.from('meter-readings').upload(imagePath, capturedPhoto.file, {
+          contentType: capturedPhoto.file.type || 'image/jpeg',
+          upsert: false,
+        });
+        if (upload.error) throw new Error(`تعذر حفظ صورة العداد: ${upload.error.message}`);
+      }
 
-    if (insErr) {
-      setError(insErr.message);
-      setSaving(false);
-      return;
-    }
+      const { data: reading, error: captureError } = await supabase.rpc('mrx_capture_meter_reading', {
+        p_meter_id: selectedMeter.id,
+        p_reading_value: value,
+        p_reading_date: new Date().toISOString(),
+        p_reading_method: form.reading_method === 'photo' ? 'photo' : 'manual',
+        p_image_url: imagePath,
+        p_gps_lat: form.gps_lat ? Number(form.gps_lat) : null,
+        p_gps_lng: form.gps_lng ? Number(form.gps_lng) : null,
+        p_gps_accuracy: form.gps_accuracy ? Number(form.gps_accuracy) : null,
+        p_ai_extracted_value: form.ai_extracted_value ? Number(form.ai_extracted_value) : null,
+        p_ai_confidence: form.ai_confidence ? Number(form.ai_confidence) : null,
+        p_ai_model: form.reading_method === 'photo' ? 'local-ocr-v1' : null,
+        p_notes: form.notes || null,
+        p_client_capture_id: clientCaptureId,
+        p_detected_meter_number: selectedMeter.meter_number,
+      });
 
-    if (data) {
-      await supabase.from('meters').update({
-        last_reading: value,
-        last_reading_date: new Date().toISOString(),
-      }).eq('id', selectedMeter.id);
+      if (captureError) {
+        if (imagePath) await supabase.storage.from('meter-readings').remove([imagePath]);
+        throw new Error(captureError.message);
+      }
 
-      setReadings([data as MeterReading, ...readings]);
+      const approvedReading = reading as MeterReading;
+      const periodEnd = new Date();
+      const periodStart = selectedMeter.last_reading_date
+        ? new Date(selectedMeter.last_reading_date)
+        : new Date(periodEnd.getTime() - 30 * 86400000);
+
+      const { error: invoiceError } = await supabase.rpc('mizan_create_invoice', {
+        p_project_id: currentProject.id,
+        p_customer_id: selectedMeter.customer_id,
+        p_meter_id: selectedMeter.id,
+        p_current_reading: value,
+        p_period_start: periodStart.toISOString().slice(0, 10),
+        p_period_end: periodEnd.toISOString().slice(0, 10),
+      });
+
+      if (invoiceError) {
+        setError(`تم اعتماد القراءة، لكن تعذر إنشاء الفاتورة تلقائياً: ${invoiceError.message}`);
+      }
+
+      setReadings([approvedReading, ...readings]);
+      setMeters((current) => current.map((meter) =>
+        meter.id === selectedMeter.id
+          ? { ...meter, last_reading: value, last_reading_date: periodEnd.toISOString() }
+          : meter
+      ));
       setShowReadingModal(false);
       setSelectedMeter(null);
-      setForm({ reading_value: '', reading_method: 'manual', gps_lat: '', gps_lng: '', gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: '' });
-    setCapturedPhoto(null);
+      setCapturedPhoto(null);
+      setForm({
+        reading_value: '', reading_method: 'manual', gps_lat: '', gps_lng: '',
+        gps_accuracy: '', reader_name: '', notes: '', ai_extracted_value: '', ai_confidence: ''
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'تعذر اعتماد القراءة');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const openReadingModal = (meter: Meter & { customers?: Customer }) => {
