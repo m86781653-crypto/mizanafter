@@ -22,7 +22,7 @@ export function ReadingsPage() {
   const [meters, setMeters] = useState<(Meter & { customers?: Customer & { balance?: number } })[]>([]);
   const [search, setSearch] = useState('');
   const [readings, setReadings] = useState<MeterReading[]>([]);
-  const [selectedMeter, setSelectedMeter] = useState<(Meter & { customers?: Customer }) | null>(null);
+  const [selectedMeter, setSelectedMeter] = useState<(Meter & { customers?: Customer & { balance?: number } }) | null>(null);
   const [showReadingModal, setShowReadingModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photoData, setPhotoData] = useState<string | null>(null);
