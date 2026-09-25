@@ -24,6 +24,7 @@ export function ReportsPage() {
     wells: [] as any[],
     pumps: [] as any[],
     assets: [] as any[],
+    interruptions: [] as any[],
   });
 
   const fetchData = useCallback(async () => {
@@ -32,7 +33,7 @@ export function ReportsPage() {
     setError(null);
     const pid = currentProject.id;
     try {
-      const [c, m, inv, pay, r, f, wo, w, p, a] = await Promise.all([
+      const [c, m, inv, pay, r, f, wo, w, p, a, si] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('project_id', pid),
         supabase.from('meters').select('id', { count: 'exact', head: true }).eq('project_id', pid),
         supabase.from('invoices').select('*').eq('project_id', pid),
@@ -43,8 +44,9 @@ export function ReportsPage() {
         supabase.from('wells').select('*').eq('project_id', pid),
         supabase.from('pumps').select('*').eq('project_id', pid),
         supabase.from('assets').select('*').eq('project_id', pid),
+        supabase.from('service_interruptions').select('*').eq('project_id', pid).order('started_at',{ ascending: false }),
       ]);
-      const firstError = c.error || m.error || inv.error || pay.error || r.error || f.error || wo.error || w.error || p.error || a.error;
+      const firstError = c.error || m.error || inv.error || pay.error || r.error || f.error || wo.error || w.error || p.error || a.error || si.error;
       if (firstError) throw firstError;
       setData({
         customers: c.count || 0,
@@ -57,6 +59,7 @@ export function ReportsPage() {
         wells: w.data || [],
         pumps: p.data || [],
         assets: a.data || [],
+        interruptions: si.data || [],
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'فشل تحميل البيانات');
@@ -82,6 +85,7 @@ export function ReportsPage() {
   const openWOs = data.workOrders.filter((w: any) => w.status === 'open' || w.status === 'in_progress').length;
   const anomalies = data.readings.filter((r: any) => r.anomaly_flag).length;
   const dataCompleteness = data.meters > 0 ? Math.min(data.readings.length / data.meters * 100, 100) : 0;
+  const openInterruptions = data.interruptions.filter((x: any) => !['restored','closed'].includes(x.status)).length;
 
   const exportCSV = (type: string) => {
     let rows: string[][] = [];
@@ -118,6 +122,11 @@ export function ReportsPage() {
         data.faults.forEach((f: any) => {
           rows.push([f.fault_number, f.fault_type || '', f.severity, f.status, formatDate(f.reported_at)]);
         });
+        break;
+      case 'interruptions':
+        filename = 'service_interruptions_report';
+        rows = [['رقم التوقف','النوع','الخطورة','الحالة','بداية التوقف','المشتركون المتأثرون','الفاقد المقدر م3']];
+        data.interruptions.forEach((x:any) => rows.push([x.interruption_number,x.interruption_type||'',x.severity,x.status,formatDate(x.started_at),String(x.affected_subscribers||0),String(x.estimated_water_loss_m3||0)]));
         break;
       case 'assets':
         filename = 'assets_report';
@@ -160,6 +169,7 @@ export function ReportsPage() {
     { id: 'revenue', title: 'تقرير الإيرادات والتحصيل', desc: 'الإيرادات، المحصّل، المتأخرات', icon: Receipt, color: 'success' },
     { id: 'customers', title: 'تقرير المشتركين', desc: 'إحصائيات المشتركين والأنواع', icon: Users, color: 'accent' },
     { id: 'faults', title: 'تقرير الأعطال والصيانة', desc: 'الأعطال، أوامر الصيانة، الأوقات', icon: AlertTriangle, color: 'error' },
+    { id: 'interruptions', title: 'تقرير التوقفات', desc: 'التوقفات ومددها وتأثيرها على الخدمة', icon: AlertTriangle, color: 'error' },
     { id: 'assets', title: 'تقرير الأصول', desc: 'الأصول وحالتها ودورة الحياة', icon: Wrench, color: 'neutral' },
     { id: 'quality', title: 'تقرير جودة البيانات', desc: 'اكتمال البيانات والقراءات الشاذة', icon: Activity, color: 'primary' },
     { id: 'performance', title: 'تقرير الأداء التشغيلي', desc: 'مؤشرات الأداء الرئيسية', icon: BarChart3, color: 'accent' },
@@ -177,6 +187,7 @@ export function ReportsPage() {
         <StatCard title="نسبة الفاقد" value={nrw === null ? '—' : `${formatNumber(nrw)}%`} icon={TrendingDown} color={nrw === null ? 'success' : nrw < 15 ? 'success' : nrw < 30 ? 'warning' : 'error'} />
         <StatCard title="اكتمال البيانات" value={`${formatNumber(dataCompleteness)}%`} icon={Activity} color={dataCompleteness > 80 ? 'success' : 'warning'} />
         <StatCard title="قراءات شاذة" value={formatNumber(anomalies)} icon={AlertTriangle} color={anomalies > 0 ? 'error' : 'neutral'} />
+        <StatCard title="توقفات مفتوحة" value={formatNumber(openInterruptions)} icon={AlertTriangle} color={openInterruptions > 0 ? 'warning' : 'success'} />
       </div>
 
       <div className="card p-6">
