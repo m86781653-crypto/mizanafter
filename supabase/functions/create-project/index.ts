@@ -96,11 +96,55 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 1. Create the project inside the caller's tenant.
+    const { data: callerTenant, error: tenantErr } = await supabase
+      .from("tenants")
+      .select("id, parent_tenant_id, tenant_type, status")
+      .eq("id", callerProfile.tenant_id)
+      .maybeSingle();
+
+    if (tenantErr || !callerTenant || callerTenant.status !== "active") {
+      return new Response(JSON.stringify({ error: "TENANT_NOT_ACTIVE" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    // Governance boundary:
+    // - Main tenant manager creates a NEW direct sub-tenant and its project.
+    // - Sub-tenant manager/operations officer can create a project only inside
+    //   their own tenant; they cannot create or reassign tenants.
+    let targetTenantId = callerProfile.tenant_id;
+    let createdSubtenant = false;
+
+    if (callerTenant.tenant_type === "main_tenant") {
+      if (callerProfile.role !== "tenant_manager") {
+        return new Response(JSON.stringify({ error: "MAIN_TENANT_MANAGER_REQUIRED" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      const { data: childTenantId, error: childTenantErr } = await supabase.rpc(
+        "mizan_create_subtenant",
+        {
+          p_name_ar: project_name,
+          p_name_en: project_name_en || null,
+          p_timezone: "Asia/Aden",
+        }
+      );
+
+      if (childTenantErr || !childTenantId) {
+        return new Response(JSON.stringify({ error: childTenantErr?.message || "SUBTENANT_CREATE_FAILED" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+
+      targetTenantId = childTenantId as string;
+      createdSubtenant = true;
+    }
+
     const projectPayload: Record<string, unknown> = {
       name_ar: project_name,
       status: status || "active",
-      tenant_id: callerProfile.tenant_id,
+      tenant_id: targetTenantId,
     };
     if (project_name_en) projectPayload.name_en = project_name_en;
     if (funding_source) projectPayload.funding_source = funding_source;
@@ -120,7 +164,6 @@ Deno.serve(async (req: Request) => {
     if (projectErr) throw new Error("فشل إنشاء المشروع: " + projectErr.message);
     const projectId = project.id;
 
-    // 2. Create the 3 users
     const users: UserSpec[] = [
       { role: "tenant_manager", full_name: manager_name || "مدير المستأجر", email: manager_email },
       { role: "meter_reader", full_name: reader_name || "قارئ العدادات", email: reader_email },
@@ -130,78 +173,48 @@ Deno.serve(async (req: Request) => {
     const credentials: Array<{ role: string; role_label: string; full_name: string; email: string; password: string; must_change_password: boolean }> = [];
 
     for (const userSpec of users) {
-      const password = generatePassword();
-
-      // Check if user already exists
       const { data: existingUsers } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
       const existing = existingUsers?.users?.find((u: any) => u.email?.toLowerCase() === userSpec.email.toLowerCase());
 
-      let userId: string;
-
+      // Never silently move/reassign an existing identity between tenants.
       if (existing) {
-        // Update password and metadata
-        const { error: updateErr } = await supabase.auth.admin.updateUserById(
-          existing.id,
-          {
-            password,
-            user_metadata: {
-              full_name: userSpec.full_name,
-              must_change_password: true,
-            },
-            app_metadata: {
-              tenant_id: callerProfile.tenant_id,
-              role: userSpec.role,
-              project_id: projectId,
-            },
-          }
-        );
-        if (updateErr) throw new Error(`فشل تحديث ${userSpec.email}: ${updateErr.message}`);
-        userId = existing.id;
-
-        // Update profile
-        await supabase.from("profiles").upsert({
-          id: userId,
-          email: userSpec.email,
-          full_name: userSpec.full_name,
-          role: userSpec.role,
-          project_id: projectId,
-          tenant_id: callerProfile.tenant_id,
-          must_change_password: true,
-        });
-      } else {
-        // Create new user
-        const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
-          email: userSpec.email,
-          password,
-          email_confirm: true,
-          user_metadata: {
-            full_name: userSpec.full_name,
-            must_change_password: true,
-          },
-          app_metadata: {
-            tenant_id: callerProfile.tenant_id,
-            role: userSpec.role,
-            project_id: projectId,
-          },
-        });
-        if (createErr) throw new Error(`فشل إنشاء ${userSpec.email}: ${createErr.message}`);
-        userId = newUser.user.id;
-
-        // Update profile with project_id (trigger creates it without project_id)
-        await supabase.from("profiles").upsert({
-          id: userId,
-          email: userSpec.email,
-          full_name: userSpec.full_name,
-          role: userSpec.role,
-          project_id: projectId,
-          tenant_id: callerProfile.tenant_id,
-          must_change_password: true,
-        });
+        throw new Error(`المستخدم ${userSpec.email} موجود مسبقاً؛ استخدم بريداً جديداً للحساب الجديد`);
       }
+
+      const password = generatePassword();
+      const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
+        email: userSpec.email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: userSpec.full_name,
+          must_change_password: true,
+        },
+        app_metadata: {
+          tenant_id: targetTenantId,
+          role: userSpec.role,
+          project_id: projectId,
+        },
+      });
+
+      if (createErr) throw new Error(`فشل إنشاء ${userSpec.email}: ${createErr.message}`);
+      const userId = newUser.user.id;
+
+      const { error: profileErr } = await supabase.from("profiles").upsert({
+        id: userId,
+        email: userSpec.email,
+        full_name: userSpec.full_name,
+        role: userSpec.role,
+        project_id: projectId,
+        tenant_id: targetTenantId,
+        must_change_password: true,
+      });
+
+      if (profileErr) throw new Error(`فشل إنشاء ملف ${userSpec.email}: ${profileErr.message}`);
 
       const roleLabels: Record<string, string> = {
         tenant_manager: "مدير المستأجر",
-        meter_reader: "قارئ عدادات",
+        meter_reader: "قارئ العدادات",
         collection_officer: "مسؤول التحصيل",
       };
 
@@ -215,7 +228,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 3. Create a default tariff for the project
     const { data: tariff } = await supabase.from("tariffs").insert({
       project_id: projectId,
       name_ar: "تعرفة سكنية افتراضية",
@@ -236,15 +248,19 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: true,
+        tenant_id: targetTenantId,
+        subtenant_created: createdSubtenant,
         project: { id: projectId, name_ar: project_name },
         credentials,
-        message: "تم إنشاء المشروع و3 حسابات مستخدمين بنجاح",
+        message: createdSubtenant
+          ? "تم إنشاء المستأجر الفرعي والمشروع وحسابات التشغيل بنجاح"
+          : "تم إنشاء المشروع وحسابات التشغيل بنجاح",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     return new Response(
-      JSON.stringify({ error: err.message || "حدث خطأ غير متوقع" }),
+      JSON.stringify({ error: err instanceof Error ? err.message : "حدث خطأ غير متوقع" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
