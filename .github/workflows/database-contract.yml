@@ -59,6 +59,12 @@ jobs:
       - name: Run authorization security contract
         run: supabase test db supabase/tests/013_authorization_surface_contract.test.sql
 
+      - name: Run update write-boundary contract
+        run: supabase test db supabase/tests/014_update_write_boundary_contract.test.sql
+
+      - name: Run privilege minimization contract
+        run: supabase test db supabase/tests/015_privilege_minimization_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
