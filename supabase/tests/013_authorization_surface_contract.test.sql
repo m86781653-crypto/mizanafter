@@ -33,7 +33,7 @@ SELECT ok(
 SELECT ok(
   NOT has_function_privilege(
     'anon',
-    'public.mizan_create_invoice(uuid,uuid,uuid,numeric,date,date)',
+    'public.mizan_create_invoice(uuid,uuid,uuid,date,date)',
     'EXECUTE'
   ),
   'anon cannot execute invoice creation'
@@ -42,7 +42,7 @@ SELECT ok(
 SELECT ok(
   has_function_privilege(
     'authenticated',
-    'public.mizan_create_invoice(uuid,uuid,uuid,numeric,date,date)',
+    'public.mizan_create_invoice(uuid,uuid,uuid,date,date)',
     'EXECUTE'
   ),
   'authenticated can reach invoice RPC; authorization is enforced inside the SECURITY DEFINER function'
