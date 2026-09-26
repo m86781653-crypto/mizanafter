@@ -104,10 +104,10 @@ SELECT ok(
   AND pg_get_functiondef((
     SELECT p.oid FROM pg_proc p
     JOIN pg_namespace n ON n.oid=p.pronamespace
-    WHERE n.nspname='public' AND p.proname='mizan_create_invoice'
-      AND pg_get_function_identity_arguments(p.oid)='p_project_id uuid, p_customer_id uuid, p_meter_id uuid, p_period_start date, p_period_end date'
+    WHERE n.nspname='private' AND p.proname='mizan_calculate_consumption_fee'
+      AND pg_get_function_identity_arguments(p.oid)='p_tariff_id uuid, p_consumption numeric'
   )) LIKE '%TARIFF_COVERAGE_INCOMPLETE%',
-  'invoice issuance rejects missing or incomplete tariff coverage'
+  'invoice issuance rejects missing tariffs and governed engine rejects incomplete coverage'
 );
 
 SELECT ok(
