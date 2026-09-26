@@ -79,7 +79,9 @@ export function ReportsPage() {
   const outstanding = data.invoices.filter((i: any) => i.status !== 'paid').reduce((s: number, i: any) => s + Number(i.balance), 0);
   const production = data.wells.reduce((s: number, w: any) => s + Number(w.daily_output_m3 || 0), 0);
   const consumption = data.invoices.reduce((s: number, i: any) => s + Number(i.consumption_m3 || 0), 0);
-  // NRW requires production and consumption measured over the same reporting period.\n  // The current well value is a daily operational snapshot while invoices are historical, so do not derive a misleading KPI.\n  const nrw: number | null = null;
+  // NRW requires production and consumption measured over the same reporting period.
+  // The current well value is a daily operational snapshot while invoices are historical, so do not derive a misleading KPI.
+  const nrw: number | null = null;
   const collectionRate = totalRevenue > 0 ? (collected / totalRevenue * 100) : 0;
   const openFaults = data.faults.filter((f: any) => f.status !== 'closed' && f.status !== 'resolved').length;
   const openWOs = data.workOrders.filter((w: any) => w.status === 'open' || w.status === 'in_progress').length;
