@@ -77,14 +77,14 @@ export function ReportsPage() {
   const totalRevenue = data.invoices.reduce((s: number, i: any) => s + Number(i.grand_total), 0);
   const collected = data.payments.filter((p: any) => p.approval_status === 'approved').reduce((s: number, p: any) => s + Number(p.amount), 0);
   const outstanding = data.invoices.filter((i: any) => i.status !== 'paid').reduce((s: number, i: any) => s + Number(i.balance), 0);
-  const production = data.wells.reduce((s: number, w: any) => s + Number(w.daily_output_m3), 0);
-  const consumption = data.invoices.reduce((s: number, i: any) => s + Number(i.consumption_m3), 0);
-  const nrw: number | null = production > 0 ? ((production - consumption) / production * 100) : null;
+  const production = data.wells.reduce((s: number, w: any) => s + Number(w.daily_output_m3 || 0), 0);
+  const consumption = data.invoices.reduce((s: number, i: any) => s + Number(i.consumption_m3 || 0), 0);
+  // NRW requires production and consumption measured over the same reporting period.\n  // The current well value is a daily operational snapshot while invoices are historical, so do not derive a misleading KPI.\n  const nrw: number | null = null;
   const collectionRate = totalRevenue > 0 ? (collected / totalRevenue * 100) : 0;
   const openFaults = data.faults.filter((f: any) => f.status !== 'closed' && f.status !== 'resolved').length;
   const openWOs = data.workOrders.filter((w: any) => w.status === 'open' || w.status === 'in_progress').length;
   const anomalies = data.readings.filter((r: any) => r.anomaly_flag).length;
-  const dataCompleteness = data.meters > 0 ? Math.min(data.readings.length / data.meters * 100, 100) : 0;
+  const dataCompleteness = data.meters > 0 ? Math.min(data.readings.length / data.meters * 100, 100) : 0; // coverage proxy, not period completeness
   const openInterruptions = data.interruptions.filter((x: any) => !['restored','closed'].includes(x.status)).length;
 
   const printReport = (title: string, body: string) => {
@@ -127,7 +127,7 @@ export function ReportsPage() {
       <div class="card"><div class="label">الفواتير</div><div class="value">${data.invoices.length}</div></div>
       <div class="card"><div class="label">أعطال مفتوحة</div><div class="value">${openFaults}</div></div>
       <div class="card"><div class="label">أوامر صيانة مفتوحة</div><div class="value">${openWOs}</div></div>
-    </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج اليومي المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل في الفواتير</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>الفاقد المحسوب</th><td>${formatNumber(production-consumption)} م³</td></tr><tr><th>نسبة الفاقد</th><td>${nrw === null ? '—' : formatNumber(nrw)+'%'}</td></tr></tbody></table>
+    </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج اليومي المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل في الفواتير</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>الفاقد المحسوب</th><td>غير متاح — يلزم توحيد فترة الإنتاج والاستهلاك</td></tr><tr><th>نسبة الفاقد</th><td>غير متاحة — يلزم توحيد فترة القياس</td></tr></tbody></table>
     <h2>الإيرادات والتحصيل</h2><table><tbody><tr><th>إجمالي الفواتير</th><td>${formatCurrency(totalRevenue)}</td></tr><tr><th>التحصيل المعتمد</th><td>${formatCurrency(collected)}</td></tr><tr><th>المتأخرات</th><td>${formatCurrency(outstanding)}</td></tr></tbody></table>`);
   };
 
@@ -146,7 +146,7 @@ export function ReportsPage() {
       case 'nrw':
         filename = 'nrw_report';
         rows = [['الإنتاج (م³)', 'الاستهلاك (م³)', 'الفاقد (م³)', 'نسبة الفاقد (%)']];
-        rows.push([String(production), String(consumption), String(production - consumption), nrw ? nrw.toFixed(2) : '—']);
+        rows.push(['—', '—', '—', '—']);
         break;
       case 'revenue':
         filename = 'revenue_report';
@@ -188,7 +188,7 @@ export function ReportsPage() {
         filename = 'performance_report';
         rows = [['المؤشر', 'القيمة']];
         rows.push(['معدل التحصيل (%)', collectionRate.toFixed(1)]);
-        rows.push(['نسبة الفاقد (%)', nrw ? nrw.toFixed(1) : '—']);
+        rows.push(['نسبة الفاقد (%)', '—']);
         rows.push(['اكتمال البيانات (%)', dataCompleteness.toFixed(1)]);
         rows.push(['أعطال مفتوحة', String(openFaults)]);
         rows.push(['أوامر صيانة معلقة', String(openWOs)]);
@@ -209,7 +209,7 @@ export function ReportsPage() {
 
   const reports = [
     { id: 'production', title: 'تقرير الإنتاج والاستهلاك', desc: 'إنتاج المياه مقابل الاستهلاك المسجل', icon: Droplets, color: 'primary' },
-    { id: 'nrw', title: 'تقرير الفاقد (NRW)', desc: 'حساب الفاقد غير المدفوع العائد', icon: TrendingDown, color: 'warning' },
+    { id: 'nrw', title: 'تقرير الفاقد (NRW)', desc: 'يظهر فقط عند توفر قياسات متزامنة لنفس الفترة', icon: TrendingDown, color: 'warning' },
     { id: 'revenue', title: 'تقرير الإيرادات والتحصيل', desc: 'الإيرادات، المحصّل، المتأخرات', icon: Receipt, color: 'success' },
     { id: 'customers', title: 'تقرير المشتركين', desc: 'إحصائيات المشتركين والأنواع', icon: Users, color: 'accent' },
     { id: 'faults', title: 'تقرير الأعطال والصيانة', desc: 'الأعطال، أوامر الصيانة، الأوقات', icon: AlertTriangle, color: 'error' },
@@ -233,7 +233,7 @@ export function ReportsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="معدل التحصيل" value={`${formatNumber(collectionRate)}%`} icon={Receipt} color={collectionRate > 60 ? 'success' : 'warning'} />
-        <StatCard title="نسبة الفاقد" value={nrw === null ? '—' : `${formatNumber(nrw)}%`} icon={TrendingDown} color={nrw === null ? 'success' : nrw < 15 ? 'success' : nrw < 30 ? 'warning' : 'error'} />
+        <StatCard title="نسبة الفاقد" value="غير متاح" icon={TrendingDown} color="neutral" />
         <StatCard title="اكتمال البيانات" value={`${formatNumber(dataCompleteness)}%`} icon={Activity} color={dataCompleteness > 80 ? 'success' : 'warning'} />
         <StatCard title="قراءات شاذة" value={formatNumber(anomalies)} icon={AlertTriangle} color={anomalies > 0 ? 'error' : 'neutral'} />
         <StatCard title="توقفات مفتوحة" value={formatNumber(openInterruptions)} icon={AlertTriangle} color={openInterruptions > 0 ? 'warning' : 'success'} />
@@ -258,7 +258,7 @@ export function ReportsPage() {
           </div>
           <div>
             <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-neutral-600">الاستهلاك المسجل</span>
+              <span className="text-neutral-600">الاستهلاك المسجل في الفواتير (تراكمي)</span>
               <span className="font-bold text-neutral-800">{formatNumber(consumption)} م³</span>
             </div>
             <div className="h-6 bg-neutral-100 rounded-lg overflow-hidden">
@@ -271,17 +271,17 @@ export function ReportsPage() {
             <div className="flex justify-between text-sm mb-1.5">
               <span className="text-neutral-600">الفاقد (NRW)</span>
               <span className={`font-bold ${nrw === null ? 'text-neutral-500' : nrw > 30 ? 'text-error-600' : 'text-warning-600'}`}>
-                {formatNumber(production - consumption)} م³ {nrw === null ? '(لا يوجد إنتاج)' : `(${formatNumber(nrw)}%)`}
+                غير متاح — يلزم توحيد فترة الإنتاج والاستهلاك
               </span>
             </div>
             <div className="h-6 bg-neutral-100 rounded-lg overflow-hidden">
-              <div className={`h-full flex items-center justify-start px-2 ${nrw === null ? 'bg-neutral-300' : nrw > 30 ? 'bg-error-500' : 'bg-warning-500'}`} style={{ width: `${Math.min(nrw || 0, 100)}%` }}>
-                <span className="text-xs text-white font-medium">{nrw === null ? '—' : `${formatNumber(nrw)}%`}</span>
+              <div className="h-full bg-neutral-300 flex items-center justify-start px-2" style={{ width: '0%' }}>
+                <span className="text-xs text-white font-medium">—</span>
               </div>
             </div>
           </div>
         </div>
-        <p className="text-xs text-neutral-400 mt-4">ملاحظة: يتم حساب الفاقد كالفرق بين الإنتاج والاستهلاك المسجل. دقة المؤشر تعتمد على اكتمال بيانات القراءات.</p>
+        <p className="text-xs text-neutral-500 mt-4">لا يُحسب NRW إلا عند توفر إنتاج واستهلاك لنفس الفترة الزمنية وبنفس أساس القياس. البيانات الحالية غير قابلة للمقارنة زمنياً، لذلك يُعرض المؤشر كغير متاح بدلاً من إنتاج رقم مضلل.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
