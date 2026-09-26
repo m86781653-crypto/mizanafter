@@ -82,7 +82,7 @@ export function BillingPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const totalRevenue = invoices.reduce((s, i) => s + Number(i.grand_total), 0);
-  const collected = payments.reduce((s, p) => s + Number(p.amount), 0);
+  const collected = payments.filter(p => p.approval_status === 'approved').reduce((s, p) => s + Number(p.amount), 0);
   const outstanding = invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + Number(i.balance), 0);
 
   const filteredInvoices = invoices.filter(i =>
@@ -189,7 +189,7 @@ export function BillingPage() {
     }
 
     if (data) {
-      setPayments([data as any, ...payments]);
+      await fetchData();
       setShowPaymentForm(false);
       setPaymentForm({});
     }
