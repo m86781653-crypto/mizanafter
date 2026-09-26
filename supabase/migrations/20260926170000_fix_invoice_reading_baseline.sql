@@ -74,16 +74,7 @@ begin
     raise exception 'READING_ALREADY_INVOICED';
   end if;
 
-  select mr.reading_value into v_previous_reading
-  from public.meter_readings mr
-  where mr.meter_id = p_meter_id
-    and mr.project_id = p_project_id
-    and mr.status = 'approved'
-    and (mr.reading_date, mr.created_at, mr.id) < (v_reading.reading_date, v_reading.created_at, v_reading.id)
-  order by mr.reading_date desc, mr.created_at desc, mr.id desc
-  limit 1;
-
-  v_previous_reading := coalesce(v_previous_reading, v_meter.last_reading);
+  v_previous_reading := coalesce(v_reading.previous_reading, v_meter.last_reading);
 
   if v_reading.reading_value < v_previous_reading then
     raise exception 'READING_DECREASE';
