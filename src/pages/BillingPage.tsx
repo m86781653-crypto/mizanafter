@@ -493,7 +493,7 @@ export function BillingPage() {
           </div>
           <div>
             <label className="label-field">اسم المحصل</label>
-            <input className="input-field" value={paymentForm.collector_name || ''} onChange={(e) => setPaymentForm({ ...paymentForm, collector_name: e.target.value })} placeholder="المحصل" />
+            <div className="input-field bg-neutral-50 text-neutral-600">المحصل الحالي: {profile?.full_name || profile?.email || 'المستخدم المسجل'}</div>
           </div>
           <div>
             <label className="label-field">مرجع</label>
