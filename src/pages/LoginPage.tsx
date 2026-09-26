@@ -14,9 +14,15 @@ export function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error } = await signIn(email.trim(), password);
-    if (error) {
-      setError(error === 'Invalid login credentials' ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' : error);
+    try {
+      const result = await signIn(email.trim(), password);
+      if (result.error) {
+        setError(result.error === 'Invalid login credentials' ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' : result.error);
+      }
+    } catch (error) {
+      console.error('Login UI failed:', error);
+      setError('تعذر إكمال تسجيل الدخول. يرجى المحاولة مرة أخرى.');
+    } finally {
       setLoading(false);
     }
   };
