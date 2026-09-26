@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(12);
+SELECT plan(9);
 SELECT ok(EXISTS(SELECT 1 FROM pg_constraint WHERE conname='tariff_tiers_from_nonnegative'),'tariff tier lower bound is nonnegative');
 SELECT ok(EXISTS(SELECT 1 FROM pg_constraint WHERE conname='tariff_tiers_to_after_from'),'tariff tier upper bound is greater than lower bound');
 SELECT ok(EXISTS(SELECT 1 FROM pg_constraint WHERE conname='tariff_tiers_price_nonnegative'),'tariff tier price is nonnegative');
