@@ -93,72 +93,33 @@ export function BillingPage() {
     if (!currentProject || !form.customer_id) return;
     setSaving(true);
     setFormError(null);
-    const pid = currentProject.id;
 
     const customer = customers.find(c => c.id === form.customer_id);
     const meter = meters.find(m => m.customer_id === form.customer_id);
     if (!customer) { setFormError('المشترك غير موجود'); setSaving(false); return; }
     if (!meter) { setFormError('لا يوجد عداد نشط لهذا المشترك'); setSaving(false); return; }
 
-    const prev = Number(meter.last_reading);
-    const current = parseFloat(form.current_reading);
-    if (isNaN(current)) { setFormError('القراءة الحالية غير صحيحة'); setSaving(false); return; }
-    if (current < prev) { setFormError(`القراءة الحالية أقل من السابقة (${prev})`); setSaving(false); return; }
-
-    const consumption = current - prev;
-    const tariff = tariffs.find(t => t.customer_type === customer.customer_type && t.is_active);
-    if (!tariff) { setFormError('لا توجد تعرفة نشطة لنوع هذا المشترك'); setSaving(false); return; }
-
-    const tariffTiers = tiers[tariff.id] || [];
-    const fixedFee = tariff ? Number(tariff.fixed_fee) : 0;
-
-    let consumptionFee = 0;
-    let remaining = consumption;
-    for (const tier of tariffTiers) {
-      if (remaining <= 0) break;
-      const from = Number(tier.from_m3);
-      const to = tier.to_m3 ? Number(tier.to_m3) : Infinity;
-      const tierRange = to - from;
-      const usedInTier = Math.min(remaining, tierRange);
-      consumptionFee += usedInTier * Number(tier.price_per_m3);
-      remaining -= usedInTier;
-    }
-
-    const total = fixedFee + consumptionFee;
     const today = new Date();
-    const dueDate = new Date(today.getTime() + 15 * 86400000);
+    const periodStart = form.period_start || new Date(today.getTime() - 30 * 86400000).toISOString().split('T')[0];
+    const periodEnd = form.period_end || today.toISOString().split('T')[0];
 
-    // Get invoice number from DB sequence
-    const { data: seqData } = await supabase.rpc('next_seq_number', { seq_name: 'INV' });
-    const invoiceNumber = seqData || `INV-${today.getFullYear()}-${Date.now()}`;
+    const { error: rpcError } = await supabase.rpc('mizan_create_invoice', {
+      p_project_id: currentProject.id,
+      p_customer_id: customer.id,
+      p_meter_id: meter.id,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+    });
 
-    const { data, error: insErr } = await supabase.from('invoices').insert({
-      project_id: pid,
-      customer_id: customer.id,
-      meter_id: meter.id,
-      invoice_number: invoiceNumber,
-      billing_period_start: form.period_start || new Date(today.getTime() - 30 * 86400000).toISOString().split('T')[0],
-      billing_period_end: form.period_end || today.toISOString().split('T')[0],
-      previous_reading: prev,
-      current_reading: current,
-      consumption_m3: consumption,
-      fixed_fee: fixedFee,
-      consumption_fee: consumptionFee,
-      total_amount: total,
-      grand_total: total,
-      balance: total,
-      status: 'unpaid',
-      due_date: dueDate.toISOString().split('T')[0],
-    }).select('*, customers(name_ar, customer_number, phone)').single();
-
-    if (insErr) { setFormError(insErr.message); setSaving(false); return; }
-
-    if (data) {
-      await supabase.from('meters').update({ last_reading: current, last_reading_date: new Date().toISOString() }).eq('id', meter.id);
-      setInvoices([data as any, ...invoices]);
-      setShowForm(false);
-      setForm({});
+    if (rpcError) {
+      setFormError(rpcError.message);
+      setSaving(false);
+      return;
     }
+
+    await fetchData();
+    setShowForm(false);
+    setForm({});
     setSaving(false);
   };
 
@@ -469,9 +430,8 @@ export function BillingPage() {
               </div>
             ) : <p className="text-warning-600 text-sm">لا يوجد عداد نشط لهذا المشترك</p>;
           })()}
-          <div>
-            <label className="label-field">القراءة الحالية *</label>
-            <input type="number" className="input-field text-lg font-semibold" value={form.current_reading || ''} onChange={(e) => setForm({ ...form, current_reading: e.target.value })} placeholder="القراءة الجديدة" />
+          <div className="bg-primary-50 rounded-xl p-3 text-sm text-primary-800">
+            الفاتورة تُنشأ آلياً من آخر قراءة <strong>معتمدة عبر MRX</strong>. لا يمكن إدخال قراءة جديدة من شاشة الفوترة.
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -486,7 +446,7 @@ export function BillingPage() {
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={() => setShowForm(false)} className="btn-secondary flex-1">إلغاء</button>
-          <button onClick={handleCreateInvoice} disabled={saving || !form.customer_id || !form.current_reading} className="btn-primary flex-1">
+          <button onClick={handleCreateInvoice} disabled={saving || !form.customer_id} className="btn-primary flex-1">
             {saving ? <><Loader2 size={16} className="animate-spin" /> جاري الإنشاء...</> : 'إنشاء الفاتورة'}
           </button>
         </div>
