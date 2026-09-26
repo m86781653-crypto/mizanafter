@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { StatCard } from '@/components/ui/StatCard';
@@ -13,6 +13,8 @@ export function ReportsPage() {
   const { currentProject } = useProject();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [data, setData] = useState({
     customers: 0,
     meters: 0,
@@ -74,18 +76,36 @@ export function ReportsPage() {
   if (loading) return <LoadingSpinner label="جاري تحليل البيانات..." />;
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
-  const totalRevenue = data.invoices.reduce((s: number, i: any) => s + Number(i.grand_total), 0);
-  const collected = data.payments.reduce((s: number, p: any) => s + Number(p.amount), 0);
-  const outstanding = data.invoices.filter((i: any) => i.status !== 'paid').reduce((s: number, i: any) => s + Number(i.balance), 0);
+  const inRange = useCallback((value: unknown) => {
+    if (!dateFrom && !dateTo) return true;
+    const d = value ? new Date(String(value)) : null;
+    if (!d || Number.isNaN(d.getTime())) return false;
+    if (dateFrom && d < new Date(dateFrom + 'T00:00:00')) return false;
+    if (dateTo && d > new Date(dateTo + 'T23:59:59.999')) return false;
+    return true;
+  }, [dateFrom, dateTo]);
+
+  const filtered = useMemo(() => ({
+    invoices: data.invoices.filter((x:any) => inRange(x.issue_date || x.created_at)),
+    payments: data.payments.filter((x:any) => inRange(x.payment_date || x.created_at)),
+    readings: data.readings.filter((x:any) => inRange(x.reading_date || x.created_at)),
+    faults: data.faults.filter((x:any) => inRange(x.reported_at || x.created_at)),
+    workOrders: data.workOrders.filter((x:any) => inRange(x.scheduled_date || x.created_at)),
+    interruptions: data.interruptions.filter((x:any) => inRange(x.started_at || x.created_at)),
+  }), [data, inRange]);
+
+  const totalRevenue = filtered.invoices.reduce((s: number, i: any) => s + Number(i.grand_total), 0);
+  const collected = filtered.payments.reduce((s: number, p: any) => s + Number(p.amount), 0);
+  const outstanding = filtered.invoices.filter((i: any) => i.status !== 'paid').reduce((s: number, i: any) => s + Number(i.balance), 0);
   const production = data.wells.reduce((s: number, w: any) => s + Number(w.daily_output_m3), 0);
-  const consumption = data.invoices.reduce((s: number, i: any) => s + Number(i.consumption_m3), 0);
+  const consumption = filtered.invoices.reduce((s: number, i: any) => s + Number(i.consumption_m3), 0);
   const nrw: number | null = production > 0 ? ((production - consumption) / production * 100) : null;
   const collectionRate = totalRevenue > 0 ? (collected / totalRevenue * 100) : 0;
-  const openFaults = data.faults.filter((f: any) => f.status !== 'closed' && f.status !== 'resolved').length;
-  const openWOs = data.workOrders.filter((w: any) => w.status === 'open' || w.status === 'in_progress').length;
-  const anomalies = data.readings.filter((r: any) => r.anomaly_flag).length;
-  const dataCompleteness = data.meters > 0 ? Math.min(data.readings.length / data.meters * 100, 100) : 0;
-  const openInterruptions = data.interruptions.filter((x: any) => !['restored','closed'].includes(x.status)).length;
+  const openFaults = filtered.faults.filter((f: any) => f.status !== 'closed' && f.status !== 'resolved').length;
+  const openWOs = filtered.workOrders.filter((w: any) => w.status === 'open' || w.status === 'in_progress').length;
+  const anomalies = filtered.readings.filter((r: any) => r.anomaly_flag).length;
+  const dataCompleteness = data.meters > 0 ? Math.min(filtered.readings.length / data.meters * 100, 100) : 0;
+  const openInterruptions = filtered.interruptions.filter((x: any) => !['restored','closed'].includes(x.status)).length;
 
   const exportCSV = (type: string) => {
     let rows: string[][] = [];
@@ -107,26 +127,26 @@ export function ReportsPage() {
       case 'revenue':
         filename = 'revenue_report';
         rows = [['رقم الفاتورة', 'الإجمالي', 'المدفوع', 'المتبقي', 'الحالة', 'التاريخ']];
-        data.invoices.forEach((i: any) => {
+        filtered.invoices.forEach((i: any) => {
           rows.push([i.invoice_number, String(i.grand_total), String(i.amount_paid || 0), String(i.balance), i.status, formatDate(i.issue_date)]);
         });
         break;
       case 'customers':
         filename = 'customers_report';
         rows = [['عدد المشتركين', 'عدد العدادات', 'عدد الفواتير', 'عدد القراءات']];
-        rows.push([String(data.customers), String(data.meters), String(data.invoices.length), String(data.readings.length)]);
+        rows.push([String(data.customers), String(data.meters), String(filtered.invoices.length), String(filtered.readings.length)]);
         break;
       case 'faults':
         filename = 'faults_report';
         rows = [['رقم العطل', 'النوع', 'الخطورة', 'الحالة', 'التاريخ']];
-        data.faults.forEach((f: any) => {
+        filtered.faults.forEach((f: any) => {
           rows.push([f.fault_number, f.fault_type || '', f.severity, f.status, formatDate(f.reported_at)]);
         });
         break;
       case 'interruptions':
         filename = 'service_interruptions_report';
         rows = [['رقم التوقف','النوع','الخطورة','الحالة','بداية التوقف','المشتركون المتأثرون','الفاقد المقدر م3']];
-        data.interruptions.forEach((x:any) => rows.push([x.interruption_number,x.interruption_type||'',x.severity,x.status,formatDate(x.started_at),String(x.affected_subscribers||0),String(x.estimated_water_loss_m3||0)]));
+        filtered.interruptions.forEach((x:any) => rows.push([x.interruption_number,x.interruption_type||'',x.severity,x.status,formatDate(x.started_at),String(x.affected_subscribers||0),String(x.estimated_water_loss_m3||0)]));
         break;
       case 'assets':
         filename = 'assets_report';
@@ -180,6 +200,15 @@ export function ReportsPage() {
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">التقارير والتحليلات</h1>
         <p className="text-sm text-neutral-500 mt-1">{currentProject.name_ar}</p>
+      </div>
+
+      <div className="card p-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div><label className="block text-xs text-neutral-500 mb-1">من تاريخ</label><input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input" /></div>
+          <div><label className="block text-xs text-neutral-500 mb-1">إلى تاريخ</label><input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input" /></div>
+          <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="btn-secondary text-sm">مسح الفترة</button>
+          <span className="text-xs text-neutral-500 mr-auto">{dateFrom || dateTo ? 'تطبيق نطاق التاريخ على المؤشرات والسجلات' : 'كل البيانات'}</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
