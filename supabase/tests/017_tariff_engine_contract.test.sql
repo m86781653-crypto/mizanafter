@@ -10,7 +10,7 @@ DO $$DECLARE tid uuid:=gen_random_uuid(); fee numeric; bad uuid:=gen_random_uuid
  INSERT INTO public.tariff_tiers(tariff_id,from_m3,to_m3,price_per_m3) VALUES(tid,0,10,1),(tid,10,20,2),(tid,20,null,3);
  fee:=private.mizan_calculate_consumption_fee(tid,7); IF fee<>7 THEN RAISE EXCEPTION '7m3 expected 7 got %',fee; END IF;
  fee:=private.mizan_calculate_consumption_fee(tid,15); IF fee<>20 THEN RAISE EXCEPTION '15m3 expected 20 got %',fee; END IF;
- fee:=private.mizan_calculate_consumption_fee(tid,25); IF fee<>55 THEN RAISE EXCEPTION '25m3 expected 55 got %',fee; END IF;
+ fee:=private.mizan_calculate_consumption_fee(tid,25); IF fee<>45 THEN RAISE EXCEPTION '25m3 expected 45 got %',fee; END IF;
  INSERT INTO public.tariffs(id,name_ar) VALUES(bad,'gap tariff');
  INSERT INTO public.tariff_tiers(tariff_id,from_m3,to_m3,price_per_m3) VALUES(bad,0,10,1),(bad,15,null,3);
 END$$;
