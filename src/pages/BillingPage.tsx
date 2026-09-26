@@ -263,12 +263,6 @@ export function BillingPage() {
     setSaving(false);
   };
 
-  const handleDeletePayment = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا التحصيل؟')) return;
-    const { error: delErr } = await supabase.from('payments').delete().eq('id', id);
-    if (delErr) { setError(delErr.message); return; }
-    setPayments(payments.filter(p => p.id !== id));
-  };
 
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
   if (loading) return <LoadingSpinner label="جاري تحميل بيانات الفوترة..." />;
@@ -376,8 +370,9 @@ export function BillingPage() {
                   <th className="px-4 py-3 font-medium">المبلغ</th>
                   <th className="px-4 py-3 font-medium">طريقة الدفع</th>
                   <th className="px-4 py-3 font-medium">المحصل</th>
+                  <th className="px-4 py-3 font-medium">الحالة</th>
                   <th className="px-4 py-3 font-medium">التاريخ</th>
-                  {canEdit && <th className="px-4 py-3 font-medium"></th>}
+                  {canApprove && <th className="px-4 py-3 font-medium">المراجعة</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -389,12 +384,16 @@ export function BillingPage() {
                     <td className="px-4 py-3 font-semibold text-success-700">{formatCurrency(p.amount)}</td>
                     <td className="px-4 py-3 text-neutral-600">{paymentMethodLabels[p.payment_method] || p.payment_method}</td>
                     <td className="px-4 py-3 text-neutral-600">{p.collector_name || '—'}</td>
+                    <td className="px-4 py-3">
+                      <Badge status={p.approval_status} label={paymentApprovalStatusLabels[p.approval_status] || p.approval_status} />
+                    </td>
                     <td className="px-4 py-3 text-xs text-neutral-400">{formatDate(p.payment_date)}</td>
-                    {canEdit && (
+                    {canApprove && p.approval_status === 'pending' && p.recorded_by !== profile?.user_id && (
                       <td className="px-4 py-3">
-                        <button onClick={() => handleDeletePayment(p.id)} className="text-error-500 hover:text-error-700 transition-smooth">
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => handleReviewPayment(p.id, 'approved')} disabled={saving} className="text-success-600 hover:text-success-700 text-xs font-medium">اعتماد</button>
+                          <button onClick={() => handleReviewPayment(p.id, 'rejected')} disabled={saving} className="text-error-600 hover:text-error-700 text-xs font-medium">إرجاع</button>
+                        </div>
                       </td>
                     )}
                   </tr>
