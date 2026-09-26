@@ -75,7 +75,7 @@ export function ReportsPage() {
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
   const totalRevenue = data.invoices.reduce((s: number, i: any) => s + Number(i.grand_total), 0);
-  const collected = data.payments.reduce((s: number, p: any) => s + Number(p.amount), 0);
+  const collected = data.payments.filter((p: any) => p.approval_status === 'approved').reduce((s: number, p: any) => s + Number(p.amount), 0);
   const outstanding = data.invoices.filter((i: any) => i.status !== 'paid').reduce((s: number, i: any) => s + Number(i.balance), 0);
   const production = data.wells.reduce((s: number, w: any) => s + Number(w.daily_output_m3), 0);
   const consumption = data.invoices.reduce((s: number, i: any) => s + Number(i.consumption_m3), 0);
