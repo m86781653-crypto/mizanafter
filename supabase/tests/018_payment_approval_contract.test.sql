@@ -1,0 +1,13 @@
+BEGIN;
+SELECT plan(10);
+SELECT ok(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='payments' AND column_name='approval_status'),'payments have approval status');
+SELECT ok(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='payments' AND column_name='recorded_by'),'payments capture collector identity');
+SELECT ok(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='payments' AND column_name='approved_by'),'payments capture approver identity');
+SELECT ok(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='payments' AND column_name='rejected_by'),'payments capture rejection identity');
+SELECT ok(NOT has_table_privilege('anon','public.payments','INSERT') AND NOT has_table_privilege('authenticated','public.payments','INSERT'),'client roles cannot insert payments directly');
+SELECT ok(NOT has_table_privilege('anon','public.payments','UPDATE') AND NOT has_table_privilege('authenticated','public.payments','UPDATE'),'client roles cannot update payment approval directly');
+SELECT ok(NOT has_function_privilege('anon','public.mizan_record_payment(uuid,numeric,text,text,text)','EXECUTE') AND has_function_privilege('authenticated','public.mizan_record_payment(uuid,numeric,text,text,text)','EXECUTE'),'record-payment RPC is authenticated only');
+SELECT ok(NOT has_function_privilege('anon','public.mizan_review_payment(uuid,text,text)','EXECUTE') AND has_function_privilege('authenticated','public.mizan_review_payment(uuid,text,text)','EXECUTE'),'review-payment RPC is authenticated only');
+SELECT ok(EXISTS(SELECT 1 FROM public.mizan_role_permissions WHERE role_code='tenant_manager' AND permission_code='collection.approve') AND EXISTS(SELECT 1 FROM public.mizan_role_permissions WHERE role_code='platform_admin' AND permission_code='collection.approve'),'only governed manager roles receive collection approval permission');
+SELECT ok(pg_get_functiondef((SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='mizan_review_payment' AND pg_get_function_identity_arguments(p.oid)='p_payment_id uuid, p_decision text, p_reason text')) LIKE '%PAYMENT_SELF_APPROVAL_FORBIDDEN%' AND pg_get_functiondef((SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='mizan_review_payment' AND pg_get_function_identity_arguments(p.oid)='p_payment_id uuid, p_decision text, p_reason text')) LIKE '%PAYMENT_BALANCE_CHANGED%','approval enforces separation of duties and rechecks invoice balance');
+SELECT * FROM finish(); ROLLBACK;
