@@ -13,6 +13,8 @@ import type { Invoice, Payment, Customer, Meter, Tariff, TariffTier } from '@/ty
 
 type Tab = 'invoices' | 'payments' | 'tariffs';
 
+const paymentApprovalStatusLabels: Record<string, string> = { pending: 'بانتظار اعتماد المدير', approved: 'معتمد', rejected: 'مرفوض / مُعاد' };
+
 const paymentMethodLabels: Record<string, string> = {
   cash: 'نقدي', wallet: 'محفظة إلكترونية', bank: 'حوالة بنكية', other: 'أخرى',
 };
@@ -21,6 +23,7 @@ export function BillingPage() {
   const { currentProject } = useProject();
   const { profile } = useAuth();
   const canEdit = profile?.role === 'platform_admin' || profile?.role === 'tenant_manager' || profile?.role === 'collection_officer';
+  const canApprove = profile?.role === 'platform_admin' || profile?.role === 'tenant_manager';
   const [tab, setTab] = useState<Tab>('invoices');
   const [invoices, setInvoices] = useState<(Invoice & { customers?: Customer })[]>([]);
   const [payments, setPayments] = useState<(Payment & { customers?: Customer; invoices?: Invoice })[]>([]);
@@ -79,7 +82,7 @@ export function BillingPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const totalRevenue = invoices.reduce((s, i) => s + Number(i.grand_total), 0);
-  const collected = payments.reduce((s, p) => s + Number(p.amount), 0);
+  const collected = payments.filter(p => p.approval_status === 'approved').reduce((s, p) => s + Number(p.amount), 0);
   const outstanding = invoices.filter(i => i.status !== 'paid').reduce((s, i) => s + Number(i.balance), 0);
 
   const filteredInvoices = invoices.filter(i =>
@@ -90,72 +93,33 @@ export function BillingPage() {
     if (!currentProject || !form.customer_id) return;
     setSaving(true);
     setFormError(null);
-    const pid = currentProject.id;
 
     const customer = customers.find(c => c.id === form.customer_id);
     const meter = meters.find(m => m.customer_id === form.customer_id);
     if (!customer) { setFormError('المشترك غير موجود'); setSaving(false); return; }
     if (!meter) { setFormError('لا يوجد عداد نشط لهذا المشترك'); setSaving(false); return; }
 
-    const prev = Number(meter.last_reading);
-    const current = parseFloat(form.current_reading);
-    if (isNaN(current)) { setFormError('القراءة الحالية غير صحيحة'); setSaving(false); return; }
-    if (current < prev) { setFormError(`القراءة الحالية أقل من السابقة (${prev})`); setSaving(false); return; }
-
-    const consumption = current - prev;
-    const tariff = tariffs.find(t => t.customer_type === customer.customer_type && t.is_active);
-    if (!tariff) { setFormError('لا توجد تعرفة نشطة لنوع هذا المشترك'); setSaving(false); return; }
-
-    const tariffTiers = tiers[tariff.id] || [];
-    const fixedFee = tariff ? Number(tariff.fixed_fee) : 0;
-
-    let consumptionFee = 0;
-    let remaining = consumption;
-    for (const tier of tariffTiers) {
-      if (remaining <= 0) break;
-      const from = Number(tier.from_m3);
-      const to = tier.to_m3 ? Number(tier.to_m3) : Infinity;
-      const tierRange = to - from;
-      const usedInTier = Math.min(remaining, tierRange);
-      consumptionFee += usedInTier * Number(tier.price_per_m3);
-      remaining -= usedInTier;
-    }
-
-    const total = fixedFee + consumptionFee;
     const today = new Date();
-    const dueDate = new Date(today.getTime() + 15 * 86400000);
+    const periodStart = form.period_start || new Date(today.getTime() - 30 * 86400000).toISOString().split('T')[0];
+    const periodEnd = form.period_end || today.toISOString().split('T')[0];
 
-    // Get invoice number from DB sequence
-    const { data: seqData } = await supabase.rpc('next_seq_number', { seq_name: 'INV' });
-    const invoiceNumber = seqData || `INV-${today.getFullYear()}-${Date.now()}`;
+    const { error: rpcError } = await supabase.rpc('mizan_create_invoice', {
+      p_project_id: currentProject.id,
+      p_customer_id: customer.id,
+      p_meter_id: meter.id,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+    });
 
-    const { data, error: insErr } = await supabase.from('invoices').insert({
-      project_id: pid,
-      customer_id: customer.id,
-      meter_id: meter.id,
-      invoice_number: invoiceNumber,
-      billing_period_start: form.period_start || new Date(today.getTime() - 30 * 86400000).toISOString().split('T')[0],
-      billing_period_end: form.period_end || today.toISOString().split('T')[0],
-      previous_reading: prev,
-      current_reading: current,
-      consumption_m3: consumption,
-      fixed_fee: fixedFee,
-      consumption_fee: consumptionFee,
-      total_amount: total,
-      grand_total: total,
-      balance: total,
-      status: 'unpaid',
-      due_date: dueDate.toISOString().split('T')[0],
-    }).select('*, customers(name_ar, customer_number, phone)').single();
-
-    if (insErr) { setFormError(insErr.message); setSaving(false); return; }
-
-    if (data) {
-      await supabase.from('meters').update({ last_reading: current, last_reading_date: new Date().toISOString() }).eq('id', meter.id);
-      setInvoices([data as any, ...invoices]);
-      setShowForm(false);
-      setForm({});
+    if (rpcError) {
+      setFormError(rpcError.message);
+      setSaving(false);
+      return;
     }
+
+    await fetchData();
+    setShowForm(false);
+    setForm({});
     setSaving(false);
   };
 
@@ -163,50 +127,60 @@ export function BillingPage() {
     if (!currentProject || !paymentForm.invoice_id) { setSaving(false); return; }
     setSaving(true);
     setFormError(null);
-    const pid = currentProject.id;
+
     const invoice = invoices.find(i => i.id === paymentForm.invoice_id);
     if (!invoice) { setFormError('الفاتورة غير موجودة'); setSaving(false); return; }
+
     const amount = parseFloat(paymentForm.amount);
     if (isNaN(amount) || amount <= 0) { setFormError('المبلغ غير صحيح'); setSaving(false); return; }
     if (amount > Number(invoice.balance)) { setFormError(`المبلغ يتجاوز المتبقي (${formatCurrency(invoice.balance)})`); setSaving(false); return; }
 
-    const { data: seqData } = await supabase.rpc('next_seq_number', { seq_name: 'RCP' });
-    const receiptNumber = seqData || `RCP-${new Date().getFullYear()}-${Date.now()}`;
+    const { data, error: rpcError } = await supabase.rpc('mizan_record_payment', {
+      p_invoice_id: invoice.id,
+      p_amount: amount,
+      p_payment_method: paymentForm.payment_method || 'cash',
+      p_reference_number: paymentForm.reference_number || null,
+      p_notes: paymentForm.notes || null,
+    });
 
-    const { data, error: insErr } = await supabase.from('payments').insert({
-      project_id: pid,
-      invoice_id: invoice.id,
-      customer_id: invoice.customer_id,
-      receipt_number: receiptNumber,
-      amount: amount,
-      payment_method: paymentForm.payment_method || 'cash',
-      collector_name: paymentForm.collector_name || null,
-      reference_number: paymentForm.reference_number || null,
-      notes: paymentForm.notes || null,
-    }).select('*, customers(name_ar, customer_number), invoices(invoice_number, grand_total)').single();
-
-    if (insErr) { setFormError(insErr.message); setSaving(false); return; }
+    if (rpcError) {
+      setFormError(rpcError.message);
+      setSaving(false);
+      return;
+    }
 
     if (data) {
-      const newPaid = Number(invoice.amount_paid) + amount;
-      const newBalance = Number(invoice.grand_total) - newPaid;
-      const newStatus = newBalance <= 0 ? 'paid' : 'partial';
-      await supabase.from('invoices').update({
-        amount_paid: newPaid,
-        balance: newBalance,
-        status: newStatus,
-      }).eq('id', invoice.id);
-
-      setPayments([data as any, ...payments]);
-      setInvoices(invoices.map(inv => inv.id === invoice.id ? {
-        ...inv,
-        amount_paid: newPaid,
-        balance: newBalance,
-        status: newStatus,
-      } : inv));
+      await fetchData();
       setShowPaymentForm(false);
       setPaymentForm({});
     }
+    setSaving(false);
+  };
+
+  const handleReviewPayment = async (paymentId: string, decision: 'approved' | 'rejected') => {
+    const reason = decision === 'rejected'
+      ? window.prompt('سبب رفض/إرجاع التحصيل:')?.trim()
+      : null;
+
+    if (decision === 'rejected' && !reason) return;
+    if (decision === 'approved' && !window.confirm('تأكيد اعتماد هذا التحصيل؟')) return;
+
+    setSaving(true);
+    setError(null);
+
+    const { error: reviewError } = await supabase.rpc('mizan_review_payment', {
+      p_payment_id: paymentId,
+      p_decision: decision,
+      p_reason: reason || null,
+    });
+
+    if (reviewError) {
+      setError(reviewError.message);
+      setSaving(false);
+      return;
+    }
+
+    await fetchData();
     setSaving(false);
   };
 
@@ -250,12 +224,6 @@ export function BillingPage() {
     setSaving(false);
   };
 
-  const handleDeletePayment = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا التحصيل؟')) return;
-    const { error: delErr } = await supabase.from('payments').delete().eq('id', id);
-    if (delErr) { setError(delErr.message); return; }
-    setPayments(payments.filter(p => p.id !== id));
-  };
 
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
   if (loading) return <LoadingSpinner label="جاري تحميل بيانات الفوترة..." />;
@@ -283,6 +251,7 @@ export function BillingPage() {
         <StatCard title="إجمالي الإيرادات" value={formatCurrency(totalRevenue)} icon={Receipt} color="primary" />
         <StatCard title="المحصّل" value={formatCurrency(collected)} icon={CheckCircle} color="success" />
         <StatCard title="المتأخرات" value={formatCurrency(outstanding)} icon={AlertTriangle} color={outstanding > 0 ? 'error' : 'neutral'} />
+        <StatCard title="بانتظار الاعتماد" value={formatCurrency(payments.filter(p => p.approval_status === 'pending').reduce((s, p) => s + Number(p.amount), 0))} icon={Loader2} color="neutral" />
       </div>
 
       <div className="flex gap-1 bg-neutral-100 p-1 rounded-xl w-fit">
@@ -362,8 +331,9 @@ export function BillingPage() {
                   <th className="px-4 py-3 font-medium">المبلغ</th>
                   <th className="px-4 py-3 font-medium">طريقة الدفع</th>
                   <th className="px-4 py-3 font-medium">المحصل</th>
+                  <th className="px-4 py-3 font-medium">الحالة</th>
                   <th className="px-4 py-3 font-medium">التاريخ</th>
-                  {canEdit && <th className="px-4 py-3 font-medium"></th>}
+                  {canApprove && <th className="px-4 py-3 font-medium">المراجعة</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -375,12 +345,16 @@ export function BillingPage() {
                     <td className="px-4 py-3 font-semibold text-success-700">{formatCurrency(p.amount)}</td>
                     <td className="px-4 py-3 text-neutral-600">{paymentMethodLabels[p.payment_method] || p.payment_method}</td>
                     <td className="px-4 py-3 text-neutral-600">{p.collector_name || '—'}</td>
+                    <td className="px-4 py-3">
+                      <Badge status={p.approval_status} label={paymentApprovalStatusLabels[p.approval_status] || p.approval_status} />
+                    </td>
                     <td className="px-4 py-3 text-xs text-neutral-400">{formatDate(p.payment_date)}</td>
-                    {canEdit && (
+                    {canApprove && p.approval_status === 'pending' && p.recorded_by !== profile?.id && (
                       <td className="px-4 py-3">
-                        <button onClick={() => handleDeletePayment(p.id)} className="text-error-500 hover:text-error-700 transition-smooth">
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => handleReviewPayment(p.id, 'approved')} disabled={saving} className="text-success-600 hover:text-success-700 text-xs font-medium">اعتماد</button>
+                          <button onClick={() => handleReviewPayment(p.id, 'rejected')} disabled={saving} className="text-error-600 hover:text-error-700 text-xs font-medium">إرجاع</button>
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -456,9 +430,8 @@ export function BillingPage() {
               </div>
             ) : <p className="text-warning-600 text-sm">لا يوجد عداد نشط لهذا المشترك</p>;
           })()}
-          <div>
-            <label className="label-field">القراءة الحالية *</label>
-            <input type="number" className="input-field text-lg font-semibold" value={form.current_reading || ''} onChange={(e) => setForm({ ...form, current_reading: e.target.value })} placeholder="القراءة الجديدة" />
+          <div className="bg-primary-50 rounded-xl p-3 text-sm text-primary-800">
+            الفاتورة تُنشأ آلياً من آخر قراءة <strong>معتمدة عبر MRX</strong>. لا يمكن إدخال قراءة جديدة من شاشة الفوترة.
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -473,7 +446,7 @@ export function BillingPage() {
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={() => setShowForm(false)} className="btn-secondary flex-1">إلغاء</button>
-          <button onClick={handleCreateInvoice} disabled={saving || !form.customer_id || !form.current_reading} className="btn-primary flex-1">
+          <button onClick={handleCreateInvoice} disabled={saving || !form.customer_id} className="btn-primary flex-1">
             {saving ? <><Loader2 size={16} className="animate-spin" /> جاري الإنشاء...</> : 'إنشاء الفاتورة'}
           </button>
         </div>
@@ -520,7 +493,7 @@ export function BillingPage() {
           </div>
           <div>
             <label className="label-field">اسم المحصل</label>
-            <input className="input-field" value={paymentForm.collector_name || ''} onChange={(e) => setPaymentForm({ ...paymentForm, collector_name: e.target.value })} placeholder="المحصل" />
+            <div className="input-field bg-neutral-50 text-neutral-600">المحصل الحالي: {profile?.full_name || profile?.email || 'المستخدم المسجل'}</div>
           </div>
           <div>
             <label className="label-field">مرجع</label>

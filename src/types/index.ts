@@ -227,6 +227,13 @@ export interface Payment {
   payment_date: string;
   reference_number: string | null;
   notes: string | null;
+  approval_status: 'pending' | 'approved' | 'rejected';
+  recorded_by: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  rejected_by: string | null;
+  rejected_at: string | null;
+  approval_reason: string | null;
   invoices?: Invoice;
   customers?: Customer;
 }
