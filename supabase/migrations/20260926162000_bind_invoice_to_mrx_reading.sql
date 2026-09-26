@@ -1,6 +1,12 @@
 -- Follow-up root fix: bind invoices to the exact approved MRX reading
 -- and advance the meter baseline atomically after successful issuance.
 
+-- Reconcile the clean migration chain with the production invoice contract.
+-- Production already carries this column; clean installs must create it before the trigger/index below.
+alter table public.invoices
+  add column if not exists source_reading_id uuid references public.meter_readings(id) on delete set null;
+
+
 create or replace function private.mizan_bind_invoice_source_reading()
 returns trigger
 language plpgsql
