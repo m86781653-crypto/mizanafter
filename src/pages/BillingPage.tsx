@@ -7,7 +7,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { StatCard } from '@/components/ui/StatCard';
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import { formatNumber, formatCurrency, formatDate, invoiceStatusLabels } from '@/lib/utils';
-import { Receipt, Wallet, Plus, TrendingUp, AlertTriangle, CheckCircle, Loader2, Search, AlertCircle } from 'lucide-react';
+import { Receipt, Wallet, Plus, TrendingUp, AlertTriangle, CheckCircle, Loader2, Search, Trash2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import type { Invoice, Payment, Customer, Meter, Tariff, TariffTier } from '@/types';
 
