@@ -13,7 +13,9 @@ import type { Invoice, Payment, Customer, Meter, Tariff, TariffTier } from '@/ty
 
 type Tab = 'invoices' | 'payments' | 'tariffs';
 
-const paymentApprovalStatusLabels: Record<string, string> = { pending: 'بانتظار اعتماد المدير', approved: 'معتمد', rejected: 'مرفوض / مُعاد' };\n\nconst paymentMethodLabels: Record<string, string> = {
+const paymentApprovalStatusLabels: Record<string, string> = { pending: 'بانتظار اعتماد المدير', approved: 'معتمد', rejected: 'مرفوض / مُعاد' };
+
+const paymentMethodLabels: Record<string, string> = {
   cash: 'نقدي', wallet: 'محفظة إلكترونية', bank: 'حوالة بنكية', other: 'أخرى',
 };
 
@@ -293,7 +295,8 @@ export function BillingPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard title="إجمالي الإيرادات" value={formatCurrency(totalRevenue)} icon={Receipt} color="primary" />
         <StatCard title="المحصّل" value={formatCurrency(collected)} icon={CheckCircle} color="success" />
-        <StatCard title="المتأخرات" value={formatCurrency(outstanding)} icon={AlertTriangle} color={outstanding > 0 ? 'error' : 'neutral'} />\n        <StatCard title="بانتظار الاعتماد" value={formatCurrency(payments.filter(p => p.approval_status === 'pending').reduce((s, p) => s + Number(p.amount), 0))} icon={Loader2} color="neutral" />
+        <StatCard title="المتأخرات" value={formatCurrency(outstanding)} icon={AlertTriangle} color={outstanding > 0 ? 'error' : 'neutral'} />
+        <StatCard title="بانتظار الاعتماد" value={formatCurrency(payments.filter(p => p.approval_status === 'pending').reduce((s, p) => s + Number(p.amount), 0))} icon={Loader2} color="neutral" />
       </div>
 
       <div className="flex gap-1 bg-neutral-100 p-1 rounded-xl w-fit">
