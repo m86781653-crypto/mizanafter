@@ -39,7 +39,7 @@ where approval_status = 'pending'
   and approved_by is null
   and rejected_by is null;
 
-insert into public.mizan_permissions(permission_code, name_ar, description_ar)
+insert into public.mizan_role_permissions(permission_code, name_ar, description_ar)
 values (
   'collection.approve',
   'اعتماد التحصيل',
