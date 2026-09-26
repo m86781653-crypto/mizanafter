@@ -17,6 +17,7 @@ on:
       - main
   push:
     branches:
+      - main
       - integration/reference-mirror-sync-complete-v2
 
 concurrency:
