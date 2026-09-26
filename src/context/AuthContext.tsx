@@ -35,9 +35,18 @@ export function AuthProvider({children}:{children:ReactNode}) {
   const [profile,setProfile]=useState<Profile|null>(null);
   const [loading,setLoading]=useState(true);
 
-  const fetchProfile=async(uid:string)=>{
-    const {data,error}=await supabase.from('profiles').select('*').eq('id',uid).maybeSingle();
+  const fetchProfile=async(uid:string,userOverride?:User)=>{
+    const currentUser=userOverride ?? user;
+    let {data,error}=await supabase.from('profiles').select('*').eq('id',uid).maybeSingle();
     if(error)console.error('Failed to load profile:',error.message);
+    if(!data && currentUser?.user_metadata?.onboarding_token){
+      const {error:claimError}=await supabase.rpc('mizan_claim_subtenant_user_slot',{p_onboarding_token:currentUser.user_metadata.onboarding_token});
+      if(!claimError){
+        await supabase.auth.updateUser({data:{onboarding_token:null}});
+        const refreshed=await supabase.from('profiles').select('*').eq('id',uid).maybeSingle();
+        data=refreshed.data;
+      }
+    }
     return data as Profile|null;
   };
 
@@ -51,7 +60,7 @@ export function AuthProvider({children}:{children:ReactNode}) {
       setUser(session?.user??null);
       if(session?.user){
         (async()=>{
-          setProfile(await fetchProfile(session.user.id));
+          setProfile(await fetchProfile(session.user.id,session.user));
           setLoading(false);
         })();
       }else setLoading(false);
@@ -60,7 +69,7 @@ export function AuthProvider({children}:{children:ReactNode}) {
       (async()=>{
         setSession(s);
         setUser(s?.user??null);
-        setProfile(s?.user?await fetchProfile(s.user.id):null);
+        setProfile(s?.user?await fetchProfile(s.user.id,s.user):null);
         setLoading(false);
       })();
     });
