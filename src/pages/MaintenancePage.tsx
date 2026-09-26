@@ -93,24 +93,24 @@ export function MaintenancePage() {
       if (data) { setFaults([data as Fault, ...faults]); setShowForm(false); setForm({}); }
     } else if (tab === 'workorders') {
       if (!form.description) { setFormError('الوصف مطلوب'); setSaving(false); return; }
-      const { data: seqData } = await supabase.rpc('next_seq_number', { seq_name: 'WO' });
-      const woNum = seqData || `WO-${Date.now()}`;
-      const payload: Record<string, unknown> = {
-        project_id: pid,
-        work_order_number: woNum,
-        type: form.type || 'corrective',
-        priority: form.priority || 'medium',
-        status: 'open',
-        description: form.description,
-        assigned_to: form.assigned_to || null,
-        scheduled_date: form.scheduled_date || null,
-      };
-      if (form.pump_id) payload.pump_id = form.pump_id;
-      if (form.well_id) payload.well_id = form.well_id;
-      if (form.fault_id) payload.fault_id = form.fault_id;
-      const { data, error: insErr } = await supabase.from('maintenance_work_orders').insert(payload).select('*, faults(fault_number, severity, description)').single();
+      const { data: data, error: insErr } = await supabase.rpc('mizan_create_work_order', {
+        p_project_id: pid,
+        p_description: form.description,
+        p_type: form.type || 'corrective',
+        p_priority: form.priority || 'medium',
+        p_assigned_to: form.assigned_to || null,
+        p_scheduled_date: form.scheduled_date || null,
+        p_fault_id: form.fault_id || null,
+        p_asset_id: form.asset_id || null,
+        p_well_id: form.well_id || null,
+        p_pump_id: form.pump_id || null,
+      });
       if (insErr) { setFormError(insErr.message); setSaving(false); return; }
-      if (data) { setWorkOrders([data as any, ...workOrders]); setShowForm(false); setForm({}); }
+      if (data) {
+        const { data: hydrated, error: hydrateErr } = await supabase.from('maintenance_work_orders').select('*, faults(fault_number, severity, description)').eq('id', data.id).single();
+        if (hydrateErr) { setFormError(hydrateErr.message); setSaving(false); return; }
+        setWorkOrders([hydrated as any, ...workOrders]); setShowForm(false); setForm({});
+      }
     } else if (tab === 'assets') {
       if (!form.asset_code || !form.name_ar) { setFormError('رمز الأصل والاسم مطلوبان'); setSaving(false); return; }
       const payload: Record<string, unknown> = {
@@ -144,10 +144,12 @@ export function MaintenancePage() {
   };
 
   const updateWOStatus = async (wo: WorkOrder, newStatus: string) => {
-    const updates: Record<string, unknown> = { status: newStatus };
-    if (newStatus === 'completed') updates.completed_date = new Date().toISOString();
-    await supabase.from('maintenance_work_orders').update(updates).eq('id', wo.id);
-    setWorkOrders(workOrders.map(w => w.id === wo.id ? { ...w, ...updates } as WorkOrder : w));
+    const { data, error: updateErr } = await supabase.rpc('mizan_update_work_order_status', {
+      p_work_order_id: wo.id,
+      p_status: newStatus,
+    });
+    if (updateErr) { setFormError(updateErr.message); return; }
+    if (data) setWorkOrders(workOrders.map(w => w.id === wo.id ? { ...w, ...(data as any) } as WorkOrder : w));
   };
 
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
