@@ -72,10 +72,6 @@ export function ReportsPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
-  if (loading) return <LoadingSpinner label="جاري تحليل البيانات..." />;
-  if (error) return <ErrorState message={error} onRetry={fetchData} />;
-
   const inRange = useCallback((value: unknown) => {
     if (!dateFrom && !dateTo) return true;
     const d = value ? new Date(String(value)) : null;
@@ -93,6 +89,10 @@ export function ReportsPage() {
     workOrders: data.workOrders.filter((x:any) => inRange(x.scheduled_date || x.created_at)),
     interruptions: data.interruptions.filter((x:any) => inRange(x.started_at || x.created_at)),
   }), [data, inRange]);
+
+  if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
+  if (loading) return <LoadingSpinner label="جاري تحليل البيانات..." />;
+  if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
   const totalRevenue = filtered.invoices.reduce((s: number, i: any) => s + Number(i.grand_total), 0);
   const collected = filtered.payments.reduce((s: number, p: any) => s + Number(p.amount), 0);
