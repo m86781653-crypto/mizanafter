@@ -6,7 +6,7 @@ import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import { formatNumber, formatCurrency, formatDate } from '@/lib/utils';
 import {
   BarChart3, Droplets, Users, Receipt, AlertTriangle,
-  Wrench, TrendingDown, Activity, Download, FileText,
+  Wrench, TrendingDown, Activity, Download, FileText, Printer,
 } from 'lucide-react';
 
 export function ReportsPage() {
@@ -86,6 +86,50 @@ export function ReportsPage() {
   const anomalies = data.readings.filter((r: any) => r.anomaly_flag).length;
   const dataCompleteness = data.meters > 0 ? Math.min(data.readings.length / data.meters * 100, 100) : 0;
   const openInterruptions = data.interruptions.filter((x: any) => !['restored','closed'].includes(x.status)).length;
+
+  const printReport = (title: string, body: string) => {
+    const filename = `${currentProject.name_ar} - ${title}`;
+    const printWindow = window.open('', '_blank', 'noopener,noreferrer');
+    if (!printWindow) { setError('تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.'); return; }
+    const escapeHtml = (value: unknown) => String(value ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    printWindow.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${escapeHtml(filename)}</title>
+      <style>@page{size:A4;margin:14mm}body{font-family:Arial,Tahoma,sans-serif;color:#17202a;line-height:1.6;font-size:12px}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:18px 0 8px;border-bottom:1px solid #ddd;padding-bottom:5px}.meta{color:#667085;margin-bottom:18px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.card{border:1px solid #ddd;padding:9px}.label{color:#667085;font-size:10px}.value{font-size:16px;font-weight:700}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #ddd;padding:6px;text-align:right}th{background:#f5f5f5}.footer{margin-top:22px;color:#667085;font-size:10px}</style></head><body>
+      <h1>${escapeHtml(title)}</h1><div class="meta">المشروع: <strong>${escapeHtml(currentProject.name_ar)}</strong><br>تاريخ الإصدار: ${escapeHtml(new Date().toLocaleString('ar-YE'))}</div>
+      ${body}<div class="footer">تم إنشاء التقرير من MIZAN AI — البيانات المتاحة للمشروع وقت الإصدار.</div>
+      <script>window.onload=function(){window.print();}</script></body></html>`);
+    printWindow.document.close();
+  };
+
+  const exportPDF = (type: 'full' | 'maintenance-monthly') => {
+    const escapeHtml = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    if (type === 'maintenance-monthly') {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      const inMonth = (value: unknown) => { if (!value) return false; const d = new Date(String(value)); return !Number.isNaN(d.getTime()) && d >= start && d <= end; };
+      const monthWOs = data.workOrders.filter((w: any) => inMonth(w.created_at || w.scheduled_date));
+      const monthFaults = data.faults.filter((f: any) => inMonth(f.reported_at || f.created_at));
+      const rows = monthWOs.map((w: any) => `<tr><td>${escapeHtml(w.work_order_number)}</td><td>${escapeHtml(w.type)}</td><td>${escapeHtml(w.priority)}</td><td>${escapeHtml(w.status)}</td><td>${escapeHtml(w.assigned_to || '—')}</td><td>${escapeHtml(formatDate(w.scheduled_date))}</td></tr>`).join('');
+      printReport('تقرير الصيانة الشهري', `<div class="grid">
+        <div class="card"><div class="label">أوامر الصيانة</div><div class="value">${monthWOs.length}</div></div>
+        <div class="card"><div class="label">مكتملة</div><div class="value">${monthWOs.filter((w:any)=>w.status==='completed').length}</div></div>
+        <div class="card"><div class="label">مفتوحة / قيد المعالجة</div><div class="value">${monthWOs.filter((w:any)=>['open','in_progress'].includes(w.status)).length}</div></div>
+        <div class="card"><div class="label">الأعطال المبلغ عنها</div><div class="value">${monthFaults.length}</div></div>
+      </div><h2>تفاصيل أوامر الصيانة</h2><table><thead><tr><th>رقم الأمر</th><th>النوع</th><th>الأولوية</th><th>الحالة</th><th>المسؤول</th><th>الموعد</th></tr></thead><tbody>${rows || '<tr><td colspan="6">لا توجد أوامر صيانة في هذا الشهر.</td></tr>'}</tbody></table>`);
+      return;
+    }
+    printReport('التقرير التشغيلي الشامل', `<div class="grid">
+      <div class="card"><div class="label">معدل التحصيل</div><div class="value">${formatNumber(collectionRate)}%</div></div>
+      <div class="card"><div class="label">الفاقد NRW</div><div class="value">${nrw === null ? '—' : formatNumber(nrw)+'%'}</div></div>
+      <div class="card"><div class="label">اكتمال البيانات</div><div class="value">${formatNumber(dataCompleteness)}%</div></div>
+      <div class="card"><div class="label">الفواتير</div><div class="value">${data.invoices.length}</div></div>
+      <div class="card"><div class="label">أعطال مفتوحة</div><div class="value">${openFaults}</div></div>
+      <div class="card"><div class="label">أوامر صيانة مفتوحة</div><div class="value">${openWOs}</div></div>
+    </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج اليومي المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل في الفواتير</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>الفاقد المحسوب</th><td>${formatNumber(production-consumption)} م³</td></tr><tr><th>نسبة الفاقد</th><td>${nrw === null ? '—' : formatNumber(nrw)+'%'}</td></tr></tbody></table>
+    <h2>الإيرادات والتحصيل</h2><table><tbody><tr><th>إجمالي الفواتير</th><td>${formatCurrency(totalRevenue)}</td></tr><tr><th>التحصيل المعتمد</th><td>${formatCurrency(collected)}</td></tr><tr><th>المتأخرات</th><td>${formatCurrency(outstanding)}</td></tr></tbody></table>`);
+  };
 
   const exportCSV = (type: string) => {
     let rows: string[][] = [];
@@ -180,6 +224,11 @@ export function ReportsPage() {
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">التقارير والتحليلات</h1>
         <p className="text-sm text-neutral-500 mt-1">{currentProject.name_ar}</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2 print:hidden">
+        <button onClick={() => exportPDF('full')} className="btn-primary flex items-center gap-2"><Printer size={16} /> طباعة / حفظ PDF</button>
+        <button onClick={() => exportPDF('maintenance-monthly')} className="btn-secondary flex items-center gap-2"><FileText size={16} /> تقرير الصيانة الشهري PDF</button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
