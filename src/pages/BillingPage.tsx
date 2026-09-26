@@ -7,13 +7,13 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { StatCard } from '@/components/ui/StatCard';
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import { formatNumber, formatCurrency, formatDate, invoiceStatusLabels } from '@/lib/utils';
-import { Receipt, Wallet, Plus, TrendingUp, AlertTriangle, CheckCircle, Loader2, Search, Trash2, AlertCircle } from 'lucide-react';
+import { Receipt, Wallet, Plus, TrendingUp, AlertTriangle, CheckCircle, Loader2, Search, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import type { Invoice, Payment, Customer, Meter, Tariff, TariffTier } from '@/types';
 
 type Tab = 'invoices' | 'payments' | 'tariffs';
 
-const paymentMethodLabels: Record<string, string> = {
+const paymentApprovalStatusLabels: Record<string, string> = { pending: 'بانتظار اعتماد المدير', approved: 'معتمد', rejected: 'مرفوض / مُعاد' };\n\nconst paymentMethodLabels: Record<string, string> = {
   cash: 'نقدي', wallet: 'محفظة إلكترونية', bank: 'حوالة بنكية', other: 'أخرى',
 };
 
@@ -21,6 +21,7 @@ export function BillingPage() {
   const { currentProject } = useProject();
   const { profile } = useAuth();
   const canEdit = profile?.role === 'platform_admin' || profile?.role === 'tenant_manager' || profile?.role === 'collection_officer';
+  const canApprove = profile?.role === 'platform_admin' || profile?.role === 'tenant_manager';
   const [tab, setTab] = useState<Tab>('invoices');
   const [invoices, setInvoices] = useState<(Invoice & { customers?: Customer })[]>([]);
   const [payments, setPayments] = useState<(Payment & { customers?: Customer; invoices?: Invoice })[]>([]);
@@ -163,50 +164,60 @@ export function BillingPage() {
     if (!currentProject || !paymentForm.invoice_id) { setSaving(false); return; }
     setSaving(true);
     setFormError(null);
-    const pid = currentProject.id;
+
     const invoice = invoices.find(i => i.id === paymentForm.invoice_id);
     if (!invoice) { setFormError('الفاتورة غير موجودة'); setSaving(false); return; }
+
     const amount = parseFloat(paymentForm.amount);
     if (isNaN(amount) || amount <= 0) { setFormError('المبلغ غير صحيح'); setSaving(false); return; }
     if (amount > Number(invoice.balance)) { setFormError(`المبلغ يتجاوز المتبقي (${formatCurrency(invoice.balance)})`); setSaving(false); return; }
 
-    const { data: seqData } = await supabase.rpc('next_seq_number', { seq_name: 'RCP' });
-    const receiptNumber = seqData || `RCP-${new Date().getFullYear()}-${Date.now()}`;
+    const { data, error: rpcError } = await supabase.rpc('mizan_record_payment', {
+      p_invoice_id: invoice.id,
+      p_amount: amount,
+      p_payment_method: paymentForm.payment_method || 'cash',
+      p_reference_number: paymentForm.reference_number || null,
+      p_notes: paymentForm.notes || null,
+    });
 
-    const { data, error: insErr } = await supabase.from('payments').insert({
-      project_id: pid,
-      invoice_id: invoice.id,
-      customer_id: invoice.customer_id,
-      receipt_number: receiptNumber,
-      amount: amount,
-      payment_method: paymentForm.payment_method || 'cash',
-      collector_name: paymentForm.collector_name || null,
-      reference_number: paymentForm.reference_number || null,
-      notes: paymentForm.notes || null,
-    }).select('*, customers(name_ar, customer_number), invoices(invoice_number, grand_total)').single();
-
-    if (insErr) { setFormError(insErr.message); setSaving(false); return; }
+    if (rpcError) {
+      setFormError(rpcError.message);
+      setSaving(false);
+      return;
+    }
 
     if (data) {
-      const newPaid = Number(invoice.amount_paid) + amount;
-      const newBalance = Number(invoice.grand_total) - newPaid;
-      const newStatus = newBalance <= 0 ? 'paid' : 'partial';
-      await supabase.from('invoices').update({
-        amount_paid: newPaid,
-        balance: newBalance,
-        status: newStatus,
-      }).eq('id', invoice.id);
-
       setPayments([data as any, ...payments]);
-      setInvoices(invoices.map(inv => inv.id === invoice.id ? {
-        ...inv,
-        amount_paid: newPaid,
-        balance: newBalance,
-        status: newStatus,
-      } : inv));
       setShowPaymentForm(false);
       setPaymentForm({});
     }
+    setSaving(false);
+  };
+
+  const handleReviewPayment = async (paymentId: string, decision: 'approved' | 'rejected') => {
+    const reason = decision === 'rejected'
+      ? window.prompt('سبب رفض/إرجاع التحصيل:')?.trim()
+      : null;
+
+    if (decision === 'rejected' && !reason) return;
+    if (decision === 'approved' && !window.confirm('تأكيد اعتماد هذا التحصيل؟')) return;
+
+    setSaving(true);
+    setError(null);
+
+    const { error: reviewError } = await supabase.rpc('mizan_review_payment', {
+      p_payment_id: paymentId,
+      p_decision: decision,
+      p_reason: reason || null,
+    });
+
+    if (reviewError) {
+      setError(reviewError.message);
+      setSaving(false);
+      return;
+    }
+
+    await fetchData();
     setSaving(false);
   };
 
@@ -282,7 +293,7 @@ export function BillingPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard title="إجمالي الإيرادات" value={formatCurrency(totalRevenue)} icon={Receipt} color="primary" />
         <StatCard title="المحصّل" value={formatCurrency(collected)} icon={CheckCircle} color="success" />
-        <StatCard title="المتأخرات" value={formatCurrency(outstanding)} icon={AlertTriangle} color={outstanding > 0 ? 'error' : 'neutral'} />
+        <StatCard title="المتأخرات" value={formatCurrency(outstanding)} icon={AlertTriangle} color={outstanding > 0 ? 'error' : 'neutral'} />\n        <StatCard title="بانتظار الاعتماد" value={formatCurrency(payments.filter(p => p.approval_status === 'pending').reduce((s, p) => s + Number(p.amount), 0))} icon={Loader2} color="neutral" />
       </div>
 
       <div className="flex gap-1 bg-neutral-100 p-1 rounded-xl w-fit">
