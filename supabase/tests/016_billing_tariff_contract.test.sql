@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(10);
+SELECT plan(11);
 
 SELECT ok(
   EXISTS (
@@ -128,6 +128,12 @@ SELECT ok(
   NOT has_table_privilege('anon','public.invoices','INSERT')
   AND NOT has_table_privilege('authenticated','public.invoices','INSERT'),
   'client roles cannot bypass governed invoice issuance'
+);
+
+SELECT ok(
+  NOT has_table_privilege('anon','public.tariffs','DELETE')
+  AND NOT has_table_privilege('authenticated','public.tariffs','DELETE'),
+  'client roles cannot delete tariff definitions directly'
 );
 
 SELECT * FROM finish();
