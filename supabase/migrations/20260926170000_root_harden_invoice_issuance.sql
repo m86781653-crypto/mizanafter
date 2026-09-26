@@ -111,10 +111,12 @@ begin
    where id=p_meter_id;
 
   perform private.mizan_write_audit(
-    'invoices', v_invoice.id, 'INVOICE_CREATED',
-    jsonb_build_object('project_id',p_project_id,'customer_id',p_customer_id,'meter_id',p_meter_id,
+    p_project_id, 'INVOICE_CREATED', 'invoice', v_invoice.id,
+    null,
+    jsonb_build_object('customer_id',p_customer_id,'meter_id',p_meter_id,
                        'reading_id',v_reading.id,'reading_value',v_reading.reading_value,
-                       'consumption_m3',v_consumption,'grand_total',v_total)
+                       'consumption_m3',v_consumption,'grand_total',v_total),
+    null, 'success'
   );
 
   return v_invoice;
