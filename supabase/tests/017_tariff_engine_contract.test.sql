@@ -1,0 +1,21 @@
+BEGIN;
+SELECT plan(9);
+SELECT ok(EXISTS(SELECT 1 FROM pg_constraint WHERE conname='tariff_tiers_from_nonnegative'),'tariff tier lower bound is nonnegative');
+SELECT ok(EXISTS(SELECT 1 FROM pg_constraint WHERE conname='tariff_tiers_to_after_from'),'tariff tier upper bound is greater than lower bound');
+SELECT ok(EXISTS(SELECT 1 FROM pg_constraint WHERE conname='tariff_tiers_price_nonnegative'),'tariff tier price is nonnegative');
+SELECT ok(EXISTS(SELECT 1 FROM pg_constraint WHERE conname='tariff_tiers_no_overlap'),'tariff tier ranges cannot overlap');
+SELECT ok(EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='private' AND p.proname='mizan_calculate_consumption_fee'),'deterministic tariff calculation function exists');
+DO $$DECLARE tid uuid:=gen_random_uuid(); fee numeric; bad uuid:=gen_random_uuid(); BEGIN
+ INSERT INTO public.tariffs(id,name_ar,customer_type,fixed_fee) VALUES(tid,'CI tariff','residential',5);
+ INSERT INTO public.tariff_tiers(tariff_id,from_m3,to_m3,price_per_m3) VALUES(tid,0,10,1),(tid,10,20,2),(tid,20,null,3);
+ fee:=private.mizan_calculate_consumption_fee(tid,7); IF fee<>7 THEN RAISE EXCEPTION '7m3 expected 7 got %',fee; END IF;
+ fee:=private.mizan_calculate_consumption_fee(tid,15); IF fee<>20 THEN RAISE EXCEPTION '15m3 expected 20 got %',fee; END IF;
+ fee:=private.mizan_calculate_consumption_fee(tid,25); IF fee<>45 THEN RAISE EXCEPTION '25m3 expected 45 got %',fee; END IF;
+ INSERT INTO public.tariffs(id,name_ar) VALUES(bad,'gap tariff');
+ INSERT INTO public.tariff_tiers(tariff_id,from_m3,to_m3,price_per_m3) VALUES(bad,0,10,1),(bad,15,null,3);
+END$$;
+SELECT ok(true,'tier calculation fixture executed');
+SELECT throws_ok($$SELECT private.mizan_calculate_consumption_fee((SELECT id FROM public.tariffs WHERE name_ar='gap tariff'),20)$$,'TARIFF_TIER_GAP','gaps are rejected rather than silently billed');
+SELECT ok((SELECT private.mizan_calculate_consumption_fee((SELECT id FROM public.tariffs WHERE name_ar='CI tariff'),0))=0,'zero consumption has zero variable fee');
+SELECT ok(pg_get_functiondef((SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='mizan_create_invoice' AND pg_get_function_identity_arguments(p.oid)='p_project_id uuid, p_customer_id uuid, p_meter_id uuid, p_period_start date, p_period_end date')) LIKE '%mizan_calculate_consumption_fee%','invoice issuance delegates tariff calculation to governed engine');
+SELECT * FROM finish(); ROLLBACK;
