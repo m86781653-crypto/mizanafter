@@ -39,20 +39,10 @@ where approval_status = 'pending'
   and approved_by is null
   and rejected_by is null;
 
-insert into public.mizan_role_permissions(permission_code, name_ar, description_ar)
-values (
-  'collection.approve',
-  'اعتماد التحصيل',
-  'مراجعة واعتماد أو رفض التحصيلات المسجلة من المحصل'
-)
-on conflict (permission_code) do update
-set name_ar = excluded.name_ar,
-    description_ar = excluded.description_ar;
-
 insert into public.mizan_role_permissions(role_code, permission_code)
-select r.role_code, 'collection.approve'
-from (values ('tenant_manager'), ('platform_admin')) as r(role_code)
-where exists (select 1 from public.mizan_role_catalog c where c.role_code = r.role_code)
+values
+  ('tenant_manager', 'collection.approve'),
+  ('platform_admin', 'collection.approve')
 on conflict do nothing;
 
 create or replace function public.mizan_record_payment(
