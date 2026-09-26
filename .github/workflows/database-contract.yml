@@ -80,6 +80,9 @@ jobs:
       - name: Run privilege minimization contract
         run: supabase test db supabase/tests/015_privilege_minimization_contract.test.sql
 
+      - name: Run billing and tariff contract
+        run: supabase test db supabase/tests/016_billing_tariff_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
