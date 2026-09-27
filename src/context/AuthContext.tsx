@@ -7,7 +7,7 @@ interface AuthContextValue { session: Session|null; user: User|null; profile: Pr
 const AuthContext=createContext<AuthContextValue|undefined>(undefined);
 export const roleLabels:Record<UserRole,string>={platform_admin:'مدير المنصة',central_governance:'حوكمة هيئة مياه الريف',project_manager:'مدير المشروع',tenant_manager:'دور انتقالي',operations_officer:'مسؤول العمليات',meter_reader:'قارئ العدادات',collection_officer:'المحصل',maintenance_officer:'مسؤول الصيانة',technician:'فني',data_exception_officer:'مسؤول استثناءات البيانات',viewer:'عرض فقط'};
 const PROFILE_LOAD_TIMEOUT_MS=10000, SIGN_IN_TIMEOUT_MS=15000, PASSWORD_RESET_TIMEOUT_MS=15000;
-async function withTimeout<T>(promise:Promise<T>,timeoutMs:number):Promise<T>{let timer:ReturnType<typeof setTimeout>|undefined;try{return await Promise.race([promise,new Promise<T>((_,reject)=>{timer=setTimeout(()=>reject(new Error('REQUEST_TIMEOUT')),timeoutMs)})])}finally{if(timer)clearTimeout(timer)}}
+async function withTimeout<T>(promise:PromiseLike<T>,timeoutMs:number):Promise<T>{let timer:ReturnType<typeof setTimeout>|undefined;try{return await Promise.race([promise,new Promise<T>((_,reject)=>{timer=setTimeout(()=>reject(new Error('REQUEST_TIMEOUT')),timeoutMs)})])}finally{if(timer)clearTimeout(timer)}}
 export function AuthProvider({children}:{children:ReactNode}){
  const [session,setSession]=useState<Session|null>(null),[user,setUser]=useState<User|null>(null),[profile,setProfile]=useState<Profile|null>(null),[loading,setLoading]=useState(true);
  const signingInRef=useRef(false);
