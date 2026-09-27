@@ -62,42 +62,6 @@ async function getTarget(targetUserId: string) {
   return data;
 }
 
-
-async function authorizeProject(actorId: string, projectId: string) {
-  const actor = await getActor(actorId);
-  if (!actor || actor.role !== "central_governance") return null;
-
-  const { data: project, error: projectError } = await admin
-    .from("projects")
-    .select("id,name_ar,tenant_id,status")
-    .eq("id", projectId)
-    .maybeSingle();
-  if (projectError || !project || project.status === "archived") return null;
-
-  const { data: tenant, error: tenantError } = await admin
-    .from("tenants")
-    .select("id,parent_tenant_id,tenant_type,status")
-    .eq("id", project.tenant_id)
-    .maybeSingle();
-  if (
-    tenantError ||
-    !tenant ||
-    tenant.tenant_type !== "sub_tenant" ||
-    tenant.status !== "active" ||
-    tenant.parent_tenant_id !== actor.tenant_id
-  ) return null;
-
-  const { data: permission, error: permissionError } = await admin
-    .from("mizan_role_permissions")
-    .select("permission_code")
-    .eq("role_code", "central_governance")
-    .eq("permission_code", "governance.users.manage")
-    .maybeSingle();
-  if (permissionError || !permission) return null;
-
-  return { actor, project, tenant };
-}
-
 async function authorize(actorId: string, targetUserId: string) {
   const actor = await getActor(actorId);
   const target = await getTarget(targetUserId);
@@ -162,39 +126,8 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const action = cleanString(body.action, 40);
-
-  if (action === "list") {
-    const projectId = cleanString(body.project_id, 80);
-    if (!projectId) return json({ error: "PROJECT_REQUIRED" }, 400);
-    const projectContext = await authorizeProject(actor.id, projectId);
-    if (!projectContext) return json({ error: "FORBIDDEN_PROJECT_SCOPE" }, 403);
-
-    const { data: profiles, error: profilesError } = await admin
-      .from("profiles")
-      .select("id,email,full_name,phone,role,tenant_id,project_id,must_change_password")
-      .eq("project_id", projectId)
-      .in("role", ["project_manager", "meter_reader", "collection_officer"])
-      .order("role");
-    if (profilesError) return json({ error: "PROFILE_LOOKUP_FAILED", detail: profilesError.message }, 500);
-
-    const users = await Promise.all((profiles || []).map(async (profile) => {
-      const { data, error } = await admin.auth.admin.getUserById(profile.id);
-      if (error || !data.user) return {
-        ...profile,
-        email_confirmed: false,
-        banned_until: null,
-      };
-      return {
-        ...profile,
-        email_confirmed: Boolean(data.user.email_confirmed_at),
-        banned_until: data.user.banned_until ?? null,
-      };
-    }));
-
-    return json({ project_id: projectId, users });
-  }
-
   const targetUserId = cleanString(body.target_user_id, 80);
+
   if (!targetUserId) return json({ error: "TARGET_USER_REQUIRED" }, 400);
   const context = await authorize(actor.id, targetUserId);
   if (!context) return json({ error: "FORBIDDEN_TARGET_SCOPE" }, 403);
