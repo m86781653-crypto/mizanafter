@@ -31,11 +31,35 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       if (!alive) return;
       const central = profile.role === 'platform_admin' || (profile.role === 'central_governance' && tenant?.tenant_type === 'main_tenant');
       setIsCentralTenant(central);
-      const base = supabase.from('projects').select('*').order('name_ar');
-      const { data, error } = await (central ? base : base.eq('id',profile.project_id || ''));
+      let list: Project[] = [];
+      if (central) {
+        const { data: functionData, error: functionError } = await supabase.functions.invoke('admin-manage-project-user', {
+          body: { action: 'list_projects' },
+        });
+        if (functionError) {
+          console.error('Failed to load central governance projects:', functionError.message);
+          setProjects([]);
+          setCurrentProject(null);
+          setLoading(false);
+          return;
+        }
+        list = (functionData?.projects || []) as Project[];
+      } else {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('id', profile.project_id || '')
+          .order('name_ar');
+        if (error) {
+          console.error('Failed to load project:', error.message);
+          setProjects([]);
+          setCurrentProject(null);
+          setLoading(false);
+          return;
+        }
+        list = (data || []) as Project[];
+      }
       if (!alive) return;
-      if (error) { console.error('Failed to load projects:',error.message); setProjects([]); setCurrentProject(null); setLoading(false); return; }
-      const list = (data || []) as Project[];
       setProjects(list);
       const stored = localStorage.getItem('mizan_current_project_id');
       const desired = central
