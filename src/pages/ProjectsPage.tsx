@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { useAuth } from '@/context/AuthContext';
@@ -40,12 +39,6 @@ export function ProjectsPage() {
     collector_name: '', collector_email: '',
   });
 
-  const generateInitialPassword = () => {
-    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
-    const bytes = crypto.getRandomValues(new Uint8Array(24));
-    return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
-  };
-
   const handleSave = async () => {
     if (!form.name_ar.trim()) return;
     const users = [
@@ -60,75 +53,41 @@ export function ProjectsPage() {
     setSaving(true);
     setError(null);
     try {
-      const { data: setup, error: setupError } = await supabase.rpc('mizan_provision_subtenant', {
-        p_tenant_name_ar: form.name_ar.trim(),
-        p_tenant_name_en: form.name_en.trim() || null,
-        p_project_name_ar: form.name_ar.trim(),
-        p_project_name_en: form.name_en.trim() || null,
-        p_timezone: 'Asia/Aden',
-        p_funding_source: form.funding_source.trim() || null,
-        p_funding_amount: form.funding_amount ? Number(form.funding_amount) : null,
-        p_funding_currency: form.funding_currency.trim() || null,
-        p_donor: form.donor.trim() || null,
-        p_beneficiary_count: form.beneficiary_count ? Number(form.beneficiary_count) : 0,
-        p_design_capacity: form.design_capacity ? Number(form.design_capacity) : 0,
-        p_operational_capacity: form.operational_capacity ? Number(form.operational_capacity) : 0,
-        p_address: form.address.trim() || null,
-        p_established_date: form.established_date || null,
-        p_district_id: null,
-        p_users: users.map(({ role, full_name, email }) => ({ role, full_name, email })),
-      });
-      if (setupError || !setup) throw new Error(setupError?.message || 'فشل إنشاء المستأجر والمشروع.');
-
-      const onboardingClient = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY, {
-        auth: { persistSession: false, autoRefreshToken: false },
+      const { data: setup, error: setupError } = await supabase.functions.invoke('provision-subtenant', {
+        body: {
+          tenant_name_ar: form.name_ar.trim(),
+          tenant_name_en: form.name_en.trim() || null,
+          project_name_ar: form.name_ar.trim(),
+          project_name_en: form.name_en.trim() || null,
+          timezone: 'Asia/Aden',
+          funding_source: form.funding_source.trim() || null,
+          funding_amount: form.funding_amount ? Number(form.funding_amount) : null,
+          funding_currency: form.funding_currency.trim() || null,
+          donor: form.donor.trim() || null,
+          beneficiary_count: form.beneficiary_count ? Number(form.beneficiary_count) : 0,
+          design_capacity: form.design_capacity ? Number(form.design_capacity) : 0,
+          operational_capacity: form.operational_capacity ? Number(form.operational_capacity) : 0,
+          address: form.address.trim() || null,
+          established_date: form.established_date || null,
+          district_id: null,
+          users,
+        },
       });
 
-      const credentials: CreatedCredential[] = [];
-      for (const slot of (setup.user_slots || []) as Array<any>) {
-        const input = users.find((u) => u.role === slot.role);
-        if (!input) continue;
-        const initialPassword = generateInitialPassword();
-        const { data: signUp, error: signUpError } = await onboardingClient.auth.signUp({
-          email: input.email,
-          password: initialPassword,
-          options: {
-            data: {
-              full_name: input.full_name,
-              onboarding_token: slot.onboarding_token,
-            },
-          },
-        });
-
-        if (signUpError || !signUp.user) {
-          credentials.push({ role: input.role, role_label: input.label, full_name: input.full_name, email: input.email, password: initialPassword, status: 'failed' });
-          continue;
-        }
-
-        let status: CreatedCredential['status'] = 'pending_claim';
-        if (signUp.session?.access_token) {
-          const { error: claimError } = await onboardingClient.rpc('mizan_claim_subtenant_user_slot', {
-            p_onboarding_token: slot.onboarding_token,
-          });
-          if (!claimError) {
-            status = 'created';
-            await onboardingClient.auth.updateUser({ data: { onboarding_token: null } });
-          }
-        }
-
-        credentials.push({
-          role: input.role,
-          role_label: input.label,
-          full_name: input.full_name,
-          email: input.email,
-          password: initialPassword,
-          status,
-          onboarding_token: status === 'pending_claim' ? slot.onboarding_token : undefined,
-          must_change_password: true,
-        });
-
-        await onboardingClient.auth.signOut();
+      if (setupError || !setup) {
+        const message = (setupError as any)?.context?.message || setupError?.message || 'فشل إنشاء المستأجر والمشروع والحسابات.';
+        throw new Error(message);
       }
+
+      const credentials: CreatedCredential[] = (setup.credentials || []).map((cred: any) => ({
+        role: cred.role,
+        role_label: cred.role_label,
+        full_name: cred.full_name,
+        email: cred.email,
+        password: cred.password,
+        status: 'created',
+        must_change_password: true,
+      }));
 
       setCreatedCreds(credentials);
       setCreatedProjectName(form.name_ar);
@@ -226,7 +185,7 @@ export function ProjectsPage() {
       <Modal open={showForm} onClose={() => setShowForm(false)} title="إنشاء مستأجر فرعي ومشروع مع 3 حسابات مستخدمين" size="lg">
         <div className="mb-4 flex items-start gap-2 px-4 py-3 rounded-xl bg-primary-50 text-primary-700 text-sm">
           <UserCheck size={18} className="shrink-0 mt-0.5" />
-          <span>سيتم إنشاء المشروع و3 حسابات تلقائياً: مدير مشروع، قارئ عدادات، محصل. ستحصل على كلمات مرور جاهزة لتسليمها للعميل.</span>
+          <span>سيتم إنشاء المشروع وربط الحسابات الثلاثة تلقائياً: مدير مشروع، قارئ عدادات، محصل. تصبح الحسابات جاهزة للدخول فوراً، مع إجبار كل مستخدم على تغيير كلمة المرور عند أول دخول.</span>
         </div>
 
         {error && (
@@ -295,7 +254,7 @@ export function ProjectsPage() {
         {/* User accounts section */}
         <div className="mt-6 pt-6 border-t border-neutral-200">
           <h3 className="font-bold text-neutral-800 mb-1">حسابات المستخدمين</h3>
-          <p className="text-xs text-neutral-500 mb-4">يتم إنشاء الحسابات الثلاثة وفق الخانات المحجوزة في قاعدة البيانات. أدخل البريد الحقيقي لكل مستخدم لتسهيل التحقق والاستعادة الآمنة.</p>
+          <p className="text-xs text-neutral-500 mb-4">سيتم إنشاء الحسابات وربطها بالمشروع تلقائياً بالكامل. يجب أن يكون لكل مستخدم بريد إلكتروني فريد غير مستخدم مسبقاً.</p>
 
           <div className="space-y-4">
             {/* Manager */}
@@ -394,7 +353,7 @@ export function ProjectsPage() {
                     <div>
                       <span className="text-neutral-400 text-xs">كلمة المرور</span>
                       <p className="font-bold text-error-700 font-mono" dir="ltr" style={{ textAlign: 'right' }}>{cred.password}</p>
-                    {cred.status !== 'created' && <p className="text-xs text-warning-700 mt-1">الحالة: {cred.status === 'pending_claim' ? 'بانتظار تأكيد البريد/إكمال الربط' : 'فشل إنشاء الحساب — يمكن استكماله من الخانة المحجوزة'}</p>}
+                    
                     </div>
                   </div>
                 </div>
