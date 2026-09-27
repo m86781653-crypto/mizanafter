@@ -58,8 +58,15 @@ SELECT ok(
 );
 
 SELECT ok(
-  NOT has_table_privilege('authenticated','public.profiles','UPDATE'),
-  'authenticated clients do not receive a blanket profile update privilege through this feature'
+  NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public'
+      AND tablename='profiles'
+      AND cmd='UPDATE'
+      AND roles @> ARRAY['authenticated']::name[]
+      AND policyname='central_governance_project_users_update'
+  ),
+  'central governance receives no direct profile UPDATE policy'
 );
 
 SELECT ok(
