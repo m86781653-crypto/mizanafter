@@ -35,7 +35,7 @@ export interface MRXOcrResult {
   detectedMeterNumber: string;
 }
 
-let ocrWorkerPromise: Promise<TesseractWorker> | null = null;
+type OcrWorker = {\n  setParameters: (params: Record<string, string>) => Promise<unknown>;\n  recognize: (imageUrl: string) => Promise<{ data: { text: string; confidence: number } }>;\n};\n\nlet ocrWorkerPromise: Promise<OcrWorker> | null = null;
 
 const OCR_RUNTIME_PATHS = [
   '/mizan-ocr/tesseract.min.js',
