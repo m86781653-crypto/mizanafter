@@ -51,6 +51,16 @@ async function getActor(actorId: string) {
   return data;
 }
 
+async function hasCentralGovernancePermission() {
+  const { data, error } = await admin
+    .from("mizan_role_permissions")
+    .select("permission_code")
+    .eq("role_code", "central_governance")
+    .eq("permission_code", "governance.users.manage")
+    .maybeSingle();
+  return !error && Boolean(data);
+}
+
 async function getTarget(targetUserId: string) {
   const { data, error } = await admin
     .from("profiles")
@@ -65,7 +75,19 @@ async function getTarget(targetUserId: string) {
 
 async function authorizeProject(actorId: string, projectId: string) {
   const actor = await getActor(actorId);
-  if (!actor || actor.role !== "central_governance") return null;
+  if (!actor || actor.role !== "central_governance" || !(await hasCentralGovernancePermission())) return null;
+
+  const { data: actorTenant, error: actorTenantError } = await admin
+    .from("tenants")
+    .select("id,tenant_type,status")
+    .eq("id", actor.tenant_id)
+    .maybeSingle();
+  if (
+    actorTenantError ||
+    !actorTenant ||
+    actorTenant.tenant_type !== "main_tenant" ||
+    actorTenant.status !== "active"
+  ) return null;
 
   const { data: project, error: projectError } = await admin
     .from("projects")
@@ -116,13 +138,19 @@ async function authorize(actorId: string, targetUserId: string) {
     target.tenant_id !== project.tenant_id
   ) return null;
 
-  const { data: permission, error: permissionError } = await admin
-    .from("mizan_role_permissions")
-    .select("permission_code")
-    .eq("role_code", "central_governance")
-    .eq("permission_code", "governance.users.manage")
+  if (!(await hasCentralGovernancePermission())) return null;
+
+  const { data: actorTenant, error: actorTenantError } = await admin
+    .from("tenants")
+    .select("id,tenant_type,status")
+    .eq("id", actor.tenant_id)
     .maybeSingle();
-  if (permissionError || !permission) return null;
+  if (
+    actorTenantError ||
+    !actorTenant ||
+    actorTenant.tenant_type !== "main_tenant" ||
+    actorTenant.status !== "active"
+  ) return null;
 
   return { actor, target, project, tenant };
 }
