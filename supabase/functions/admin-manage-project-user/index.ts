@@ -51,6 +51,16 @@ async function getActor(actorId: string) {
   return data;
 }
 
+async function hasCentralGovernancePermission() {
+  const { data, error } = await admin
+    .from("mizan_role_permissions")
+    .select("permission_code")
+    .eq("role_code", "central_governance")
+    .eq("permission_code", "governance.users.manage")
+    .maybeSingle();
+  return !error && Boolean(data);
+}
+
 async function getTarget(targetUserId: string) {
   const { data, error } = await admin
     .from("profiles")
@@ -65,7 +75,19 @@ async function getTarget(targetUserId: string) {
 
 async function authorizeProject(actorId: string, projectId: string) {
   const actor = await getActor(actorId);
-  if (!actor || actor.role !== "central_governance") return null;
+  if (!actor || actor.role !== "central_governance" || !(await hasCentralGovernancePermission())) return null;
+
+  const { data: actorTenant, error: actorTenantError } = await admin
+    .from("tenants")
+    .select("id,tenant_type,status")
+    .eq("id", actor.tenant_id)
+    .maybeSingle();
+  if (
+    actorTenantError ||
+    !actorTenant ||
+    actorTenant.tenant_type !== "main_tenant" ||
+    actorTenant.status !== "active"
+  ) return null;
 
   const { data: project, error: projectError } = await admin
     .from("projects")
@@ -116,13 +138,19 @@ async function authorize(actorId: string, targetUserId: string) {
     target.tenant_id !== project.tenant_id
   ) return null;
 
-  const { data: permission, error: permissionError } = await admin
-    .from("mizan_role_permissions")
-    .select("permission_code")
-    .eq("role_code", "central_governance")
-    .eq("permission_code", "governance.users.manage")
+  if (!(await hasCentralGovernancePermission())) return null;
+
+  const { data: actorTenant, error: actorTenantError } = await admin
+    .from("tenants")
+    .select("id,tenant_type,status")
+    .eq("id", actor.tenant_id)
     .maybeSingle();
-  if (permissionError || !permission) return null;
+  if (
+    actorTenantError ||
+    !actorTenant ||
+    actorTenant.tenant_type !== "main_tenant" ||
+    actorTenant.status !== "active"
+  ) return null;
 
   return { actor, target, project, tenant };
 }
@@ -154,6 +182,62 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const action = cleanString(body.action, 40);
+
+  if (action === "list_projects") {
+    const actorProfile = await getActor(actor.id);
+    if (!actorProfile || actorProfile.role !== "central_governance" || !(await hasCentralGovernancePermission())) {
+      return json({ error: "FORBIDDEN" }, 403);
+    }
+
+    const { data: actorTenant, error: actorTenantError } = await admin
+      .from("tenants")
+      .select("id,tenant_type,status")
+      .eq("id", actorProfile.tenant_id)
+      .maybeSingle();
+    if (
+      actorTenantError ||
+      !actorTenant ||
+      actorTenant.tenant_type !== "main_tenant" ||
+      actorTenant.status !== "active"
+    ) {
+      return json({ error: "FORBIDDEN" }, 403);
+    }
+
+    const { data: projects, error: projectsError } = await admin
+      .from("projects")
+      .select("id,name_ar,name_en,tenant_id,status")
+      .eq("status", "active")
+      .order("name_ar");
+    if (projectsError) {
+      return json({ error: "PROJECT_LOOKUP_FAILED", detail: projectsError.message }, 500);
+    }
+
+    const tenantIds = [...new Set((projects || []).map((project) => project.tenant_id).filter(Boolean))];
+    if (tenantIds.length === 0) return json({ projects: [] });
+
+    const { data: tenants, error: tenantsError } = await admin
+      .from("tenants")
+      .select("id,parent_tenant_id,tenant_type,status")
+      .in("id", tenantIds);
+    if (tenantsError) {
+      return json({ error: "TENANT_LOOKUP_FAILED", detail: tenantsError.message }, 500);
+    }
+
+    const allowedTenantIds = new Set(
+      (tenants || [])
+        .filter(
+          (tenant) =>
+            tenant.tenant_type === "sub_tenant" &&
+            tenant.status === "active" &&
+            tenant.parent_tenant_id === actorProfile.tenant_id,
+        )
+        .map((tenant) => tenant.id),
+    );
+
+    return json({
+      projects: (projects || []).filter((project) => allowedTenantIds.has(project.tenant_id)),
+    });
+  }
 
   if (action === "list") {
     const projectId = cleanString(body.project_id, 80);
