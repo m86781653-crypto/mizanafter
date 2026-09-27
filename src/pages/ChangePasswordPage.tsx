@@ -71,13 +71,10 @@ export function ChangePasswordPage() {
         return;
       }
 
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ must_change_password: false })
-        .eq('id', user.id);
+      const { error: profileError } = await supabase.rpc('mizan_complete_password_change');
 
       if (profileError) {
-        setError('تم تغيير كلمة المرور، لكن تعذر تحديث حالة الحساب. يرجى تسجيل الخروج ثم الدخول مرة أخرى.');
+        setError('تم تغيير كلمة المرور، لكن تعذر إكمال إعداد الحساب. أعد تحميل الصفحة ثم حاول مرة أخرى.');
         return;
       }
 
