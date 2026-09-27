@@ -33,7 +33,7 @@ export function ProjectsPage() {
   const [form, setForm] = useState({
     name_ar: '', name_en: '', status: 'active', funding_source: '',
     donor: '', funding_currency: '', funding_amount: '', beneficiary_count: '',
-    operational_capacity: '', address: '', established_date: '',
+    design_capacity: '', operational_capacity: '', address: '', established_date: '',
     manager_name: '', manager_email: '',
     reader_name: '', reader_email: '',
     collector_name: '', collector_email: '',

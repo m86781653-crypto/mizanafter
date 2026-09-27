@@ -66,11 +66,6 @@ export function ChangePasswordPage() {
         return;
       }
 
-      if (updateError) {
-        setError(updateError.message);
-        return;
-      }
-
       const { error: profileError } = await supabase.rpc('mizan_complete_password_change');
 
       if (profileError) {

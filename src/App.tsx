@@ -24,11 +24,13 @@ import type { UserRole } from '@/types';
 const allPages = ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','faults-outages','reports','loss-analysis','costs','users','copilot','settings'] as const;
 type PageId = typeof allPages[number];
 const roleAccess: Record<UserRole, PageId[]> = {
-  platform_admin: [...allPages], central_governance: ['dashboard','projects','reports','loss-analysis','costs','users','settings'],
-  project_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','faults-outages','reports','loss-analysis','costs','settings'],
-  tenant_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','faults-outages','reports','loss-analysis','costs','settings'],
+  platform_admin: [...allPages],
+  central_governance: ['dashboard','projects','reports','loss-analysis','costs','users','settings'],
+  project_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','faults-outages','reports','loss-analysis','costs','copilot','settings'],
+  tenant_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','faults-outages','reports','loss-analysis','costs','copilot','settings'],
   operations_officer: ['dashboard','infrastructure','maintenance','faults-outages','reports','loss-analysis','copilot','settings'],
-  meter_reader: ['dashboard','readings','copilot','settings'], collection_officer: ['dashboard','billing','copilot','settings'],
+  meter_reader: ['dashboard','readings','copilot','settings'],
+  collection_officer: ['dashboard','billing','copilot','settings'],
   maintenance_officer: ['dashboard','maintenance','faults-outages','infrastructure','copilot','settings'],
   technician: ['dashboard','maintenance','faults-outages','infrastructure','copilot','settings'],
   data_exception_officer: ['dashboard','readings','faults-outages','reports','loss-analysis','copilot','settings'],
