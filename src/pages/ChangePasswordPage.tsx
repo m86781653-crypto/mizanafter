@@ -60,8 +60,10 @@ export function ChangePasswordPage() {
         const message = updateError.message.toLowerCase();
         if (message.includes('current password')) {
           setError('كلمة المرور الحالية غير صحيحة.');
-          return;
+        } else {
+          setError(updateError.message);
         }
+        return;
       }
 
       if (updateError) {
