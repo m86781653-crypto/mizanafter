@@ -18,12 +18,13 @@ import { CopilotPage } from '@/pages/CopilotPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { LossAnalysisPage } from '@/pages/LossAnalysisPage';
 import { CostsPage } from '@/pages/CostsPage';
+import { UsersPage } from '@/pages/UsersPage';
 import type { UserRole } from '@/types';
 
-const allPages = ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','faults-outages','reports','loss-analysis','costs','copilot','settings'] as const;
+const allPages = ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','faults-outages','reports','loss-analysis','costs','users','copilot','settings'] as const;
 type PageId = typeof allPages[number];
 const roleAccess: Record<UserRole, PageId[]> = {
-  platform_admin: [...allPages], central_governance: ['dashboard','projects','reports','loss-analysis','costs','settings'],
+  platform_admin: [...allPages], central_governance: ['dashboard','projects','reports','loss-analysis','costs','users','settings'],
   project_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','faults-outages','reports','loss-analysis','costs','settings'],
   tenant_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','faults-outages','reports','loss-analysis','costs','settings'],
   operations_officer: ['dashboard','infrastructure','maintenance','faults-outages','reports','loss-analysis','copilot','settings'],
@@ -51,7 +52,7 @@ function AuthedApp(){
       case'dashboard':return <DashboardPage/>; case'projects':return <ProjectsPage/>; case'infrastructure':return <InfrastructurePage/>;
       case'customers':return <CustomersPage/>; case'readings':return <ReadingsPage/>; case'billing':return <BillingPage/>;
       case'maintenance':return <MaintenancePage/>; case'faults-outages':return <FaultsOutagesPage/>; case'reports':return <ReportsPage/>;
-      case'loss-analysis':return <LossAnalysisPage/>; case'costs':return <CostsPage/>; case'copilot':return <CopilotPage/>; case'settings':return <SettingsPage/>;
+      case'loss-analysis':return <LossAnalysisPage/>; case'costs':return <CostsPage/>; case'users':return <UsersPage/>; case'copilot':return <CopilotPage/>; case'settings':return <SettingsPage/>;
       default:return <DashboardPage/>;
     }
   };

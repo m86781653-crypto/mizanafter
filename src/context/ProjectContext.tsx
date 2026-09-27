@@ -29,7 +29,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         ? await supabase.from('tenants').select('id,tenant_type,parent_tenant_id,status').eq('id',profile.tenant_id).maybeSingle()
         : { data: null };
       if (!alive) return;
-      const central = profile.role === 'platform_admin' || (profile.role === 'tenant_manager' && tenant?.tenant_type === 'main_tenant');
+      const central = profile.role === 'platform_admin' || (profile.role === 'central_governance' && tenant?.tenant_type === 'main_tenant');
       setIsCentralTenant(central);
       const base = supabase.from('projects').select('*').order('name_ar');
       const { data, error } = await (central ? base : base.eq('id',profile.project_id || ''));

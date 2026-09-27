@@ -87,14 +87,6 @@ async function authorizeProject(actorId: string, projectId: string) {
     tenant.parent_tenant_id !== actor.tenant_id
   ) return null;
 
-  const { data: permission, error: permissionError } = await admin
-    .from("mizan_role_permissions")
-    .select("permission_code")
-    .eq("role_code", "central_governance")
-    .eq("permission_code", "governance.users.manage")
-    .maybeSingle();
-  if (permissionError || !permission) return null;
-
   return { actor, project, tenant };
 }
 
