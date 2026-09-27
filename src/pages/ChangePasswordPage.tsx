@@ -61,6 +61,7 @@ export function ChangePasswordPage() {
 
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
+        current_password: currentPassword,
       });
 
       if (updateError) {
