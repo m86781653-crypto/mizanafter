@@ -29,25 +29,61 @@ export function ChangePasswordPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    const v = validate();
-    if (v) { setError(v); return; }
 
-    setLoading(true);
-    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-    if (updateError) {
-      setError(updateError.message);
-      setLoading(false);
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
-    // Clear the must_change_password flag
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('profiles').update({ must_change_password: false }).eq('id', user.id);
-    }
+    setLoading(true);
 
-    setSuccess(true);
-    setLoading(false);
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user?.email) {
+        setError('تعذر التحقق من الحساب. يرجى تسجيل الدخول مرة أخرى.');
+        return;
+      }
+
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+
+      if (reauthError) {
+        setError('كلمة المرور الحالية غير صحيحة.');
+        return;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ must_change_password: false })
+        .eq('id', user.id);
+
+      if (profileError) {
+        setError('تم تغيير كلمة المرور، لكن تعذر تحديث حالة الحساب. يرجى تسجيل الخروج ثم الدخول مرة أخرى.');
+        return;
+      }
+
+      setSuccess(true);
+    } catch {
+      setError('تعذر إكمال تغيير كلمة المرور. يرجى المحاولة مرة أخرى.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (success) {
@@ -118,21 +154,9 @@ export function ChangePasswordPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <PasswordField
-            label="كلمة المرور الحالية" value={currentPassword}
-            onChange={setCurrentPassword} show={showCurrent}
-            toggle={() => setShowCurrent(!showCurrent)} fieldName="current-password"
-          />
-          <PasswordField
-            label="كلمة المرور الجديدة" value={newPassword}
-            onChange={setNewPassword} show={showNew}
-            toggle={() => setShowNew(!showNew)} fieldName="new-password"
-          />
-          <PasswordField
-            label="تأكيد كلمة المرور الجديدة" value={confirmPassword}
-            onChange={setConfirmPassword} show={showConfirm}
-            toggle={() => setShowConfirm(!showConfirm)} fieldName="confirm-password"
-          />
+          <PasswordField label="كلمة المرور الحالية" value={currentPassword} onChange={setCurrentPassword} show={showCurrent} toggle={() => setShowCurrent(!showCurrent)} fieldName="current-password" />
+          <PasswordField label="كلمة المرور الجديدة" value={newPassword} onChange={setNewPassword} show={showNew} toggle={() => setShowNew(!showNew)} fieldName="new-password" />
+          <PasswordField label="تأكيد كلمة المرور الجديدة" value={confirmPassword} onChange={setConfirmPassword} show={showConfirm} toggle={() => setShowConfirm(!showConfirm)} fieldName="new-password" />
 
           {error && (
             <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-error-50 text-error-700 text-sm animate-fade-in">
@@ -151,13 +175,9 @@ export function ChangePasswordPage() {
             </ul>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 active:bg-primary-800 transition-smooth disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+          <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 active:bg-primary-800 transition-smooth disabled:opacity-50 disabled:cursor-not-allowed">
             <Lock size={20} />
-            {loading ? 'جاري التغيير...' : 'تغيير كلمة المرور'}
+            {loading ? 'جاري التحقق والتغيير...' : 'تغيير كلمة المرور'}
           </button>
         </form>
       </div>
