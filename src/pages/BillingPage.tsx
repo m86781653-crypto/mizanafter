@@ -346,10 +346,10 @@ export function BillingPage() {
                     <td className="px-4 py-3 text-neutral-600">{paymentMethodLabels[p.payment_method] || p.payment_method}</td>
                     <td className="px-4 py-3 text-neutral-600">{p.collector_name || '—'}</td>
                     <td className="px-4 py-3">
-                      <Badge status={p.approval_status ?? 'pending'} label={paymentApprovalStatusLabels[p.approval_status ?? 'pending'] || p.approval_status ?? 'pending'} />
+                      <Badge status={p.approval_status ?? 'pending'} label={paymentApprovalStatusLabels[p.approval_status ?? 'pending'] || (p.approval_status ?? 'pending')} />
                     </td>
                     <td className="px-4 py-3 text-xs text-neutral-400">{formatDate(p.payment_date)}</td>
-                    {canApprove && p.approval_status === 'pending' && p.recorded_by !== profile?.id && (
+                    {canApprove && (p.approval_status ?? 'pending') === 'pending' && p.recorded_by !== profile?.id && (
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <button onClick={() => handleReviewPayment(p.id, 'approved')} disabled={saving} className="text-success-600 hover:text-success-700 text-xs font-medium">اعتماد</button>
