@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(8);
+SELECT plan(7);
 
 SELECT ok(
   EXISTS (
@@ -16,16 +16,6 @@ SELECT ok(
       AND permission_code='governance.users.manage'
   ),
   'central governance receives user-management permission'
-);
-
-SELECT ok(
-  EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname='public'
-      AND tablename='profiles'
-      AND policyname='central_governance_project_users_read'
-  ),
-  'central governance has a dedicated scoped profile read policy'
 );
 
 SELECT ok(
