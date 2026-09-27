@@ -49,20 +49,20 @@ export function ChangePasswordPage() {
         return;
       }
 
-      const { error: reauthError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: currentPassword,
-      });
-
-      if (reauthError) {
-        setError('كلمة المرور الحالية غير صحيحة.');
-        return;
-      }
-
-      const { error: updateError } = await supabase.auth.updateUser({
+      const passwordAttributes = {
         password: newPassword,
         current_password: currentPassword,
-      });
+      } as Parameters<typeof supabase.auth.updateUser>[0];
+
+      const { error: updateError } = await supabase.auth.updateUser(passwordAttributes);
+
+      if (updateError) {
+        const message = updateError.message.toLowerCase();
+        if (message.includes('current password')) {
+          setError('كلمة المرور الحالية غير صحيحة.');
+          return;
+        }
+      }
 
       if (updateError) {
         setError(updateError.message);
