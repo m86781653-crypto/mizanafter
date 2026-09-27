@@ -183,6 +183,62 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const action = cleanString(body.action, 40);
 
+  if (action === "list_projects") {
+    const actorProfile = await getActor(actor.id);
+    if (!actorProfile || actorProfile.role !== "central_governance" || !(await hasCentralGovernancePermission())) {
+      return json({ error: "FORBIDDEN" }, 403);
+    }
+
+    const { data: actorTenant, error: actorTenantError } = await admin
+      .from("tenants")
+      .select("id,tenant_type,status")
+      .eq("id", actorProfile.tenant_id)
+      .maybeSingle();
+    if (
+      actorTenantError ||
+      !actorTenant ||
+      actorTenant.tenant_type !== "main_tenant" ||
+      actorTenant.status !== "active"
+    ) {
+      return json({ error: "FORBIDDEN" }, 403);
+    }
+
+    const { data: projects, error: projectsError } = await admin
+      .from("projects")
+      .select("id,name_ar,name_en,tenant_id,status")
+      .eq("status", "active")
+      .order("name_ar");
+    if (projectsError) {
+      return json({ error: "PROJECT_LOOKUP_FAILED", detail: projectsError.message }, 500);
+    }
+
+    const tenantIds = [...new Set((projects || []).map((project) => project.tenant_id).filter(Boolean))];
+    if (tenantIds.length === 0) return json({ projects: [] });
+
+    const { data: tenants, error: tenantsError } = await admin
+      .from("tenants")
+      .select("id,parent_tenant_id,tenant_type,status")
+      .in("id", tenantIds);
+    if (tenantsError) {
+      return json({ error: "TENANT_LOOKUP_FAILED", detail: tenantsError.message }, 500);
+    }
+
+    const allowedTenantIds = new Set(
+      (tenants || [])
+        .filter(
+          (tenant) =>
+            tenant.tenant_type === "sub_tenant" &&
+            tenant.status === "active" &&
+            tenant.parent_tenant_id === actorProfile.tenant_id,
+        )
+        .map((tenant) => tenant.id),
+    );
+
+    return json({
+      projects: (projects || []).filter((project) => allowedTenantIds.has(project.tenant_id)),
+    });
+  }
+
   if (action === "list") {
     const projectId = cleanString(body.project_id, 80);
     if (!projectId) return json({ error: "PROJECT_REQUIRED" }, 400);
