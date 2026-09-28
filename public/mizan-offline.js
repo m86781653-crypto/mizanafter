@@ -1,4 +1,4 @@
-const CACHE = 'mizan-offline-v3';
+const CACHE = 'mizan-offline-v2';
 const APP_SHELL = ['/', '/index.html'];
 
 const OCR_ASSETS = {
@@ -55,27 +55,12 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   if (url.origin === self.location.origin) {
-    const isNavigation = event.request.mode === 'navigate' || event.request.destination === 'document';
-
-    if (isNavigation) {
-      event.respondWith(
-        fetch(event.request)
-          .then((response) => {
-            const copy = response.clone();
-            void caches.open(CACHE).then((cache) => cache.put('/index.html', copy));
-            return response;
-          })
-          .catch(() => caches.match('/index.html'))
-      );
-      return;
-    }
-
     event.respondWith(
       caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
         const copy = response.clone();
         void caches.open(CACHE).then((cache) => cache.put(event.request, copy));
         return response;
-      }))
+      }).catch(() => caches.match('/index.html')))
     );
     return;
   }
