@@ -1,0 +1,2 @@
+revoke execute on function public.mizan_create_invoice(uuid,uuid,uuid,date,date) from authenticated;
+revoke execute on function public.mizan_record_payment(uuid,numeric,text,text,text) from authenticated;
