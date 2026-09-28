@@ -5,7 +5,6 @@ do $$
 declare
   v_project uuid := '2bee5204-050e-4fa6-8a85-36bbac986579';
 begin
-  set local role authenticated;
   perform set_config('request.jwt.claim.sub','512e9999-f00d-4b82-b6f1-5b4b1f779eb0',true);
 
   if private.mizan_can_write_project(v_project,'meter_readings','delete') then
