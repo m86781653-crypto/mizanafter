@@ -114,6 +114,9 @@ jobs:
       - name: Run production integrity contract
         run: supabase test db supabase/tests/024_production_integrity_contract.test.sql
 
+      - name: Run automatic customer meter link date contract
+        run: supabase test db supabase/tests/025_customer_meter_link_date_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
