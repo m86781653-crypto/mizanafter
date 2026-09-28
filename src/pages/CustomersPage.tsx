@@ -72,6 +72,7 @@ export function CustomersPage() {
     try {
       if (mode === 'customer-meter') {
         if (!form.name_ar?.trim()) throw new Error('اسم المشترك مطلوب');
+        if ((form.meter_status || 'active') === 'active' && !form.meter_serial_number?.trim()) throw new Error('الرقم التسلسلي للعداد مطلوب للعداد النشط');
         const { error: rpcError } = await supabase.rpc('mizan_create_customer_with_meter', {
           p_project_id: currentProject.id,
           p_customer_name: form.name_ar,
@@ -90,6 +91,7 @@ export function CustomersPage() {
         if (rpcError) throw rpcError;
       } else {
         if (!form.customer_id) throw new Error('اختر المشترك أولاً');
+        if ((form.meter_status || 'active') === 'active' && !form.meter_serial_number?.trim()) throw new Error('الرقم التسلسلي للعداد مطلوب للعداد النشط');
         const { error: insertError } = await supabase.from('meters').insert({
           project_id: currentProject.id,
           customer_id: form.customer_id,
