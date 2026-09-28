@@ -17,7 +17,7 @@ export interface MeterReading {
   reading_date:string; business_date:string|null; reading_method:string; image_url:string|null; ai_extracted_value:number|null;
   ai_confidence:number|null; ai_model:string|null; ai_detected_meter_number:string|null; client_capture_id:string|null;
   status:string; anomaly_flag:boolean; anomaly_reason:string|null; gps_lat:number|null; gps_lng:number|null; gps_accuracy:number|null;
-  sync_status:string; reader_name:string|null; notes:string|null; created_at:string;
+  sync_status:string; reader_name:string|null; notes:string|null; reading_quality:Record<string,unknown>; created_at:string;
 }
 export interface Tariff {
   id:string; project_id:string|null; name_ar:string; customer_type:string; fixed_fee:number;
