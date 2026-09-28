@@ -6,8 +6,7 @@ SELECT ok(
   EXISTS (
     SELECT 1 FROM pg_proc p
     JOIN pg_namespace n ON n.oid=p.pronamespace
-    WHERE n.nspname='public' AND p.proname='mizan_create_invoice'
-      AND pg_get_function_identity_arguments(p.oid)='p_project_id uuid, p_customer_id uuid, p_meter_id uuid, p_period_start date, p_period_end date'
+    WHERE n.nspname='private' AND p.proname='mizan_issue_invoice_for_reading'
       AND pg_get_functiondef(p.oid) LIKE '%source_reading_id%'
   ),
   'invoice issuance is bound to an MRX source reading'
@@ -98,8 +97,7 @@ SELECT ok(
   pg_get_functiondef((
     SELECT p.oid FROM pg_proc p
     JOIN pg_namespace n ON n.oid=p.pronamespace
-    WHERE n.nspname='public' AND p.proname='mizan_create_invoice'
-      AND pg_get_function_identity_arguments(p.oid)='p_project_id uuid, p_customer_id uuid, p_meter_id uuid, p_period_start date, p_period_end date'
+    WHERE n.nspname='private' AND p.proname='mizan_issue_invoice_for_reading'
   )) LIKE '%ACTIVE_TARIFF_NOT_FOUND%'
   AND pg_get_functiondef((
     SELECT p.oid FROM pg_proc p
@@ -116,12 +114,12 @@ SELECT ok(
     'public.mizan_create_invoice(uuid,uuid,uuid,date,date)',
     'EXECUTE'
   )
-  AND has_function_privilege(
+  AND NOT has_function_privilege(
     'authenticated',
     'public.mizan_create_invoice(uuid,uuid,uuid,date,date)',
     'EXECUTE'
   ),
-  'invoice issuance RPC is callable only by authenticated clients'
+  'manual invoice issuance RPC is not client-callable; approved readings issue invoices automatically'
 );
 
 SELECT ok(
