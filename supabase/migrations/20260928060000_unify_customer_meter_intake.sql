@@ -1,3 +1,4 @@
+alter table public.customers add column if not exists household_members integer not null default 0;
 alter table public.customers alter column household_members set default 0;
 update public.customers set household_members = 0 where household_members is null;
 
