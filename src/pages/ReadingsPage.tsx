@@ -51,15 +51,6 @@ export function ReadingsPage() {
   }, []);
 
   useEffect(() => {
-    if (!currentProject) return;
-    const channel = supabase.channel(`mizan-field-${currentProject.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'meter_readings', filter: `project_id=eq.${currentProject.id}` }, () => { void load(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: `project_id=eq.${currentProject.id}` }, () => { void load(); })
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [currentProject, load]);
-
-  useEffect(() => {
     const onOnline = () => setOnline(true);
     const onOffline = () => setOnline(false);
     window.addEventListener('online', onOnline);
@@ -121,6 +112,15 @@ export function ReadingsPage() {
   }, [currentProject]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (!currentProject) return;
+    const channel = supabase.channel(`mizan-field-${currentProject.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meter_readings', filter: `project_id=eq.${currentProject.id}` }, () => { void load(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: `project_id=eq.${currentProject.id}` }, () => { void load(); })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [currentProject, load]);
 
   const filteredMeters = useMemo(() => {
     const q = normalizeSearch(search);
