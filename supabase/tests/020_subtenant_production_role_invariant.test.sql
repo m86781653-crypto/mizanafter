@@ -1,5 +1,8 @@
 -- Contract: every active sub-tenant must have at most one operational
 -- account for each production provisioning role.
+begin;
+select plan(2);
+
 do $$
 begin
   if exists (
@@ -12,27 +15,20 @@ begin
   ) then
     raise exception 'SUBTENANT_OPERATIONAL_ROLE_DUPLICATES_EXIST';
   end if;
+end
+$$;
 
-  if exists (
-    select 1
-    from public.projects p
-    join public.tenants t on t.id=p.tenant_id
-    where p.tenant_id is null
-       or t.tenant_type <> 'sub_tenant'
-       or t.status='archived'
-  ) then
-    -- Projects outside a sub-tenant are allowed for legacy/main data only when
-    -- explicitly governed; this contract does not fail those records.
-    null;
-  end if;
+select ok(true, 'active sub-tenants do not contain duplicate operational roles');
 
-  if not exists (
+select ok(
+  exists (
     select 1
     from public.tenants t
     where t.tenant_type='main_tenant'
       and t.status='active'
-  ) then
-    raise exception 'ACTIVE_MAIN_TENANT_MISSING';
-  end if;
-end
-$$;
+  ),
+  'an active main tenant exists'
+);
+
+select * from finish();
+rollback;
