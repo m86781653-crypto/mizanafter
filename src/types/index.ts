@@ -29,7 +29,7 @@ export interface Invoice {
   id:string; project_id:string; customer_id:string; meter_id:string|null; invoice_number:string; billing_period_start:string; billing_period_end:string;
   previous_reading:number; current_reading:number; consumption_m3:number; included_consumption_m3:number; tiered_consumption_m3:number;
   fixed_fee:number; fixed_fee_prorated:number; consumption_fee:number; total_amount:number; previous_balance:number; grand_total:number; amount_paid:number; balance:number;
-  billing_days:number; allowance_m3:number; household_members:number; calculation_snapshot:Record<string,unknown>; status:string; issue_date:string; due_date:string|null; notes:string|null; tariff_id:string|null; tariff_version:number|null; source_reading_id?:string|null;
+  billing_days:number; allowance_m3:number; household_members:number|null; calculation_snapshot:Record<string,unknown>; status:string; issue_date:string; due_date:string|null; notes:string|null; tariff_id:string|null; tariff_version:number|null; source_reading_id?:string|null;
   customers?:Customer;
 }
 export interface Payment {
