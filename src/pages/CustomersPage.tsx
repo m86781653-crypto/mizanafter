@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';
-import { formatNumber, customerTypeLabels, meterStatusLabels } from '@/lib/utils';
+import { formatNumber, formatDateTime, customerTypeLabels, meterStatusLabels } from '@/lib/utils';
 import { Plus, Users, Gauge, Search, Phone, MapPin, Trash2, Ban, CheckCircle2, Home } from 'lucide-react';
 import type { Customer, Meter } from '@/types';
 
@@ -81,7 +81,6 @@ export function CustomersPage() {
           p_customer_type: form.customer_type || 'residential',
           p_customer_status: form.customer_status || 'active',
           p_household_members: Number(form.household_members || 0),
-          p_connection_date: form.connection_date || null,
           p_notes: form.notes || null,
           p_meter_serial_number: form.meter_serial_number || null,
           p_meter_type: form.meter_type || 'mechanical',
@@ -153,13 +152,14 @@ export function CustomersPage() {
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="text-right text-xs text-neutral-400 border-b bg-neutral-50">
-              <th className="px-4 py-3">المشترك</th><th className="px-4 py-3">الهاتف والعنوان</th><th className="px-4 py-3">أفراد الأسرة</th>
+              <th className="px-4 py-3">المشترك</th><th className="px-4 py-3">تاريخ ووقت الربط</th><th className="px-4 py-3">الهاتف والعنوان</th><th className="px-4 py-3">أفراد الأسرة</th>
               <th className="px-4 py-3">العداد</th><th className="px-4 py-3">المواصفات</th><th className="px-4 py-3">الحالة</th><th className="px-4 py-3">إجراءات</th>
             </tr></thead>
             <tbody className="divide-y divide-neutral-100">
               {filteredRows.map(({customer, meter}) => (
                 <tr key={customer.id} className="hover:bg-neutral-50">
                   <td className="px-4 py-3"><div className="font-semibold">{customer.name_ar}</div><div className="text-xs text-neutral-400">{customer.customer_number}</div><div className="text-xs text-neutral-500 mt-1">{customerTypeLabels[customer.customer_type]||customer.customer_type}</div></td>
+                  <td className="px-4 py-3"><div className="font-medium">{formatDateTime(customer.created_at)}</div><div className="text-xs text-neutral-400">يُسجّل تلقائياً من وقت إنشاء السجل</div></td>
                   <td className="px-4 py-3"><div className="flex items-center gap-1.5">{customer.phone && <><Phone size={13}/>{customer.phone}</>}</div><div className="flex items-center gap-1.5 text-neutral-500 mt-1">{customer.address && <><MapPin size={13}/>{customer.address}</>}</div></td>
                   <td className="px-4 py-3 font-semibold">{customer.household_members ?? 0}</td>
                   <td className="px-4 py-3">{meter ? <><div className="font-semibold">{meter.meter_number}</div><div className="text-xs text-neutral-400">{meter.serial_number || 'لا يوجد رقم تسلسلي'}</div></> : <span className="text-neutral-400">غير مرتبط</span>}</td>
@@ -189,7 +189,7 @@ export function CustomersPage() {
             <div><label className="label-field">نوع المشترك</label><select className="input-field" value={form.customer_type||'residential'} onChange={e=>setForm({...form,customer_type:e.target.value})}>{Object.entries(customerTypeLabels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
             <div><label className="label-field">أفراد الأسرة</label><input type="number" min="0" className="input-field" value={form.household_members||''} onChange={e=>setForm({...form,household_members:e.target.value})} placeholder="عدد أفراد الأسرة"/></div>
             <div className="md:col-span-2"><label className="label-field">العنوان</label><input className="input-field" value={form.address||''} onChange={e=>setForm({...form,address:e.target.value})}/></div>
-            <div><label className="label-field">تاريخ الربط</label><input type="date" className="input-field" value={form.connection_date||''} onChange={e=>setForm({...form,connection_date:e.target.value})}/></div>
+            <div className="md:col-span-2"><label className="label-field">تاريخ ووقت الربط</label><div className="input-field bg-neutral-50 text-neutral-600 cursor-default">يُحدد تلقائياً من وقت إنشاء السجل في الخادم عند الحفظ</div></div>
             <div><label className="label-field">الحالة</label><select className="input-field" value={form.customer_status||'active'} onChange={e=>setForm({...form,customer_status:e.target.value})}><option value="active">نشط</option><option value="inactive">غير نشط</option><option value="suspended">موقف</option></select></div>
             <div className="md:col-span-2"><label className="label-field">ملاحظات</label><textarea className="input-field min-h-20" value={form.notes||''} onChange={e=>setForm({...form,notes:e.target.value})}/></div>
             <div className="md:col-span-2 border-t pt-4"><h3 className="font-semibold text-neutral-800">بيانات العداد</h3></div>
