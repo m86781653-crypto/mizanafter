@@ -198,7 +198,7 @@ export function ReadingsPage() {
     const confidence = Number(form.ai_confidence);
     if (!Number.isFinite(value) || value < 0) { setFormError('القراءة الحالية غير صحيحة.'); return; }
     if (!Number.isFinite(confidence) || confidence < 70) { setFormError('الثقة في استخراج القراءة أقل من الحد المسموح. أعد التصوير.'); return; }
-    if (value < selectedMeter.last_reading) { setFormError('القراءة الحالية أقل من القراءة السابقة. يلزم مسار استثناء معتمد.'); return; }
+    if (value < selectedMeter.last_reading) { setFormError('القراءة الحالية أقل من القراءة السابقة. يلزم مسار استثناء.'); return; }
 
     setSaving(true);
     const readingDate = new Date().toISOString();
@@ -331,7 +331,7 @@ export function ReadingsPage() {
             <div><p className="text-xs text-neutral-400">القراءة السابقة</p><p className="font-bold text-primary-700">{formatNumber(selectedMeter.last_reading)}</p></div>
           </div>
 
-          {alreadyReadToday && <div className="p-3 rounded-lg bg-warning-50 text-warning-800 text-sm flex gap-2"><AlertTriangle size={18}/> توجد قراءة معتمدة لهذا العداد اليوم. يمنع النظام أي قراءة ثانية في نفس التاريخ.</div>}
+          {alreadyReadToday && <div className="p-3 rounded-lg bg-warning-50 text-warning-800 text-sm flex gap-2"><AlertTriangle size={18}/> توجد قراءة مسجلة لهذا العداد اليوم. يمنع النظام أي قراءة ثانية في نفس التاريخ.</div>}
 
           <div className="border rounded-xl p-4 bg-neutral-50/70">
             <div className="flex items-center gap-2 mb-3"><Camera size={18} className="text-primary-700"/><h3 className="font-bold">تصوير العداد والتحقق</h3></div>
@@ -353,7 +353,7 @@ export function ReadingsPage() {
           <div className="flex gap-3">
             <button className="btn-secondary flex-1" onClick={() => setSelectedMeter(null)}>إلغاء</button>
             <button className="btn-primary flex-1" disabled={saving || ocrProcessing || alreadyReadToday || !form.reading_value || !capturedPhoto} onClick={save}>
-              {saving ? <><Loader2 size={17} className="animate-spin"/> جاري الاعتماد...</> : <><Save size={17}/> حفظ القراءة</>}
+              {saving ? <><Loader2 size={17} className="animate-spin"/> جاري الحفظ...</> : <><Save size={17}/> حفظ القراءة</>}
             </button>
           </div>
 
