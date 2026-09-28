@@ -312,8 +312,7 @@ export function ReadingsPage() {
               {filteredMeters.map((m) => (
                 <button key={m.id} className="w-full text-right px-4 py-3 hover:bg-neutral-50 border-b last:border-0" onMouseDown={(e) => e.preventDefault()} onClick={() => openCustomer(m)}>
                   <div className="flex items-center justify-between gap-4">
-                    <div><p className="font-semibold text-neutral-900">{m.customers.name_ar}</p><p className="text-xs text-neutral-500 mt-1">{m.customers.phone || 'بدون هاتف'} · عداد {m.meter_number}</p></div>
-                    <span className="text-xs text-neutral-400">{m.serial_number || 'بدون رقم تسلسلي'}</span>
+                    <div><p className="font-semibold text-neutral-900">{m.customers.name_ar}</p><p className="text-xs text-neutral-500 mt-1">{m.customers.phone || 'بدون هاتف'} · هوية العداد: {m.serial_number || 'غير مسجلة'}</p><p className="text-xs text-neutral-400 mt-1">الرقم التشغيلي للنظام: {m.meter_number}</p></div>
                   </div>
                 </button>
               ))}
@@ -326,7 +325,7 @@ export function ReadingsPage() {
         <section className="card p-5 space-y-5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-neutral-50 rounded-xl p-4">
             <div><p className="text-xs text-neutral-400">المشترك</p><p className="font-bold">{selectedMeter.customers.name_ar}</p></div>
-            <div><p className="text-xs text-neutral-400">رقم العداد</p><p className="font-bold">{selectedMeter.meter_number}</p></div>
+            <div><p className="text-xs text-neutral-400">هوية العداد (الرقم التسلسلي)</p><p className="font-bold">{selectedMeter.serial_number || 'غير مسجلة'}</p><p className="text-xs text-neutral-400 mt-1">الرقم التشغيلي للنظام: {selectedMeter.meter_number}</p></div>
             <div><p className="text-xs text-neutral-400">الهاتف</p><p className="font-bold">{selectedMeter.customers.phone || '—'}</p></div>
             <div><p className="text-xs text-neutral-400">القراءة السابقة</p><p className="font-bold text-primary-700">{formatNumber(selectedMeter.last_reading)}</p></div>
           </div>
@@ -367,11 +366,11 @@ export function ReadingsPage() {
         <h2 className="text-lg font-bold mb-3">آخر القراءات</h2>
         {readings.length === 0 ? <div className="card"><EmptyState icon={Gauge} title="لا توجد قراءات مسجلة"/></div> :
           <div className="card overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-right text-xs text-neutral-400 bg-neutral-50 border-b">
-            <th className="px-4 py-3">المشترك</th><th className="px-4 py-3">العداد</th><th className="px-4 py-3">السابقة</th><th className="px-4 py-3">الحالية</th><th className="px-4 py-3">الاستهلاك</th><th className="px-4 py-3">الحالة</th><th className="px-4 py-3">التاريخ</th>
+            <th className="px-4 py-3">المشترك</th><th className="px-4 py-3">هوية العداد</th><th className="px-4 py-3">السابقة</th><th className="px-4 py-3">الحالية</th><th className="px-4 py-3">الاستهلاك</th><th className="px-4 py-3">الحالة</th><th className="px-4 py-3">التاريخ</th>
           </tr></thead><tbody className="divide-y">
             {readings.slice(0,30).map((r) => {
               const meter = meters.find((m) => m.id === r.meter_id);
-              return <tr key={r.id}><td className="px-4 py-3">{meter?.customers.name_ar || '—'}</td><td className="px-4 py-3">{meter?.meter_number || '—'}</td><td className="px-4 py-3">{formatNumber(r.previous_reading)}</td><td className="px-4 py-3 font-semibold">{formatNumber(r.reading_value)}</td><td className="px-4 py-3">{formatNumber(r.consumption)} م³</td><td className="px-4 py-3"><Badge status={r.status} label={readingStatusLabels[r.status] || r.status}/></td><td className="px-4 py-3 text-xs text-neutral-400">{formatRelativeTime(r.reading_date)}</td></tr>;
+              return <tr key={r.id}><td className="px-4 py-3">{meter?.customers.name_ar || '—'}</td><td className="px-4 py-3">{meter?.serial_number || '—'}</td><td className="px-4 py-3">{formatNumber(r.previous_reading)}</td><td className="px-4 py-3 font-semibold">{formatNumber(r.reading_value)}</td><td className="px-4 py-3">{formatNumber(r.consumption)} م³</td><td className="px-4 py-3"><Badge status={r.status} label={readingStatusLabels[r.status] || r.status}/></td><td className="px-4 py-3 text-xs text-neutral-400">{formatRelativeTime(r.reading_date)}</td></tr>;
             })}
           </tbody></table></div>}
       </section>
