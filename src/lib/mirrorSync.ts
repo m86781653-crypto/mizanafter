@@ -8,6 +8,7 @@ export interface PendingReading {
   customerId: string;
   meterId: string;
   meterNumber: string;
+  meterSerialNumber: string;
   projectId: string;
   current: number;
   readingDate: string;
@@ -18,6 +19,7 @@ export interface PendingReading {
   aiExtractedValue?: number | null;
   aiConfidence?: number | null;
   aiModel?: string | null;
+  detectedMeterSerialNumber?: string | null;
   notes?: string | null;
   hasPhoto: boolean;
   photoType?: string;
@@ -98,22 +100,11 @@ async function syncOne(item: PendingReading) {
     p_ai_model: item.aiModel ?? null,
     p_notes: item.notes ?? null,
     p_client_capture_id: item.clientId,
-    p_detected_meter_number: item.meterNumber,
+    p_detected_meter_number: item.detectedMeterSerialNumber ?? item.meterSerialNumber,
   });
   if (error) throw error;
 
-  const periodEnd = new Date(item.readingDate);
-  const periodStart = new Date(periodEnd.getTime() - 30 * 86400000);
-  const { error: invoiceError } = await supabase.rpc("mizan_create_invoice", {
-    p_project_id: item.projectId,
-    p_customer_id: item.customerId,
-    p_meter_id: item.meterId,
-    p_current_reading: item.current,
-    p_period_start: periodStart.toISOString().slice(0, 10),
-    p_period_end: periodEnd.toISOString().slice(0, 10),
-  });
-  if (invoiceError) throw invoiceError;
-
+  // Invoice issuance is atomic with the meter capture inside mrx_capture_meter_reading.
   await idbDelete(STORE_BLOBS, item.clientId);
 }
 
