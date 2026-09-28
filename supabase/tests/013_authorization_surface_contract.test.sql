@@ -40,18 +40,18 @@ SELECT ok(
 );
 
 SELECT ok(
-  has_function_privilege(
+  NOT has_function_privilege(
     'authenticated',
     'public.mizan_create_invoice(uuid,uuid,uuid,date,date)',
     'EXECUTE'
   ),
-  'authenticated can reach invoice RPC; authorization is enforced inside the SECURITY DEFINER function'
+  'authenticated cannot manually create invoices; invoices are issued from approved readings'
 );
 
 SELECT ok(
   NOT has_function_privilege(
     'anon',
-    'public.mizan_record_payment(uuid,numeric,text,text,text)',
+    'public.mizan_record_payment(uuid,numeric,text,text,text,uuid)',
     'EXECUTE'
   ),
   'anon cannot execute payment recording'
@@ -63,7 +63,7 @@ SELECT ok(
     'public.mizan_record_payment(uuid,numeric,text,text,text)',
     'EXECUTE'
   ),
-  'authenticated can reach payment RPC; authorization is enforced inside the SECURITY DEFINER function'
+  'authenticated can reach idempotent payment RPC; authorization is enforced inside the SECURITY DEFINER function'
 );
 
 SELECT ok(
