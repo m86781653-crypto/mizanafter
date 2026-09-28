@@ -10,7 +10,7 @@ import { Modal } from '@/components/ui/Modal';
 import { StatCard } from '@/components/ui/StatCard';
 import { ErrorState, LoadingSpinner } from '@/lib/hooks';
 import { formatCurrency, formatDate, formatNumber, invoiceStatusLabels } from '@/lib/utils';
-import type { Customer, Invoice, Meter, Payment, Tariff, TariffTier } from '@/types';
+import type { Customer, Invoice, Payment, Tariff, TariffTier } from '@/types';
 
 type Tab = 'invoices' | 'payments' | 'tariffs';
 
@@ -75,7 +75,6 @@ export function BillingPage() {
     return invoices.filter(i=>i.invoice_number.toLocaleLowerCase().includes(q)||(i.customers?.name_ar||'').toLocaleLowerCase().includes(q)||(i.customers?.phone||'').includes(q));
   },[invoices,search]);
 
-  const totalRevenue=invoices.reduce((s,i)=>s+Number(i.total_amount||0),0);
   const collected=payments.filter(p=>p.approval_status==='approved').reduce((s,p)=>s+Number(p.amount||0),0);
   const outstanding=invoices.reduce((s,i)=>s+Number(i.balance||0),0);
   const pendingPayments=payments.filter(p=>(p.approval_status??'pending')==='pending').reduce((s,p)=>s+Number(p.amount||0),0);
