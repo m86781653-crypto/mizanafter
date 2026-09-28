@@ -117,6 +117,9 @@ jobs:
       - name: Run automatic customer meter link date contract
         run: supabase test db supabase/tests/025_customer_meter_link_date_contract.test.sql
 
+      - name: Run meter identity contract
+        run: supabase test db supabase/tests/026_meter_identity_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
