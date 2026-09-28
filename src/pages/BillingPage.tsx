@@ -203,7 +203,7 @@ export function BillingPage() {
         <div><label className="label-field">سعر المتر ضمن الحد الأساسي</label><input type="number" min="0" className="input-field" value={tariffForm.base_price_per_m3} onChange={e=>setTariffForm({...tariffForm,base_price_per_m3:e.target.value})}/></div>
         <div><label className="label-field">رسوم ثابتة</label><input type="number" min="0" className="input-field" value={tariffForm.fixed_fee} onChange={e=>setTariffForm({...tariffForm,fixed_fee:e.target.value})}/></div>
       </div>
-      <div className="mt-5"><div className="flex items-center justify-between mb-2"><h3 className="font-bold">شرائح الاستهلاك بعد الحد الأساسي</h3><button className="btn-secondary text-xs" onClick={()=>setTariffForm({...tariffForm,tiers:[...tariffForm.tiers,{from_m3:tariffForm.tiers.at(-1)?.to_m3||'0',to_m3:'',price_per_m3:''}]})}><Plus size={14}/> شريحة</button></div>
+      <div className="mt-5"><div className="flex items-center justify-between mb-2"><h3 className="font-bold">شرائح الاستهلاك بعد الحد الأساسي</h3><button className="btn-secondary text-xs" onClick={()=>setTariffForm({...tariffForm,tiers:[...tariffForm.tiers,{from_m3:tariffForm.tiers[tariffForm.tiers.length - 1]?.to_m3||'0',to_m3:'',price_per_m3:''}]})}><Plus size={14}/> شريحة</button></div>
         <div className="space-y-2">{tariffForm.tiers.map((t,i)=><div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2" key={i}><input className="input-field" type="number" min="0" placeholder="من" value={t.from_m3} onChange={e=>setTariffForm({...tariffForm,tiers:tariffForm.tiers.map((x,n)=>n===i?{...x,from_m3:e.target.value}:x)})}/><input className="input-field" type="number" min="0" placeholder="إلى (فارغ = مفتوح)" value={t.to_m3} onChange={e=>setTariffForm({...tariffForm,tiers:tariffForm.tiers.map((x,n)=>n===i?{...x,to_m3:e.target.value}:x)})}/><input className="input-field" type="number" min="0" placeholder="ر.ي/م³" value={t.price_per_m3} onChange={e=>setTariffForm({...tariffForm,tiers:tariffForm.tiers.map((x,n)=>n===i?{...x,price_per_m3:e.target.value}:x)})}/>{tariffForm.tiers.length>1&&<button className="text-error-600" onClick={()=>setTariffForm({...tariffForm,tiers:tariffForm.tiers.filter((_,n)=>n!==i)})}>حذف</button>}</div>)}</div>
       </div>
       <div className="mt-4 p-3 rounded-lg bg-primary-50 text-primary-800 text-sm">مثال: 4 أفراد × 50 لتر × 30 يوماً = 6000 لتر = 6 م³ ضمن التعرفة الأساسية، ثم يبدأ احتساب الاستهلاك الزائد بالشرائح التي تحددها.</div>
@@ -211,5 +211,3 @@ export function BillingPage() {
     </Modal>
   </div>;
 }
-
-function toast(message:string){ void Promise.resolve().then(()=>window.dispatchEvent(new CustomEvent('mizan-toast',{detail:message}))); }
