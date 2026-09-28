@@ -1,6 +1,8 @@
 -- Billing contract tests: variable periods, daily tier scaling, and non-approval reading source.
 
-do $$
+begin;
+
+do $
 declare
   v_tariff uuid := '00000000-0000-4000-8000-000000000981';
   v_tier uuid := '00000000-0000-4000-8000-000000000982';
@@ -55,10 +57,7 @@ begin
     raise exception 'MRX_READING_RPC_MISSING';
   end if;
 
-  rollback;
-exception
-  when others then
-    rollback;
-    raise;
 end
-$$;
+$;
+
+rollback;
