@@ -29,8 +29,8 @@ const roleAccess: Record<UserRole, PageId[]> = {
   project_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','reports','loss-analysis','costs','copilot','settings'],
   tenant_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','reports','loss-analysis','costs','copilot','settings'],
   operations_officer: ['dashboard','infrastructure','maintenance','reports','loss-analysis','copilot','settings'],
-  meter_reader: ['dashboard','readings','copilot','settings'],
-  collection_officer: ['dashboard','billing','copilot','settings'],
+  meter_reader: ['readings','settings'],
+  collection_officer: ['billing','settings'],
   maintenance_officer: ['dashboard','maintenance','infrastructure','copilot','settings'],
   technician: ['dashboard','maintenance','infrastructure','copilot','settings'],
   data_exception_officer: ['dashboard','readings','reports','loss-analysis','copilot','settings'],
@@ -39,7 +39,7 @@ const roleAccess: Record<UserRole, PageId[]> = {
 
 function AuthedApp(){
   const {profile,loading}=useAuth();
-  const [page,setPage]=useState<PageId>('dashboard');
+  const [page,setPage]=useState<PageId>(() => {\n    if (typeof window === 'undefined') return 'dashboard';\n    return 'dashboard';\n  });
   const isRecoveryFlow=typeof window!=='undefined' && window.location.hash.includes('type=recovery');
 
   if(isRecoveryFlow)return <ResetPasswordPage/>;
@@ -47,8 +47,8 @@ function AuthedApp(){
   if(!profile)return <LoginPage/>;
   if(profile.must_change_password)return <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4"><ChangePasswordPage/></div>;
 
-  const allowedPages=roleAccess[profile.role]||['dashboard'];
-  const effectivePage=allowedPages.includes(page)?page:'dashboard';
+  const allowedPages=roleAccess[profile.role]||['dashboard'];\n  const roleDefaultPage: PageId = profile.role === 'meter_reader' ? 'readings' : profile.role === 'collection_officer' ? 'billing' : 'dashboard';\n  const effectiveInitialPage = allowedPages.includes(page) ? page : roleDefaultPage;
+  const effectivePage=allowedPages.includes(page)?page:roleDefaultPage;
 
   const renderPage=()=>{
     switch(effectivePage){
