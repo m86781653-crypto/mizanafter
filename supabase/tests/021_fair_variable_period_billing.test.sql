@@ -1,6 +1,13 @@
 -- Billing contract tests: variable periods, daily tier scaling, and non-approval reading source.
-
 begin;
+select plan(3);
+
+select ok(
+  exists (select 1 from information_schema.columns where table_schema='public' and table_name='tariffs' and column_name='reference_period_days')
+  and exists (select 1 from information_schema.columns where table_schema='public' and table_name='invoices' and column_name='billing_days')
+  and exists (select 1 from information_schema.columns where table_schema='public' and table_name='invoices' and column_name='calculation_snapshot'),
+  'variable-period billing columns exist'
+);
 
 do $$
 declare
@@ -8,30 +15,6 @@ declare
   v_tier uuid := '00000000-0000-4000-8000-000000000982';
   v_fee numeric;
 begin
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='tariffs'
-      and column_name='reference_period_days'
-  ) then
-    raise exception 'REFERENCE_PERIOD_DAYS_MISSING';
-  end if;
-
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='invoices'
-      and column_name='billing_days'
-  ) then
-    raise exception 'BILLING_DAYS_MISSING';
-  end if;
-
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='invoices'
-      and column_name='calculation_snapshot'
-  ) then
-    raise exception 'CALCULATION_SNAPSHOT_MISSING';
-  end if;
-
   insert into public.tariffs(
     id,project_id,name_ar,customer_type,fixed_fee,
     base_liters_per_person_per_day,base_price_per_m3,
@@ -48,16 +31,14 @@ begin
   if v_fee <> 80 then
     raise exception 'VARIABLE_PERIOD_TIER_CALCULATION_FAILED: %', v_fee;
   end if;
-
-  if to_regprocedure('private.mizan_issue_invoice_for_reading(uuid,date,date)') is null then
-    raise exception 'VARIABLE_PERIOD_INVOICE_ENGINE_MISSING';
-  end if;
-
-  if to_regprocedure('public.mrx_capture_meter_reading(uuid,numeric,timestamptz,text,text,numeric,numeric,numeric,numeric,numeric,text,text,uuid,text)') is null then
-    raise exception 'MRX_READING_RPC_MISSING';
-  end if;
-
 end
 $$;
 
+select ok(
+  to_regprocedure('private.mizan_issue_invoice_for_reading(uuid,date,date)') is not null
+  and to_regprocedure('public.mrx_capture_meter_reading(uuid,numeric,timestamptz,text,text,numeric,numeric,numeric,numeric,numeric,text,text,uuid,text)') is not null,
+  'variable-period invoice engine and MRX reading RPC exist'
+);
+
+select * from finish();
 rollback;
