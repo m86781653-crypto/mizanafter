@@ -69,6 +69,16 @@ export function BillingPage() {
 
   useEffect(()=>{void fetchData();},[fetchData]);
 
+  useEffect(() => {
+    if (!currentProject) return;
+    const channel = supabase.channel(`mizan-billing-${currentProject.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meter_readings', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(); })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [currentProject, fetchData]);
+
   const filteredInvoices=useMemo(()=>{
     const q=search.trim().toLocaleLowerCase('ar');
     if(!q)return invoices;
