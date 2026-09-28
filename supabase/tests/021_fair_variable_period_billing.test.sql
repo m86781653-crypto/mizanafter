@@ -2,7 +2,7 @@
 
 begin;
 
-do $
+do $$
 declare
   v_tariff uuid := '00000000-0000-4000-8000-000000000981';
   v_tier uuid := '00000000-0000-4000-8000-000000000982';
@@ -58,6 +58,6 @@ begin
   end if;
 
 end
-$;
+$$;
 
 rollback;
