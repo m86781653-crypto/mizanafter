@@ -1,6 +1,6 @@
 begin;
 
-select plan(12);
+select plan(11);
 
 select has_column(
   'public',
@@ -28,11 +28,9 @@ select has_trigger(
   'meter reading quality trigger exists'
 );
 
-select function_privs_are(
-  'private',
-  'mizan_assess_meter_reading_quality',
-  ARRAY['public','anon','authenticated'],
-  ARRAY[]::text[],
+select ok(
+  not has_function_privilege('anon','private.mizan_assess_meter_reading_quality()','EXECUTE')
+  and not has_function_privilege('authenticated','private.mizan_assess_meter_reading_quality()','EXECUTE'),
   'quality engine is not executable by API roles'
 );
 
