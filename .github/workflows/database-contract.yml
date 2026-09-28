@@ -90,6 +90,27 @@ jobs:
       - name: Run payment approval contract
         run: supabase test db supabase/tests/018_payment_approval_contract.test.sql
 
+      - name: Run central governance contract
+        run: supabase test db supabase/tests/019_central_governance_user_administration_contract.test.sql
+
+      - name: Run subtenant role invariant contract
+        run: supabase test db supabase/tests/020_subtenant_production_role_invariant.test.sql
+
+      - name: Run fair variable-period billing contract
+        run: supabase test db supabase/tests/021_fair_variable_period_billing.test.sql
+
+      - name: Run field collection billing integrity contract
+        run: supabase test db supabase/tests/021_field_collection_billing_integrity.test.sql
+
+      - name: Run subtenant production contract
+        run: supabase test db supabase/tests/021_subtenant_production_contract.test.sql
+
+      - name: Run authenticated helper privilege contract
+        run: supabase test db supabase/tests/022_authenticated_rls_helper_privilege_contract.test.sql
+
+      - name: Run root security write-boundary contract
+        run: supabase test db supabase/tests/023_root_security_write_boundaries.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
