@@ -48,7 +48,7 @@ create index if not exists idx_work_orders_well_id on public.maintenance_work_or
 
 create index if not exists idx_field_tasks_project_id on public.field_tasks(project_id);
 create index if not exists idx_notifications_project_id on public.notifications(project_id);
-create index if not exists idx_audit_logs_actor_user_id on public.audit_logs(actor_user_id);
+create index if not exists idx_audit_logs_user_id on public.audit_logs(user_id);
 create index if not exists idx_audit_logs_project_id on public.audit_logs(project_id);
 create index if not exists idx_ai_logs_project_id on public.ai_logs(project_id);
 create index if not exists idx_kpi_snapshots_project_id on public.kpi_snapshots(project_id);
