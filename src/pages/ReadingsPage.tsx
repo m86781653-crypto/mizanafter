@@ -312,7 +312,7 @@ export function ReadingsPage() {
               {filteredMeters.map((m) => (
                 <button key={m.id} className="w-full text-right px-4 py-3 hover:bg-neutral-50 border-b last:border-0" onMouseDown={(e) => e.preventDefault()} onClick={() => openCustomer(m)}>
                   <div className="flex items-center justify-between gap-4">
-                    <div><p className="font-semibold text-neutral-900">{m.customers.name_ar}</p><p className="text-xs text-neutral-500 mt-1">{m.customers.phone || 'بدون هاتف'} · هوية العداد: {m.serial_number || 'غير مسجلة'}</p><p className="text-xs text-neutral-400 mt-1">الرقم التشغيلي للنظام: {m.meter_number}</p></div>
+                    <div><p className="font-semibold text-neutral-900">{m.customers.name_ar}</p><p className="text-xs text-neutral-500 mt-1">{m.customers.phone || 'بدون هاتف'} · هوية العداد: {m.serial_number || 'غير مسجلة'}</p></div>
                   </div>
                 </button>
               ))}
@@ -325,7 +325,7 @@ export function ReadingsPage() {
         <section className="card p-5 space-y-5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-neutral-50 rounded-xl p-4">
             <div><p className="text-xs text-neutral-400">المشترك</p><p className="font-bold">{selectedMeter.customers.name_ar}</p></div>
-            <div><p className="text-xs text-neutral-400">هوية العداد (الرقم التسلسلي)</p><p className="font-bold">{selectedMeter.serial_number || 'غير مسجلة'}</p><p className="text-xs text-neutral-400 mt-1">الرقم التشغيلي للنظام: {selectedMeter.meter_number}</p></div>
+            <div><p className="text-xs text-neutral-400">هوية العداد (الرقم التسلسلي)</p><p className="font-bold">{selectedMeter.serial_number || 'غير مسجلة'}</p></div>
             <div><p className="text-xs text-neutral-400">الهاتف</p><p className="font-bold">{selectedMeter.customers.phone || '—'}</p></div>
             <div><p className="text-xs text-neutral-400">القراءة السابقة</p><p className="font-bold text-primary-700">{formatNumber(selectedMeter.last_reading)}</p></div>
           </div>
