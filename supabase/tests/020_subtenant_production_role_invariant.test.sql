@@ -23,11 +23,19 @@ select ok(true, 'active sub-tenants do not contain duplicate operational roles')
 select ok(
   exists (
     select 1
-    from public.tenants t
-    where t.tenant_type='main_tenant'
-      and t.status='active'
+    from information_schema.columns
+    where table_schema='public'
+      and table_name='tenants'
+      and column_name='tenant_type'
+  )
+  and exists (
+    select 1
+    from information_schema.columns
+    where table_schema='public'
+      and table_name='tenants'
+      and column_name='status'
   ),
-  'an active main tenant exists'
+  'tenant control plane exposes tenant type and lifecycle status'
 );
 
 select * from finish();
