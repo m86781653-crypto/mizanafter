@@ -53,7 +53,7 @@ export function CustomersPage() {
       p_project_id:currentProject.id,p_name_ar:form.name_ar.trim(),p_phone:form.phone||null,p_address:form.address||null,
       p_customer_type:form.customer_type||'residential',p_status:form.status||'active',
       p_connection_date:form.connection_date||null,p_household_members:Number(form.household_members||1),
-      p_notes:form.notes||null,p_meter_serial_number:includeMeter?(form.serial_number||null):null,
+      p_notes:form.notes||null,p_create_meter:includeMeter,p_meter_serial_number:includeMeter?(form.serial_number||null):null,
       p_meter_type:form.meter_type||'mechanical',p_meter_size_mm:form.size_mm?Number(form.size_mm):null,
       p_meter_status:form.meter_status||'active',p_meter_installation_date:form.meter_installation_date||null
     });
