@@ -370,7 +370,13 @@ export function ReadingsPage() {
           </tr></thead><tbody className="divide-y">
             {readings.slice(0,30).map((r) => {
               const meter = meters.find((m) => m.id === r.meter_id);
-              return <tr key={r.id}><td className="px-4 py-3">{meter?.customers.name_ar || '—'}</td><td className="px-4 py-3">{meter?.serial_number || '—'}</td><td className="px-4 py-3">{formatNumber(r.previous_reading)}</td><td className="px-4 py-3 font-semibold">{formatNumber(r.reading_value)}</td><td className="px-4 py-3">{formatNumber(r.consumption)} م³</td><td className="px-4 py-3"><Badge status={r.status} label={readingStatusLabels[r.status] || r.status}/></td><td className="px-4 py-3 text-xs text-neutral-400">{formatRelativeTime(r.reading_date)}</td></tr>;
+              return <tr key={r.id}><td className="px-4 py-3">{meter?.customers.name_ar || '—'}</td><td className="px-4 py-3">{meter?.serial_number || '—'}</td><td className="px-4 py-3">{formatNumber(r.previous_reading)}</td><td className="px-4 py-3 font-semibold">{formatNumber(r.reading_value)}</td><td className="px-4 py-3">{formatNumber(r.consumption)} م³</td><td className="px-4 py-3">
+  <div className="flex flex-wrap gap-1 items-center">
+    <Badge status={r.status} label={readingStatusLabels[r.status] || r.status}/>
+    {r.anomaly_flag && <Badge status="warning" label="مراجعة مطلوبة"/>}
+  </div>
+  {r.anomaly_flag && r.anomaly_reason && <div className="text-[11px] text-warning-700 mt-1">{r.anomaly_reason}</div>}
+</td><td className="px-4 py-3 text-xs text-neutral-400">{formatRelativeTime(r.reading_date)}</td></tr>;
             })}
           </tbody></table></div>}
       </section>
