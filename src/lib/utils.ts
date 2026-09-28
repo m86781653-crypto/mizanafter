@@ -76,8 +76,9 @@ export const meterStatusLabels: Record<string, string> = {
 };
 
 export const readingStatusLabels: Record<string, string> = {
-  pending: 'قيد المراجعة',
-  approved: 'معتمدة',
+  pending: 'قيد المعالجة',
+  recorded: 'مسجلة',
+  approved: 'مسجلة (تاريخية)',
   rejected: 'مرفوضة',
   anomaly: 'شاذة',
 };
@@ -126,6 +127,7 @@ export function statusColor(status: string): string {
     active: 'bg-success-100 text-success-700',
     operational: 'bg-success-100 text-success-700',
     approved: 'bg-success-100 text-success-700',
+    recorded: 'bg-primary-100 text-primary-700',
     paid: 'bg-success-100 text-success-700',
     resolved: 'bg-success-100 text-success-700',
     closed: 'bg-success-100 text-success-700',
