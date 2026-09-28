@@ -259,7 +259,11 @@ export function ReadingsPage() {
       const recorded = data as MeterReading;
       setReadings((rows) => [recorded, ...rows]);
       setMeters((rows) => rows.map((m) => m.id === selectedMeter.id ? { ...m, last_reading: value, last_reading_date: readingDate } : m));
-      toast.success('تم تسجيل القراءة وحساب الفاتورة تلقائياً. الاعتماد المالي يكون عند التحصيل.');
+      if (recorded.anomaly_flag) {
+        toast.warning(`تم تسجيل القراءة، لكن نظام جودة القراءة طلب مراجعتها: ${recorded.anomaly_reason || 'إشارة جودة غير طبيعية'}`);
+      } else {
+        toast.success('تم تسجيل القراءة وحساب الفاتورة تلقائياً. الاعتماد المالي يكون عند التحصيل.');
+      }
       setSelectedMeter(null);
       setCapturedPhoto(null);
       setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
