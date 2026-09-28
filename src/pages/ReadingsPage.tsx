@@ -192,7 +192,7 @@ export function ReadingsPage() {
   const save = async () => {
     if (!selectedMeter || !currentProject || !profile) return;
     setFormError(null);
-    if (alreadyReadToday) { setFormError('لا يمكن أخذ أكثر من قراءة معتمدة لنفس العداد في نفس التاريخ.'); return; }
+    if (alreadyReadToday) { setFormError('لا يمكن تسجيل أكثر من قراءة لنفس العداد في نفس التاريخ.'); return; }
     if (!capturedPhoto) { setFormError('تصوير العداد مطلوب قبل الحفظ.'); return; }
     const value = Number(form.reading_value);
     const confidence = Number(form.ai_confidence);
@@ -256,16 +256,16 @@ export function ReadingsPage() {
         throw new Error(error.message);
       }
 
-      const approved = data as MeterReading;
-      setReadings((rows) => [approved, ...rows]);
+      const recorded = data as MeterReading;
+      setReadings((rows) => [recorded, ...rows]);
       setMeters((rows) => rows.map((m) => m.id === selectedMeter.id ? { ...m, last_reading: value, last_reading_date: readingDate } : m));
-      toast.success('تم اعتماد القراءة وإصدار الفاتورة تلقائياً.');
+      toast.success('تم تسجيل القراءة وحساب الفاتورة تلقائياً. الاعتماد المالي يكون عند التحصيل.');
       setSelectedMeter(null);
       setCapturedPhoto(null);
       setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
       void load();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'تعذر اعتماد القراءة');
+      setFormError(err instanceof Error ? err.message : 'تعذر تسجيل القراءة');
     } finally {
       setSaving(false);
     }
@@ -335,7 +335,7 @@ export function ReadingsPage() {
 
           <div className="border rounded-xl p-4 bg-neutral-50/70">
             <div className="flex items-center gap-2 mb-3"><Camera size={18} className="text-primary-700"/><h3 className="font-bold">تصوير العداد والتحقق</h3></div>
-            <p className="text-xs text-neutral-500 mb-3">يجب أن يظهر الرقم التسلسلي للعداد والقراءة في الصورة. يتم التحقق من التطابق الكامل مع السجل قبل اعتماد القراءة.</p>
+            <p className="text-xs text-neutral-500 mb-3">يجب أن يظهر الرقم التسلسلي للعداد والقراءة في الصورة. يتم التحقق آلياً من التطابق قبل تسجيل القراءة؛ لا يوجد اعتماد مالي للقراءة.</p>
             <MeterCamera initialPreview={capturedPhoto?.previewUrl} disabled={saving || alreadyReadToday} onCapture={handleCapture}/>
             {ocrProcessing && <div className="mt-3 flex items-center gap-2 text-sm text-primary-700"><Loader2 size={16} className="animate-spin"/> جارٍ التحقق من هوية العداد واستخراج القراءة...</div>}
           </div>
