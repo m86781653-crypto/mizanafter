@@ -50,6 +50,9 @@ export async function addPendingReading(
   if (!input.projectId || !input.meterId || !input.customerId) throw new Error("بيانات العداد أو المشروع غير مكتملة");
   if (photo) validImage(photo);
   await requestPersistentStorage();
+  const businessDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Aden' }).format(new Date(input.readingDate));
+  const duplicate = (await getPendingReadings()).find((queued) => queued.meterId === input.meterId && new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Aden' }).format(new Date(queued.readingDate)) === businessDate && queued.status !== 'synced');
+  if (duplicate) throw new Error('READING_ALREADY_QUEUED_FOR_DATE');
   const item: PendingReading = {
     ...input,
     clientId: crypto.randomUUID(),
