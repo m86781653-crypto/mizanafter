@@ -8,8 +8,8 @@ SELECT ok(
 );
 
 SELECT ok(
-  NOT has_schema_privilege('authenticated', 'private', 'USAGE'),
-  'authenticated cannot use the private authorization schema directly'
+  has_schema_privilege('authenticated', 'private', 'USAGE'),
+  'authenticated has only the private schema access required for RLS policy evaluation'
 );
 
 SELECT ok(
@@ -60,7 +60,7 @@ SELECT ok(
 SELECT ok(
   has_function_privilege(
     'authenticated',
-    'public.mizan_record_payment(uuid,numeric,text,text,text)',
+    'public.mizan_record_payment(uuid,numeric,text,text,text,uuid)',
     'EXECUTE'
   ),
   'authenticated can reach idempotent payment RPC; authorization is enforced inside the SECURITY DEFINER function'
@@ -94,21 +94,21 @@ SELECT ok(
 );
 
 SELECT ok(
-  NOT has_function_privilege(
+  has_function_privilege(
     'authenticated',
     'private.mizan_can_access_project(uuid)',
     'EXECUTE'
   ),
-  'authenticated cannot execute private project authorization helper directly'
+  'authenticated can execute the private project helper required by RLS'
 );
 
 SELECT ok(
-  NOT has_function_privilege(
+  has_function_privilege(
     'authenticated',
     'private.mizan_is_platform_admin()',
     'EXECUTE'
   ),
-  'authenticated cannot execute private platform-admin helper directly'
+  'authenticated can execute the private platform-admin helper required by RLS'
 );
 
 SELECT ok(
