@@ -125,6 +125,7 @@ export interface Customer {
   phone: string | null;
   address: string | null;
   customer_type: string;
+  household_members: number;
   status: string;
   connection_date: string | null;
   notes: string | null;
