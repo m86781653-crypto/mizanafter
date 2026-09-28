@@ -53,7 +53,7 @@ export function CustomersPage() {
   const filteredRows = rows.filter(({ customer, meter }) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    return [customer.name_ar, customer.customer_number, customer.phone || '', customer.address || '', meter?.meter_number || '', meter?.serial_number || '']
+    return [customer.name_ar, customer.customer_number, customer.phone || '', customer.address || '', meter?.serial_number || '']
       .some(v => v.toLowerCase().includes(q));
   });
 
@@ -153,7 +153,7 @@ export function CustomersPage() {
           <table className="w-full text-sm">
             <thead><tr className="text-right text-xs text-neutral-400 border-b bg-neutral-50">
               <th className="px-4 py-3">المشترك</th><th className="px-4 py-3">تاريخ ووقت الربط</th><th className="px-4 py-3">الهاتف والعنوان</th><th className="px-4 py-3">أفراد الأسرة</th>
-              <th className="px-4 py-3">العداد</th><th className="px-4 py-3">المواصفات</th><th className="px-4 py-3">الحالة</th><th className="px-4 py-3">إجراءات</th>
+              <th className="px-4 py-3">هوية العداد</th><th className="px-4 py-3">المواصفات</th><th className="px-4 py-3">الحالة</th><th className="px-4 py-3">إجراءات</th>
             </tr></thead>
             <tbody className="divide-y divide-neutral-100">
               {filteredRows.map(({customer, meter}) => (
@@ -162,7 +162,7 @@ export function CustomersPage() {
                   <td className="px-4 py-3"><div className="font-medium">{formatDateTime(customer.created_at)}</div><div className="text-xs text-neutral-400">يُسجّل تلقائياً من وقت إنشاء السجل</div></td>
                   <td className="px-4 py-3"><div className="flex items-center gap-1.5">{customer.phone && <><Phone size={13}/>{customer.phone}</>}</div><div className="flex items-center gap-1.5 text-neutral-500 mt-1">{customer.address && <><MapPin size={13}/>{customer.address}</>}</div></td>
                   <td className="px-4 py-3 font-semibold">{customer.household_members ?? 0}</td>
-                  <td className="px-4 py-3">{meter ? <><div className="font-semibold">{meter.meter_number}</div><div className="text-xs text-neutral-400">{meter.serial_number || 'لا يوجد رقم تسلسلي'}</div></> : <span className="text-neutral-400">غير مرتبط</span>}</td>
+                  <td className="px-4 py-3">{meter ? <div className="font-semibold">{meter.serial_number || 'لا توجد هوية مسجلة'}</div> : <span className="text-neutral-400">غير مرتبط</span>}</td>
                   <td className="px-4 py-3 text-neutral-600">{meter ? <><div>{meter.meter_type==='mechanical'?'ميكانيكي':meter.meter_type==='digital'?'رقمي':'فوق صوتي'}</div><div className="text-xs">{meter.size_mm ? formatNumber(meter.size_mm) + ' مم' : '—'}</div></> : '—'}</td>
                   <td className="px-4 py-3"><div className="flex gap-1 flex-wrap"><Badge status={customer.status} label={customer.status==='active'?'نشط':customer.status==='suspended'?'موقف':'غير نشط'}/>{meter&&<Badge status={meter.status} label={meterStatusLabels[meter.status]||meter.status}/>}</div></td>
                   <td className="px-4 py-3"><div className="flex items-center gap-1">
@@ -179,7 +179,7 @@ export function CustomersPage() {
 
       <Modal open={showForm} onClose={closeForm} title={mode==='customer-meter'?'إنشاء سجل مشترك + عداد':'إضافة عداد لمشترك موجود'} size="lg">
         <div className="mb-4 p-3 rounded-xl bg-primary-50 text-primary-800 text-sm">
-          {mode==='customer-meter' ? 'سيتم توليد رقم المشترك ورقم العداد تلقائياً وربطهما في عملية واحدة.' : 'رقم العداد سيُولّد تلقائياً ويُربط بالمشترك المختار.'}
+          {mode==='customer-meter' ? 'سيتم توليد رقم المشترك تلقائياً، وتسجيل هوية العداد الفعلية التي تُدخلها وربطها بالمشترك في عملية واحدة.' : 'سيتم تسجيل هوية العداد الفعلية وربطها بالمشترك المختار.'}
         </div>
         {mode==='customer-meter' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -201,7 +201,7 @@ export function CustomersPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2"><label className="label-field">المشترك</label><select className="input-field" value={form.customer_id||''} onChange={e=>setForm({...form,customer_id:e.target.value})}>{customers.map(c=><option key={c.id} value={c.id}>{c.customer_number} — {c.name_ar}</option>)}</select></div>
-            <div><label className="label-field">الرقم التسلسلي</label><input className="input-field" value={form.meter_serial_number||''} onChange={e=>setForm({...form,meter_serial_number:e.target.value})}/></div>
+            <div><label className="label-field">هوية العداد (الرقم التسلسلي الفعلي) *</label><input className="input-field" value={form.meter_serial_number||''} onChange={e=>setForm({...form,meter_serial_number:e.target.value})}/></div>
             <div><label className="label-field">النوع</label><select className="input-field" value={form.meter_type||'mechanical'} onChange={e=>setForm({...form,meter_type:e.target.value})}><option value="mechanical">ميكانيكي</option><option value="digital">رقمي</option><option value="ultrasonic">فوق صوتي</option></select></div>
             <div><label className="label-field">المقاس (مم)</label><input type="number" min="1" className="input-field" value={form.meter_size_mm||''} onChange={e=>setForm({...form,meter_size_mm:e.target.value})}/></div>
             <div><label className="label-field">الحالة</label><select className="input-field" value={form.meter_status||'active'} onChange={e=>setForm({...form,meter_status:e.target.value})}><option value="active">نشط</option><option value="inactive">غير نشط</option><option value="faulty">تالف</option><option value="replaced">مستبدل</option></select></div>
