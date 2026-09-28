@@ -12,7 +12,6 @@ import { CustomersPage } from '@/pages/CustomersPage';
 import { ReadingsPage } from '@/pages/ReadingsPage';
 import { BillingPage } from '@/pages/BillingPage';
 import { MaintenancePage } from '@/pages/MaintenancePage';
-import { FaultsOutagesPage } from '@/pages/FaultsOutagesPage';
 import { ReportsPage } from '@/pages/ReportsPage';
 import { CopilotPage } from '@/pages/CopilotPage';
 import { SettingsPage } from '@/pages/SettingsPage';
@@ -21,19 +20,20 @@ import { CostsPage } from '@/pages/CostsPage';
 import { UsersPage } from '@/pages/UsersPage';
 import type { UserRole } from '@/types';
 
-const allPages = ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','faults-outages','reports','loss-analysis','costs','users','copilot','settings'] as const;
+const allPages = ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','reports','loss-analysis','costs','users','copilot','settings'] as const;
 type PageId = typeof allPages[number];
+
 const roleAccess: Record<UserRole, PageId[]> = {
   platform_admin: [...allPages],
   central_governance: ['dashboard','projects','reports','loss-analysis','costs','users','settings'],
-  project_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','faults-outages','reports','loss-analysis','costs','copilot','settings'],
-  tenant_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','faults-outages','reports','loss-analysis','costs','copilot','settings'],
-  operations_officer: ['dashboard','infrastructure','maintenance','faults-outages','reports','loss-analysis','copilot','settings'],
+  project_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','reports','loss-analysis','costs','copilot','settings'],
+  tenant_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','reports','loss-analysis','costs','copilot','settings'],
+  operations_officer: ['dashboard','infrastructure','maintenance','reports','loss-analysis','copilot','settings'],
   meter_reader: ['dashboard','readings','copilot','settings'],
   collection_officer: ['dashboard','billing','copilot','settings'],
-  maintenance_officer: ['dashboard','maintenance','faults-outages','infrastructure','copilot','settings'],
-  technician: ['dashboard','maintenance','faults-outages','infrastructure','copilot','settings'],
-  data_exception_officer: ['dashboard','readings','faults-outages','reports','loss-analysis','copilot','settings'],
+  maintenance_officer: ['dashboard','maintenance','infrastructure','copilot','settings'],
+  technician: ['dashboard','maintenance','infrastructure','copilot','settings'],
+  data_exception_officer: ['dashboard','readings','reports','loss-analysis','copilot','settings'],
   viewer: ['dashboard','reports','loss-analysis','copilot','settings'],
 };
 
@@ -49,17 +49,30 @@ function AuthedApp(){
 
   const allowedPages=roleAccess[profile.role]||['dashboard'];
   const effectivePage=allowedPages.includes(page)?page:'dashboard';
+
   const renderPage=()=>{
     switch(effectivePage){
-      case'dashboard':return <DashboardPage/>; case'projects':return <ProjectsPage/>; case'infrastructure':return <InfrastructurePage/>;
-      case'customers':return <CustomersPage/>; case'readings':return <ReadingsPage/>; case'billing':return <BillingPage/>;
-      case'maintenance':return <MaintenancePage/>; case'faults-outages':return <FaultsOutagesPage/>; case'reports':return <ReportsPage/>;
-      case'loss-analysis':return <LossAnalysisPage/>; case'costs':return <CostsPage/>; case'users':return <UsersPage/>; case'copilot':return <CopilotPage/>; case'settings':return <SettingsPage/>;
+      case'dashboard':return <DashboardPage/>;
+      case'projects':return <ProjectsPage/>;
+      case'infrastructure':return <InfrastructurePage/>;
+      case'customers':return <CustomersPage/>;
+      case'readings':return <ReadingsPage/>;
+      case'billing':return <BillingPage/>;
+      case'maintenance':return <MaintenancePage/>;
+      case'reports':return <ReportsPage/>;
+      case'loss-analysis':return <LossAnalysisPage/>;
+      case'costs':return <CostsPage/>;
+      case'users':return <UsersPage/>;
+      case'copilot':return <CopilotPage/>;
+      case'settings':return <SettingsPage/>;
       default:return <DashboardPage/>;
     }
   };
+
   const handleNavigate=(p:string)=>{if(allowedPages.includes(p as PageId))setPage(p as PageId);};
+
   return <ProjectProvider><Layout activePage={effectivePage} onNavigate={handleNavigate} allowedPages={allowedPages}>{renderPage()}</Layout></ProjectProvider>;
 }
+
 function App(){return <AuthProvider><AuthedApp/></AuthProvider>}
 export default App;
