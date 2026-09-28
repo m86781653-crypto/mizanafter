@@ -47,8 +47,7 @@ function AuthedApp(){
   if(!profile)return <LoginPage/>;
   if(profile.must_change_password)return <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4"><ChangePasswordPage/></div>;
 
-  const allowedPages=roleAccess[profile.role]||['dashboard'];\n  const roleDefaultPage: PageId = profile.role === 'meter_reader' ? 'readings' : profile.role === 'collection_officer' ? 'billing' : 'dashboard';\n  const effectiveInitialPage = allowedPages.includes(page) ? page : roleDefaultPage;
-  const effectivePage=allowedPages.includes(page)?page:roleDefaultPage;
+  const allowedPages=roleAccess[profile.role]||['dashboard'];\n  const roleDefaultPage: PageId = profile.role === 'meter_reader' ? 'readings' : profile.role === 'collection_officer' ? 'billing' : 'dashboard';\n  const effectivePage=allowedPages.includes(page)?page:roleDefaultPage;
 
   const renderPage=()=>{
     switch(effectivePage){
