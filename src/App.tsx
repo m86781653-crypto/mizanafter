@@ -26,13 +26,13 @@ const roleAccess: Record<UserRole, PageId[]> = {
   platform_admin: [...allPages],
   central_governance: ['dashboard','projects','reports','loss-analysis','costs','users','settings'],
   project_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','reports','loss-analysis','costs','copilot','settings'],
-  tenant_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','faults-outages','reports','loss-analysis','costs','copilot','settings'],
-  operations_officer: ['dashboard','infrastructure','maintenance','faults-outages','reports','loss-analysis','copilot','settings'],
+  tenant_manager: ['dashboard','projects','infrastructure','customers','readings','billing','maintenance','reports','loss-analysis','costs','copilot','settings'],
+  operations_officer: ['dashboard','infrastructure','maintenance','reports','loss-analysis','copilot','settings'],
   meter_reader: ['dashboard','readings','copilot','settings'],
   collection_officer: ['dashboard','billing','copilot','settings'],
-  maintenance_officer: ['dashboard','maintenance','faults-outages','infrastructure','copilot','settings'],
-  technician: ['dashboard','maintenance','faults-outages','infrastructure','copilot','settings'],
-  data_exception_officer: ['dashboard','readings','faults-outages','reports','loss-analysis','copilot','settings'],
+  maintenance_officer: ['dashboard','maintenance','infrastructure','copilot','settings'],
+  technician: ['dashboard','maintenance','infrastructure','copilot','settings'],
+  data_exception_officer: ['dashboard','readings','reports','loss-analysis','copilot','settings'],
   viewer: ['dashboard','reports','loss-analysis','copilot','settings'],
 };
 
