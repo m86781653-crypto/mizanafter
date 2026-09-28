@@ -111,6 +111,9 @@ jobs:
       - name: Run root security write-boundary contract
         run: supabase test db supabase/tests/023_root_security_write_boundaries.test.sql
 
+      - name: Run production integrity contract
+        run: supabase test db supabase/tests/024_production_integrity_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
