@@ -37,7 +37,7 @@ begin
   where grantee in ('anon','authenticated')
     and table_schema='public'
     and privilege_type in ('TRUNCATE','TRIGGER','REFERENCES')
-    and table_name not in ('geography_columns','geometry_columns');
+    and table_name not in ('geography_columns','geometry_columns','spatial_ref_sys');
 
   if v_bad <> 0 then
     raise exception 'STRUCTURAL_CLIENT_GRANTS_REMAIN: %',v_bad;
