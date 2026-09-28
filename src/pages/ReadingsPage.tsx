@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { StatCard } from '@/components/ui/StatCard';
 import { MeterCamera } from '@/components/MeterCamera';
 import { recognizeMeterImage } from '@/lib/meter-ocr';
-import { addPendingReading, startMeterReadingSync, subscribeToMeterQueue } from '@/lib/mirrorSync';
+import { addPendingReading, startMeterReadingSync } from '@/lib/mirrorSync';
 import { readFieldCache, saveFieldCache } from '@/lib/mirrorOfflineDb';
 import { formatNumber, formatRelativeTime, readingStatusLabels, syncStatusLabels } from '@/lib/utils';
 import type { Customer, Meter, MeterReading } from '@/types';
@@ -45,7 +45,6 @@ export function ReadingsPage() {
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [queueVersion, setQueueVersion] = useState(0);
 
   useEffect(() => startMeterReadingSync(), []);
 
@@ -57,7 +56,6 @@ export function ReadingsPage() {
     return () => { window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline); };
   }, []);
 
-  useEffect(() => subscribeToMeterQueue(() => setQueueVersion((v) => v + 1)), []);
 
   const load = useCallback(async () => {
     if (!currentProject) { setLoading(false); return; }
@@ -135,7 +133,8 @@ export function ReadingsPage() {
     setShowResults(false);
     setCapturedPhoto(null);
     setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
-    setFormError(alreadyReadToday ? 'تم تسجيل قراءة لهذا العداد اليوم. يمنع النظام تكرار القراءة في نفس التاريخ.' : null);
+    const hasTodayReading = readings.some((r) => r.meter_id === meter.id && r.business_date === today && !['void','exception'].includes(r.status));
+    setFormError(hasTodayReading ? 'تم تسجيل قراءة لهذا العداد اليوم. يمنع النظام تكرار القراءة في نفس التاريخ.' : null);
   };
 
   const captureLocation = () => {
@@ -262,7 +261,6 @@ export function ReadingsPage() {
   };
 
   const consumption = selectedMeter && form.reading_value ? Math.max(Number(form.reading_value) - Number(selectedMeter.last_reading), 0) : 0;
-  const pendingCount = queueVersion; // queue updates trigger a fresh visual state; server remains authoritative.
 
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
   if (loading) return <LoadingSpinner label="جاري تجهيز سجل القراءة الميداني..." />;
