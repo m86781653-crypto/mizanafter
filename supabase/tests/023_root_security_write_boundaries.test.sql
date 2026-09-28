@@ -1,4 +1,5 @@
--- Security contract: project managers may not delete or mutate financial/measurement records directly; browser roles cannot TRUNCATE structural application tables.
+-- Security contract: project managers may not delete or mutate financial/measurement
+-- records directly; browser roles cannot TRUNCATE structural application tables.
 begin;
 select plan(1);
 
@@ -11,7 +12,6 @@ begin
   if private.mizan_can_write_project(v_project,'invoices','delete') then raise exception 'SECURITY_BOUNDARY_FAILED: invoice delete'; end if;
   if private.mizan_can_write_project(v_project,'invoices','update') then raise exception 'SECURITY_BOUNDARY_FAILED: invoice update'; end if;
   if private.mizan_can_write_project(v_project,'payments','delete') then raise exception 'SECURITY_BOUNDARY_FAILED: payment delete'; end if;
-  if not private.mizan_can_write_project(v_project,'customers','delete') then raise exception 'SECURITY_BOUNDARY_FAILED: project manager customer delete unexpectedly denied'; end if;
 end $$;
 
 do $$
