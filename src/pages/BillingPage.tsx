@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { AlertCircle, CheckCircle, FileText, Loader2, Plus, Receipt, Search, TrendingUp, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
@@ -146,15 +147,16 @@ export function BillingPage() {
     finally{setSaving(false);}
   };
 
-  const printInvoice=(invoice:Invoice)=>{
+  const printInvoice=async(invoice:Invoice)=>{
     const customer=invoices.find(i=>i.id===invoice.id)?.customers;
+    const { data: meter } = invoice.meter_id ? await supabase.from('meters').select('meter_number,serial_number').eq('id',invoice.meter_id).maybeSingle() : { data: null };
     const w=window.open('','_blank','noopener,noreferrer');
     if(!w)return;
     const safe=(v:unknown)=>String(v??'—').replace(/[<>&]/g,(c)=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]!));
     w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${safe(tenantName)} - ${safe(invoice.invoice_number)}</title>
       <style>@page{size:A4 portrait;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,Tahoma,sans-serif;color:#111;margin:0;font-size:12px}h1{font-size:21px;margin:0}h2{font-size:14px;margin:18px 0 8px;border-bottom:1px solid #ddd;padding-bottom:6px}.head{display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:14px}.muted{color:#666}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.box{border:1px solid #ddd;border-radius:6px;padding:10px;margin-top:12px}.row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee}.total{font-size:16px;font-weight:bold;border-top:2px solid #111;border-bottom:0;margin-top:8px;padding-top:10px}.footer{margin-top:32px;border-top:1px solid #ddd;padding-top:10px;font-size:10px;color:#666}table{width:100%;border-collapse:collapse}td,th{padding:7px;border:1px solid #ddd;text-align:right}@media print{.no-print{display:none}}</style></head><body>
       <div class="head"><div><h1>${safe(tenantName)}</h1><div class="muted">${safe(currentProject?.name_ar)}</div><div class="muted">فاتورة مياه</div></div><div><b>${safe(invoice.invoice_number)}</b><br><span class="muted">${safe(formatDate(invoice.issue_date))}</span></div></div>
-      <h2>بيانات المشترك</h2><div class="grid box"><div><b>الاسم:</b> ${safe(customer?.name_ar)}</div><div><b>رقم المشترك:</b> ${safe(customer?.customer_number)}</div><div><b>الهاتف:</b> ${safe(customer?.phone)}</div><div><b>العداد:</b> ${safe((invoice as any).meter_id)}</div></div>
+      <h2>بيانات المشترك</h2><div class="grid box"><div><b>الاسم:</b> ${safe(customer?.name_ar)}</div><div><b>رقم المشترك:</b> ${safe(customer?.customer_number)}</div><div><b>الهاتف:</b> ${safe(customer?.phone)}</div><div><b>العداد:</b> ${safe(meter?.meter_number)}</div></div>
       <h2>فترة الاستهلاك والقراءة</h2><table><tr><th>الفترة</th><th>القراءة السابقة</th><th>القراءة الحالية</th><th>الاستهلاك</th></tr><tr><td>${safe(invoice.billing_period_start)} إلى ${safe(invoice.billing_period_end)}</td><td>${safe(formatNumber(invoice.previous_reading))}</td><td>${safe(formatNumber(invoice.current_reading))}</td><td>${safe(formatNumber(invoice.consumption_m3))} م³</td></tr></table>
       <h2>تفاصيل الاستحقاق</h2><div class="box"><div class="row"><span>الكمية ضمن التعرفة الأساسية</span><b>${safe(formatNumber(invoice.included_consumption_m3))} م³</b></div><div class="row"><span>الكمية بالتعرفة الزائدة</span><b>${safe(formatNumber(invoice.tiered_consumption_m3))} م³</b></div><div class="row"><span>الرسوم الثابتة</span><b>${safe(formatCurrency(invoice.fixed_fee))}</b></div><div class="row"><span>رسوم الاستهلاك</span><b>${safe(formatCurrency(invoice.consumption_fee))}</b></div><div class="row"><span>المتأخرات السابقة</span><b>${safe(formatCurrency(invoice.previous_balance))}</b></div><div class="row total"><span>إجمالي المستحق</span><b>${safe(formatCurrency(invoice.grand_total))}</b></div><div class="row"><span>المدفوع</span><b>${safe(formatCurrency(invoice.amount_paid))}</b></div><div class="row"><span>الرصيد المتبقي</span><b>${safe(formatCurrency(invoice.balance))}</b></div></div>
       <div class="footer">تم إنشاء هذه الفاتورة آلياً من قراءة عداد معتمدة. التعرفة المستخدمة محفوظة مع الفاتورة لضمان إمكانية المراجعة اللاحقة.</div>
