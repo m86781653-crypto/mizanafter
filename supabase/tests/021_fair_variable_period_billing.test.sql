@@ -1,6 +1,6 @@
 -- Billing contract tests: variable periods, daily tier scaling, and non-approval reading source.
 begin;
-select plan(3);
+select plan(2);
 
 select ok(
   exists (select 1 from information_schema.columns where table_schema='public' and table_name='tariffs' and column_name='reference_period_days')
