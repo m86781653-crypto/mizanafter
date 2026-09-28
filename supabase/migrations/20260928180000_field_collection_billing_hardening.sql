@@ -105,8 +105,6 @@ end;
 $function$;
 
 revoke all on function private.mizan_issue_invoice_for_reading(uuid,date,date) from public,anon,authenticated;
-grant usage on schema private to authenticated;
-
 create or replace function public.mizan_create_invoice(p_project_id uuid,p_customer_id uuid,p_meter_id uuid,p_period_start date,p_period_end date)
 returns public.invoices language plpgsql security definer set search_path=''
 as $function$
