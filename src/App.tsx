@@ -39,7 +39,7 @@ const roleAccess: Record<UserRole, PageId[]> = {
 
 function AuthedApp(){
   const {profile,loading}=useAuth();
-  const [page,setPage]=useState<PageId>(() => {\n    if (typeof window === 'undefined') return 'dashboard';\n    return 'dashboard';\n  });
+  const [page,setPage]=useState<PageId>('dashboard');
   const isRecoveryFlow=typeof window!=='undefined' && window.location.hash.includes('type=recovery');
 
   if(isRecoveryFlow)return <ResetPasswordPage/>;
@@ -47,7 +47,9 @@ function AuthedApp(){
   if(!profile)return <LoginPage/>;
   if(profile.must_change_password)return <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4"><ChangePasswordPage/></div>;
 
-  const allowedPages=roleAccess[profile.role]||['dashboard'];\n  const roleDefaultPage: PageId = profile.role === 'meter_reader' ? 'readings' : profile.role === 'collection_officer' ? 'billing' : 'dashboard';\n  const effectivePage=allowedPages.includes(page)?page:roleDefaultPage;
+  const allowedPages=roleAccess[profile.role]||['dashboard'];
+  const roleDefaultPage: PageId = profile.role === 'meter_reader' ? 'readings' : profile.role === 'collection_officer' ? 'billing' : 'dashboard';
+  const effectivePage=allowedPages.includes(page)?page:roleDefaultPage;
 
   const renderPage=()=>{
     switch(effectivePage){
