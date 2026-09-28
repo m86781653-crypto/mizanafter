@@ -8,8 +8,8 @@ SELECT ok(
 );
 
 SELECT ok(
-  has_schema_privilege('authenticated', 'private', 'USAGE'),
-  'authenticated has only the private schema access required for RLS policy evaluation'
+  NOT has_schema_privilege('authenticated', 'private', 'USAGE'),
+  'authenticated cannot use the private schema directly'
 );
 
 SELECT ok(
