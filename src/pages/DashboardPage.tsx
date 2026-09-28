@@ -50,7 +50,7 @@ export function DashboardPage() {
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('project_id', pid).eq('status', 'active'),
         supabase.from('meters').select('id', { count: 'exact', head: true }).eq('project_id', pid).eq('status', 'active'),
         supabase.from('invoices').select('*').eq('project_id', pid).order('issue_date', { ascending: false }).limit(50),
-        supabase.from('payments').select('amount').eq('project_id', pid),
+        supabase.from('payments').select('amount,approval_status').eq('project_id', pid),
         supabase.from('faults').select('*').eq('project_id', pid).order('reported_at', { ascending: false }).limit(10),
         supabase.from('maintenance_work_orders').select('*').eq('project_id', pid).order('created_at', { ascending: false }).limit(10),
         supabase.from('meter_readings').select('*').eq('project_id', pid).order('reading_date', { ascending: false }).limit(10),
@@ -64,8 +64,8 @@ export function DashboardPage() {
       const invData = invoices.data as Invoice[] || [];
       const unpaid = invData.filter(i => i.status === 'unpaid' || i.status === 'overdue');
       const overdueAmt = invData.filter(i => i.status === 'overdue').reduce((s, i) => s + Number(i.balance), 0);
-      const totalRev = invData.reduce((s, i) => s + Number(i.grand_total), 0);
-      const collectedRev = (payments.data || []).reduce((s, p: any) => s + Number(p.amount), 0);
+      const totalRev = invData.reduce((s, i) => s + Number(i.total_amount), 0);
+      const collectedRev = (payments.data || []).filter((p: any) => p.approval_status === 'approved').reduce((s, p: any) => s + Number(p.amount), 0);
       const production = (wells.data as Well[] || []).reduce((s, w) => s + Number(w.daily_output_m3), 0);
       const consumption = invData.reduce((s, i) => s + Number(i.consumption_m3), 0);
 
