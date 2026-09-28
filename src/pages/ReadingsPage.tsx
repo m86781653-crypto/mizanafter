@@ -46,7 +46,18 @@ export function ReadingsPage() {
   const [pageError, setPageError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => startMeterReadingSync(), []);
+  useEffect(() => {
+    startMeterReadingSync();
+  }, []);
+
+  useEffect(() => {
+    if (!currentProject) return;
+    const channel = supabase.channel(`mizan-field-${currentProject.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meter_readings', filter: `project_id=eq.${currentProject.id}` }, () => { void load(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: `project_id=eq.${currentProject.id}` }, () => { void load(); })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [currentProject, load]);
 
   useEffect(() => {
     const onOnline = () => setOnline(true);
