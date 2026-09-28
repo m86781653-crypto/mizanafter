@@ -55,7 +55,14 @@ export interface MeterOcrResult { rawText: string; tokens: OcrToken[]; meterNumb
 
 const ARABIC_DIGITS = /[٠-٩۰-۹]/g;
 export function normalizeDigits(input: string) { return input.replace(ARABIC_DIGITS, (d) => { const code = d.charCodeAt(0); return code >= 0x0660 && code <= 0x0669 ? String(code - 0x0660) : String(code - 0x06f0); }); }
-export function normalizeSerial(v: string) { return normalizeDigits(v).normalize("NFKC").trim().toUpperCase().replace(/[\u2010-\u2015\u2212]/g, "-").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, ""); }
+export function normalizeSerial(v: string) {
+  return normalizeDigits(v)
+    .normalize("NFKC")
+    .trim()
+    .toUpperCase()
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/[^A-Z0-9]+/g, "");
+}
 
 export function serialFoundInOcrText(rawText: string, knownSerial: string): boolean {
   const known = normalizeSerial(knownSerial);
