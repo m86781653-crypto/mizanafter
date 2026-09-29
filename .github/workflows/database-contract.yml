@@ -132,6 +132,9 @@ jobs:
       - name: Run no service-role application contract
         run: supabase test db supabase/tests/030_no_service_role_application_contract.test.sql
 
+      - name: Run maintenance workflow contract
+        run: supabase test db supabase/tests/031_maintenance_workflow_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
