@@ -10,6 +10,7 @@ export const navItems: NavItem[] = [
   { id: 'readings', label: 'قراءة العدادات', icon: null as any },
   { id: 'billing', label: 'الفوترة والتحصيل', icon: null as any },
   { id: 'maintenance', label: 'التشغيل والصيانة', icon: null as any },
+  { id: 'water-production', label: 'إنتاج المياه', icon: null as any },
   { id: 'reports', label: 'التقارير والتحليلات', icon: null as any },
   { id: 'copilot', label: 'مساعد ميزان', icon: null as any },
   { id: 'settings', label: 'الإعدادات', icon: null as any },

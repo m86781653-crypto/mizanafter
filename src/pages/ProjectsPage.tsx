@@ -14,8 +14,8 @@ interface CreatedCredential {
   role_label?: string;
   full_name: string;
   email: string;
-  password: string;
-  status?: 'created' | 'pending_claim' | 'failed';
+  password?: string;
+  status?: 'pending_claim' | 'failed';
   onboarding_token?: string;
   must_change_password?: boolean;
 }
@@ -37,6 +37,7 @@ export function ProjectsPage() {
     manager_name: '', manager_email: '',
     reader_name: '', reader_email: '',
     collector_name: '', collector_email: '',
+    operations_name: '', operations_email: '',
   });
 
   const handleSave = async () => {
@@ -45,33 +46,32 @@ export function ProjectsPage() {
       { role: 'project_manager', full_name: form.manager_name.trim(), email: form.manager_email.trim().toLowerCase(), label: 'مدير المشروع' },
       { role: 'meter_reader', full_name: form.reader_name.trim(), email: form.reader_email.trim().toLowerCase(), label: 'قارئ العدادات' },
       { role: 'collection_officer', full_name: form.collector_name.trim(), email: form.collector_email.trim().toLowerCase(), label: 'المحصل' },
+      { role: 'operations_maintenance', full_name: form.operations_name.trim(), email: form.operations_email.trim().toLowerCase(), label: 'مسؤول التشغيل والصيانة' },
     ];
     if (users.some((u) => !u.full_name || !u.email)) {
-      setError('يجب إدخال اسم وبريد إلكتروني لكل من المستخدمين الثلاثة.');
+      setError('يجب إدخال اسم وبريد إلكتروني لكل من المستخدمين الأربعة.');
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      const { data: setup, error: setupError } = await supabase.functions.invoke('provision-subtenant', {
-        body: {
-          tenant_name_ar: form.name_ar.trim(),
-          tenant_name_en: form.name_en.trim() || null,
-          project_name_ar: form.name_ar.trim(),
-          project_name_en: form.name_en.trim() || null,
-          timezone: 'Asia/Aden',
-          funding_source: form.funding_source.trim() || null,
-          funding_amount: form.funding_amount ? Number(form.funding_amount) : null,
-          funding_currency: form.funding_currency.trim() || null,
-          donor: form.donor.trim() || null,
-          beneficiary_count: form.beneficiary_count ? Number(form.beneficiary_count) : 0,
-          design_capacity: form.design_capacity ? Number(form.design_capacity) : 0,
-          operational_capacity: form.operational_capacity ? Number(form.operational_capacity) : 0,
-          address: form.address.trim() || null,
-          established_date: form.established_date || null,
-          district_id: null,
-          users,
-        },
+      const { data: setup, error: setupError } = await supabase.rpc('mizan_provision_subtenant', {
+        p_tenant_name_ar: form.name_ar.trim(),
+        p_tenant_name_en: form.name_en.trim() || null,
+        p_project_name_ar: form.name_ar.trim(),
+        p_project_name_en: form.name_en.trim() || null,
+        p_timezone: 'Asia/Aden',
+        p_funding_source: form.funding_source.trim() || null,
+        p_funding_amount: form.funding_amount ? Number(form.funding_amount) : null,
+        p_funding_currency: form.funding_currency.trim() || null,
+        p_donor: form.donor.trim() || null,
+        p_beneficiary_count: form.beneficiary_count ? Number(form.beneficiary_count) : 0,
+        p_design_capacity: form.design_capacity ? Number(form.design_capacity) : 0,
+        p_operational_capacity: form.operational_capacity ? Number(form.operational_capacity) : 0,
+        p_address: form.address.trim() || null,
+        p_established_date: form.established_date || null,
+        p_district_id: null,
+        p_users: users.map(({ role, full_name, email }) => ({ role, full_name, email })),
       });
 
       if (setupError || !setup) {
@@ -79,20 +79,20 @@ export function ProjectsPage() {
         throw new Error(message);
       }
 
-      const credentials: CreatedCredential[] = (setup.credentials || []).map((cred: any) => ({
-        role: cred.role,
-        role_label: cred.role_label,
-        full_name: cred.full_name,
-        email: cred.email,
-        password: cred.password,
-        status: 'created',
+      const credentials: CreatedCredential[] = (setup?.user_slots || []).map((slot: any) => ({
+        role: slot.role,
+        role_label: users.find((u) => u.role === slot.role)?.label || slot.role,
+        full_name: slot.full_name,
+        email: slot.email,
+        onboarding_token: slot.onboarding_token,
+        status: 'pending_claim',
         must_change_password: true,
       }));
 
       setCreatedCreds(credentials);
       setCreatedProjectName(form.name_ar);
       setShowForm(false);
-      setForm({name_ar:'',name_en:'',status:'active',funding_source:'',funding_currency:'',funding_amount:'',donor:'',beneficiary_count:'',design_capacity:'',operational_capacity:'',address:'',established_date:'',manager_name:'',manager_email:'',reader_name:'',reader_email:'',collector_name:'',collector_email:''});
+      setForm({name_ar:'',name_en:'',status:'active',funding_source:'',funding_currency:'',funding_amount:'',donor:'',beneficiary_count:'',design_capacity:'',operational_capacity:'',address:'',established_date:'',manager_name:'',manager_email:'',reader_name:'',reader_email:'',collector_name:'',collector_email:'',operations_name:'',operations_email:''});
     } catch (err) {
       setError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع');
     } finally {
@@ -100,7 +100,7 @@ export function ProjectsPage() {
     }
   };
   const copyCredential = (cred: CreatedCredential, idx: number) => {
-    const text = `اسم المستخدم: ${cred.full_name}\nالبريد: ${cred.email}\nكلمة المرور: ${cred.password}\nالدور: ${cred.role_label || cred.role}\nالمشروع: ${createdProjectName}`;
+    const text = `الدور: ${cred.role_label || cred.role}\nالاسم: ${cred.full_name}\nالبريد: ${cred.email}\nرمز التهيئة: ${cred.onboarding_token}\nالمشروع: ${createdProjectName}`;
     navigator.clipboard.writeText(text);
     setCopiedIdx(idx);
     setTimeout(() => setCopiedIdx(null), 2000);
@@ -109,7 +109,7 @@ export function ProjectsPage() {
   const copyAll = () => {
     if (!createdCreds) return;
     const text = createdCreds.map(c =>
-      `--- ${c.role_label || c.role} ---\nالاسم: ${c.full_name}\nالبريد: ${c.email}\nكلمة المرور: ${c.password}\n`
+      `--- ${c.role_label || c.role} ---\nالاسم: ${c.full_name}\nالبريد: ${c.email}\nرمز التهيئة: ${c.onboarding_token}\n`
     ).join('\n');
     navigator.clipboard.writeText(text);
     setCopiedIdx(-1);
@@ -133,7 +133,7 @@ export function ProjectsPage() {
           <EmptyState
             icon={Building2}
             title="لا توجد مشاريع بعد"
-            description={canCreateSubtenant ? "أنشئ مستأجراً فرعياً ومشروع مياه. سيتم إنشاء 3 حسابات (مدير مشروع، قارئ عدادات، محصل) تلقائياً مع كلمات مرور جاهزة للتسليم." : "هذا هو المشروع المخصص لمستأجرك الفرعي."}
+            description={canCreateSubtenant ? "أنشئ مستأجراً فرعياً ومشروع مياه. سيتم إنشاء 4 حسابات (مدير مشروع، قارئ عدادات، محصل، ومسؤول التشغيل والصيانة) تلقائياً مع كلمات مرور جاهزة للتسليم." : "هذا هو المشروع المخصص لمستأجرك الفرعي."}
             action={canCreateSubtenant ? { label: 'إنشاء مستأجر فرعي ومشروع', onClick: () => setShowForm(true) } : undefined}
           />
         </div>
@@ -182,10 +182,10 @@ export function ProjectsPage() {
       )}
 
       {/* Create Project Modal */}
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="إنشاء مستأجر فرعي ومشروع مع 3 حسابات مستخدمين" size="lg">
+      <Modal open={showForm} onClose={() => setShowForm(false)} title="إنشاء مستأجر فرعي ومشروع مع 4 حسابات مستخدمين" size="lg">
         <div className="mb-4 flex items-start gap-2 px-4 py-3 rounded-xl bg-primary-50 text-primary-700 text-sm">
           <UserCheck size={18} className="shrink-0 mt-0.5" />
-          <span>سيتم إنشاء المشروع وربط الحسابات الثلاثة تلقائياً: مدير مشروع، قارئ عدادات، محصل. تصبح الحسابات جاهزة للدخول فوراً، مع إجبار كل مستخدم على تغيير كلمة المرور عند أول دخول.</span>
+          <span>سيتم إنشاء المشروع وإنشاء 4 خانات تهيئة للحسابات. كل مستخدم ينشئ حسابه بنفسه عبر رمز التهيئة ويحدد كلمة المرور الخاصة به. لا يستخدم هذا المسار service_role.</span>
         </div>
 
         {error && (
@@ -254,7 +254,7 @@ export function ProjectsPage() {
         {/* User accounts section */}
         <div className="mt-6 pt-6 border-t border-neutral-200">
           <h3 className="font-bold text-neutral-800 mb-1">حسابات المستخدمين</h3>
-          <p className="text-xs text-neutral-500 mb-4">سيتم إنشاء الحسابات وربطها بالمشروع تلقائياً بالكامل. يجب أن يكون لكل مستخدم بريد إلكتروني فريد غير مستخدم مسبقاً.</p>
+          <p className="text-xs text-neutral-500 mb-4">سيتم إنشاء خانات التهيئة فقط. الحساب الفعلي ينشئه المستخدم بنفسه عبر صفحة التهيئة باستخدام بريده وكلمة المرور التي يختارها.</p>
 
           <div className="space-y-4">
             {/* Manager */}
@@ -292,6 +292,17 @@ export function ProjectsPage() {
                 <input type="email" className="input-field" placeholder="البريد الإلكتروني *" value={form.collector_email} onChange={(e) => setForm({ ...form, collector_email: e.target.value })} />
               </div>
             </div>
+            {/* Operations & Maintenance */}
+            <div className="rounded-xl border border-neutral-200 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 rounded-lg bg-warning-50 text-warning-700"><UserCheck size={16} /></div>
+                <span className="text-sm font-semibold text-neutral-800">مسؤول التشغيل والصيانة</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input className="input-field" placeholder="الاسم الكامل" value={form.operations_name} onChange={(e) => setForm({ ...form, operations_name: e.target.value })} />
+                <input type="email" className="input-field" placeholder="البريد الإلكتروني *" value={form.operations_email} onChange={(e) => setForm({ ...form, operations_email: e.target.value })} />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -320,7 +331,7 @@ export function ProjectsPage() {
             <div className="p-6 space-y-4">
               <div className="rounded-xl bg-warning-50 px-4 py-3 text-sm text-warning-700 flex items-center gap-2">
                 <AlertCircle size={18} className="shrink-0" />
-                <span>هذه كلمات المرور الأولية — يجب على كل مستخدم تغييرها عند أول تسجيل دخول</span>
+                <span>هذه رموز تهيئة لمرة واحدة/لفترة محدودة. سلّم كل رمز للمستخدم المقصود فقط؛ المستخدم يحدد كلمة المرور بنفسه.</span>
               </div>
 
               {createdCreds.map((cred, idx) => (
@@ -351,8 +362,8 @@ export function ProjectsPage() {
                       <p className="font-medium text-neutral-800" dir="ltr" style={{ textAlign: 'right' }}>{cred.email}</p>
                     </div>
                     <div>
-                      <span className="text-neutral-400 text-xs">كلمة المرور</span>
-                      <p className="font-bold text-error-700 font-mono" dir="ltr" style={{ textAlign: 'right' }}>{cred.password}</p>
+                      <span className="text-neutral-400 text-xs">رمز التهيئة</span>
+                      <p className="font-bold text-primary-700 font-mono break-all" dir="ltr" style={{ textAlign: 'right' }}>{cred.onboarding_token}</p>
                     
                     </div>
                   </div>
