@@ -9,7 +9,7 @@ type ProjectUser = {
   email: string;
   full_name: string;
   phone: string | null;
-  role: 'project_manager' | 'meter_reader' | 'collection_officer';
+  role: 'project_manager' | 'meter_reader' | 'collection_officer' | 'operations_maintenance';
   tenant_id: string;
   project_id: string;
   must_change_password: boolean;
@@ -21,9 +21,10 @@ const roleLabels: Record<ProjectUser['role'], string> = {
   project_manager: 'مدير المشروع',
   meter_reader: 'قارئ العدادات',
   collection_officer: 'المحصل',
+  operations_maintenance: 'مسؤول التشغيل والصيانة',
 };
 
-const roleOrder: ProjectUser['role'][] = ['project_manager', 'meter_reader', 'collection_officer'];
+const roleOrder: ProjectUser['role'][] = ['project_manager', 'meter_reader', 'collection_officer', 'operations_maintenance'];
 
 export function UsersPage() {
   const { currentProject, isCentralTenant } = useProject();
