@@ -53,6 +53,7 @@ begin
     from public.meter_readings mr
     where mr.meter_id = new.meter_id
       and mr.project_id = new.project_id
+      and (tg_op = 'INSERT' or mr.id <> new.id)
       and mr.status not in ('void','exception')
       and mr.consumption is not null
       and mr.consumption >= 0
