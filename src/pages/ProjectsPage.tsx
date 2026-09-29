@@ -37,6 +37,7 @@ export function ProjectsPage() {
     manager_name: '', manager_email: '',
     reader_name: '', reader_email: '',
     collector_name: '', collector_email: '',
+    operations_name: '', operations_email: '',
   });
 
   const handleSave = async () => {
@@ -45,9 +46,10 @@ export function ProjectsPage() {
       { role: 'project_manager', full_name: form.manager_name.trim(), email: form.manager_email.trim().toLowerCase(), label: 'مدير المشروع' },
       { role: 'meter_reader', full_name: form.reader_name.trim(), email: form.reader_email.trim().toLowerCase(), label: 'قارئ العدادات' },
       { role: 'collection_officer', full_name: form.collector_name.trim(), email: form.collector_email.trim().toLowerCase(), label: 'المحصل' },
+      { role: 'operations_maintenance', full_name: form.operations_name.trim(), email: form.operations_email.trim().toLowerCase(), label: 'مسؤول التشغيل والصيانة' },
     ];
     if (users.some((u) => !u.full_name || !u.email)) {
-      setError('يجب إدخال اسم وبريد إلكتروني لكل من المستخدمين الثلاثة.');
+      setError('يجب إدخال اسم وبريد إلكتروني لكل من المستخدمين الأربعة.');
       return;
     }
     setSaving(true);
@@ -92,7 +94,7 @@ export function ProjectsPage() {
       setCreatedCreds(credentials);
       setCreatedProjectName(form.name_ar);
       setShowForm(false);
-      setForm({name_ar:'',name_en:'',status:'active',funding_source:'',funding_currency:'',funding_amount:'',donor:'',beneficiary_count:'',design_capacity:'',operational_capacity:'',address:'',established_date:'',manager_name:'',manager_email:'',reader_name:'',reader_email:'',collector_name:'',collector_email:''});
+      setForm({name_ar:'',name_en:'',status:'active',funding_source:'',funding_currency:'',funding_amount:'',donor:'',beneficiary_count:'',design_capacity:'',operational_capacity:'',address:'',established_date:'',manager_name:'',manager_email:'',reader_name:'',reader_email:'',collector_name:'',collector_email:'',operations_name:'',operations_email:''});
     } catch (err) {
       setError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع');
     } finally {
@@ -133,7 +135,7 @@ export function ProjectsPage() {
           <EmptyState
             icon={Building2}
             title="لا توجد مشاريع بعد"
-            description={canCreateSubtenant ? "أنشئ مستأجراً فرعياً ومشروع مياه. سيتم إنشاء 3 حسابات (مدير مشروع، قارئ عدادات، محصل) تلقائياً مع كلمات مرور جاهزة للتسليم." : "هذا هو المشروع المخصص لمستأجرك الفرعي."}
+            description={canCreateSubtenant ? "أنشئ مستأجراً فرعياً ومشروع مياه. سيتم إنشاء 4 حسابات (مدير مشروع، قارئ عدادات، محصل، ومسؤول التشغيل والصيانة) تلقائياً مع كلمات مرور جاهزة للتسليم." : "هذا هو المشروع المخصص لمستأجرك الفرعي."}
             action={canCreateSubtenant ? { label: 'إنشاء مستأجر فرعي ومشروع', onClick: () => setShowForm(true) } : undefined}
           />
         </div>
@@ -182,10 +184,10 @@ export function ProjectsPage() {
       )}
 
       {/* Create Project Modal */}
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="إنشاء مستأجر فرعي ومشروع مع 3 حسابات مستخدمين" size="lg">
+      <Modal open={showForm} onClose={() => setShowForm(false)} title="إنشاء مستأجر فرعي ومشروع مع 4 حسابات مستخدمين" size="lg">
         <div className="mb-4 flex items-start gap-2 px-4 py-3 rounded-xl bg-primary-50 text-primary-700 text-sm">
           <UserCheck size={18} className="shrink-0 mt-0.5" />
-          <span>سيتم إنشاء المشروع وربط الحسابات الثلاثة تلقائياً: مدير مشروع، قارئ عدادات، محصل. تصبح الحسابات جاهزة للدخول فوراً، مع إجبار كل مستخدم على تغيير كلمة المرور عند أول دخول.</span>
+          <span>سيتم إنشاء المشروع وربط الحسابات الأربعة تلقائياً: مدير مشروع، قارئ عدادات، محصل، ومسؤول التشغيل والصيانة. تصبح الحسابات جاهزة للدخول فوراً، مع إجبار كل مستخدم على تغيير كلمة المرور عند أول دخول.</span>
         </div>
 
         {error && (
@@ -290,6 +292,17 @@ export function ProjectsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <input className="input-field" placeholder="الاسم الكامل" value={form.collector_name} onChange={(e) => setForm({ ...form, collector_name: e.target.value })} />
                 <input type="email" className="input-field" placeholder="البريد الإلكتروني *" value={form.collector_email} onChange={(e) => setForm({ ...form, collector_email: e.target.value })} />
+              </div>
+            </div>
+            {/* Operations & Maintenance */}
+            <div className="rounded-xl border border-neutral-200 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 rounded-lg bg-warning-50 text-warning-700"><UserCheck size={16} /></div>
+                <span className="text-sm font-semibold text-neutral-800">مسؤول التشغيل والصيانة</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input className="input-field" placeholder="الاسم الكامل" value={form.operations_name} onChange={(e) => setForm({ ...form, operations_name: e.target.value })} />
+                <input type="email" className="input-field" placeholder="البريد الإلكتروني *" value={form.operations_email} onChange={(e) => setForm({ ...form, operations_email: e.target.value })} />
               </div>
             </div>
           </div>
