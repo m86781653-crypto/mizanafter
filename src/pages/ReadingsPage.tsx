@@ -45,6 +45,8 @@ export function ReadingsPage() {
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const [reviewSaving, setReviewSaving] = useState<string | null>(null);
 
   useEffect(() => {
     startMeterReadingSync();
@@ -277,6 +279,31 @@ export function ReadingsPage() {
     }
   };
 
+  const reviewReading = async (readingId: string, decision: 'confirmed' | 'rejected' | 'waived') => {
+    const note = (reviewNotes[readingId] || '').trim();
+    if (!note) {
+      toast.error('أدخل ملاحظة المراجعة قبل اعتماد القرار.');
+      return;
+    }
+    setReviewSaving(readingId);
+    try {
+      const { data, error } = await supabase.rpc('mrx_review_meter_reading', {
+        p_reading_id: readingId,
+        p_decision: decision,
+        p_note: note,
+      });
+      if (error) throw error;
+      const reviewed = data as MeterReading;
+      setReadings((rows) => rows.map((row) => row.id === reviewed.id ? reviewed : row));
+      setReviewNotes((notes) => ({ ...notes, [readingId]: '' }));
+      toast.success('تم توثيق قرار مراجعة جودة القراءة.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'تعذر حفظ قرار المراجعة');
+    } finally {
+      setReviewSaving(null);
+    }
+  };
+
   const consumption = selectedMeter && form.reading_value ? Math.max(Number(form.reading_value) - Number(selectedMeter.last_reading), 0) : 0;
 
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
@@ -379,9 +406,26 @@ export function ReadingsPage() {
               return <tr key={r.id}><td className="px-4 py-3">{meter?.customers.name_ar || '—'}</td><td className="px-4 py-3">{meter?.serial_number || '—'}</td><td className="px-4 py-3">{formatNumber(r.previous_reading)}</td><td className="px-4 py-3 font-semibold">{formatNumber(r.reading_value)}</td><td className="px-4 py-3">{formatNumber(r.consumption)} م³</td><td className="px-4 py-3">
   <div className="flex flex-wrap gap-1 items-center">
     <Badge status={r.status} label={readingStatusLabels[r.status] || r.status}/>
-    {r.anomaly_flag && <Badge status="warning" label="مراجعة مطلوبة"/>}
+    {r.anomaly_flag && <Badge status="warning" label={r.quality_review_status === 'pending' ? 'مراجعة مطلوبة' : `مراجعة: ${r.quality_review_status}`}/>}
   </div>
   {r.anomaly_flag && r.anomaly_reason && <div className="text-[11px] text-warning-700 mt-1">{r.anomaly_reason}</div>}
+  {r.anomaly_flag && r.quality_review_status === 'pending' && (
+    <div className="mt-2 space-y-2 min-w-[260px]">
+      <input
+        className="input-field text-xs"
+        placeholder="سبب/ملاحظة المراجعة (مطلوب)"
+        value={reviewNotes[r.id] || ''}
+        onChange={(e) => setReviewNotes((notes) => ({ ...notes, [r.id]: e.target.value }))}
+        disabled={reviewSaving === r.id}
+      />
+      <div className="flex flex-wrap gap-1">
+        <button className="btn-secondary text-xs px-2 py-1" disabled={reviewSaving === r.id} onClick={() => void reviewReading(r.id, 'confirmed')}>تأكيد القراءة</button>
+        <button className="btn-secondary text-xs px-2 py-1" disabled={reviewSaving === r.id} onClick={() => void reviewReading(r.id, 'rejected')}>رفض القراءة</button>
+        <button className="btn-secondary text-xs px-2 py-1" disabled={reviewSaving === r.id} onClick={() => void reviewReading(r.id, 'waived')}>تجاوز الإشارة</button>
+      </div>
+    </div>
+  )}
+  {r.quality_review_note && <div className="text-[11px] text-neutral-500 mt-1">ملاحظة المراجعة: {r.quality_review_note}</div>}
 </td><td className="px-4 py-3 text-xs text-neutral-400">{formatRelativeTime(r.reading_date)}</td></tr>;
             })}
           </tbody></table></div>}
