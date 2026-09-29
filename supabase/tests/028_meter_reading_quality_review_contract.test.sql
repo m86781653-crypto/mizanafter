@@ -1,6 +1,6 @@
 begin;
 
-select plan(11);
+select plan(12);
 
 select has_column(
   'public',
@@ -84,6 +84,16 @@ select ok(
     'public.trg_meter_reading_quality_review_status'::regtrigger
   ) like '%ai_confidence%',
   'quality review resynchronizes when source reading evidence changes'
+);
+
+select ok(
+  pg_get_functiondef(
+    'private.mizan_sync_meter_reading_quality_review_status()'::regprocedure
+  ) like '%if new.anomaly_flag then%'
+  and pg_get_functiondef(
+    'private.mizan_sync_meter_reading_quality_review_status()'::regprocedure
+  ) like '%new.quality_review_status := ''pending''%',
+  'anomalous evidence changes always return review status to pending'
 );
 
 select * from finish();
