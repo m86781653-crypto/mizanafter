@@ -35,10 +35,7 @@ begin
     return new;
   end if;
 
-  if new.anomaly_flag and (
-    old.anomaly_flag is distinct from new.anomaly_flag
-    or old.quality_review_status = 'not_required'
-  ) then
+  if new.anomaly_flag then
     new.quality_review_status := 'pending';
     new.quality_reviewed_by := null;
     new.quality_reviewed_at := null;
