@@ -78,8 +78,16 @@ select ok(
 
 select ok(
   pg_get_triggerdef(
-    'public.trg_meter_reading_quality_review_status'::regtrigger
-  ) like '%reading_value%'
+    (
+      select t.oid
+      from pg_trigger t
+      join pg_class c on c.oid = t.tgrelid
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public'
+        and c.relname = 'meter_readings'
+        and t.tgname = 'trg_meter_reading_quality_review_status'
+        and not t.tgisinternal
+    ) like '%reading_value%'
   and pg_get_triggerdef(
     'public.trg_meter_reading_quality_review_status'::regtrigger
   ) like '%ai_confidence%',
