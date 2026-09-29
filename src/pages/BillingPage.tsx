@@ -129,26 +129,44 @@ export function BillingPage() {
     if(!currentProject||!tariffForm.name_ar.trim()){setFormError('اسم التعرفة مطلوب');return;}
     const baseLiters=Number(tariffForm.base_liters_per_person_per_day);
     const basePrice=Number(tariffForm.base_price_per_m3);
-    if(!Number.isFinite(baseLiters)||baseLiters<0||!Number.isFinite(basePrice)||basePrice<0){setFormError('قيم التعرفة الأساسية غير صحيحة');return;}
-    const normalized=tariffForm.tiers.map(t=>({from_m3:Number(t.from_m3),to_m3:t.to_m3?Number(t.to_m3):null,price_per_m3:Number(t.price_per_m3)}));
-    if(normalized.some(t=>!Number.isFinite(t.from_m3)||t.from_m3<0||!Number.isFinite(t.price_per_m3)||t.price_per_m3<0||(t.to_m3!==null&&(!Number.isFinite(t.to_m3)||t.to_m3<=t.from_m3)))){setFormError('شرائح التعرفة غير صحيحة');return;}
-    if(normalized.length&&normalized[0].from_m3!==0){setFormError('يجب أن تبدأ شرائح الاستهلاك الزائد من 0 م³');return;}
-    for(let i=1;i<normalized.length;i++)if(normalized[i].from_m3!==normalized[i-1].to_m3){setFormError('شرائح التعرفة يجب أن تكون متصلة بلا فجوات');return;}
-    if(normalized.length&&normalized[normalized.length-1].to_m3!==null){setFormError('يجب أن تنتهي شريحة التعرفة الزائدة بشريحة مفتوحة');return;}
+    const normalized=tariffForm.tiers.map(t=>({
+      from_m3:Number(t.from_m3),
+      to_m3:t.to_m3?Number(t.to_m3):null,
+      price_per_m3:Number(t.price_per_m3)
+    }));
+
+    if(!Number.isFinite(baseLiters)||baseLiters<0){setFormError('قيمة الأساس للفرد غير صالحة');return;}
+    if(!Number.isFinite(basePrice)||basePrice<0){setFormError('سعر المتر الأساسي غير صالح');return;}
+    if(!Number.isInteger(Number(tariffForm.reference_period_days))||Number(tariffForm.reference_period_days)<=0){setFormError('الفترة المرجعية غير صالحة');return;}
+    if(!normalized.length){setFormError('أضف شريحة تعرفة واحدة على الأقل');return;}
+    for(let i=0;i<normalized.length;i++){
+      const tier=normalized[i];
+      if(!Number.isFinite(tier.from_m3)||tier.from_m3<0||!Number.isFinite(tier.price_per_m3)||tier.price_per_m3<0){
+        setFormError('بيانات شرائح التعرفة غير صالحة');return;
+      }
+      if(tier.to_m3!==null&&(!Number.isFinite(tier.to_m3)||tier.to_m3<=tier.from_m3)){
+        setFormError('نطاق شريحة التعرفة غير صالح');return;
+      }
+      if(i>0&&normalized[i].from_m3!==normalized[i-1].to_m3){
+        setFormError('شرائح التعرفة يجب أن تكون متصلة بلا فجوات');return;
+      }
+    }
+    if(normalized[0].from_m3!==0){setFormError('يجب أن تبدأ أول شريحة من 0 م³');return;}
+    if(normalized[normalized.length-1].to_m3!==null){setFormError('يجب أن تنتهي شريحة التعرفة الزائدة بشريحة مفتوحة');return;}
 
     setSaving(true);setFormError(null);
     try{
-      const version=(tariffs.filter(t=>t.customer_type===tariffForm.customer_type).reduce((m,t)=>Math.max(m,t.version||0),0)+1);
-      const {data:tar,error:e}=await supabase.from('tariffs').insert({
-        project_id:currentProject.id,name_ar:tariffForm.name_ar.trim(),customer_type:tariffForm.customer_type,
-        fixed_fee:Number(tariffForm.fixed_fee)||0,base_liters_per_person_per_day:baseLiters,base_price_per_m3:basePrice,reference_period_days:Number(tariffForm.reference_period_days)||30,
-        is_active:true,version
-      }).select().single();
+      const {error:e}=await supabase.rpc('mizan_create_tariff_with_tiers',{
+        p_project_id:currentProject.id,
+        p_name_ar:tariffForm.name_ar.trim(),
+        p_customer_type:tariffForm.customer_type,
+        p_fixed_fee:Number(tariffForm.fixed_fee)||0,
+        p_base_liters_per_person_per_day:baseLiters,
+        p_base_price_per_m3:basePrice,
+        p_reference_period_days:Number(tariffForm.reference_period_days)||30,
+        p_tiers:normalized
+      });
       if(e)throw e;
-      if(normalized.length){
-        const {error:te}=await supabase.from('tariff_tiers').insert(normalized.map(t=>({...t,tariff_id:tar.id})));
-        if(te)throw te;
-      }
       setShowTariffForm(false);
       setTariffForm({name_ar:'',customer_type:'residential',fixed_fee:'0',base_liters_per_person_per_day:'50',base_price_per_m3:'0',reference_period_days:'30',tiers:[{from_m3:'0',to_m3:'',price_per_m3:''}]});
       await fetchData();
