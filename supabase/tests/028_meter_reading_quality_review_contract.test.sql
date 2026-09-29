@@ -87,9 +87,19 @@ select ok(
         and c.relname = 'meter_readings'
         and t.tgname = 'trg_meter_reading_quality_review_status'
         and not t.tgisinternal
-    ) like '%reading_value%'
+    )
+  ) like '%reading_value%'
   and pg_get_triggerdef(
-    'public.trg_meter_reading_quality_review_status'::regtrigger
+    (
+      select t.oid
+      from pg_trigger t
+      join pg_class c on c.oid = t.tgrelid
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public'
+        and c.relname = 'meter_readings'
+        and t.tgname = 'trg_meter_reading_quality_review_status'
+        and not t.tgisinternal
+    )
   ) like '%ai_confidence%',
   'quality review resynchronizes when source reading evidence changes'
 );
