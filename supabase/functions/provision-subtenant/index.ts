@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 type UserInput = {
-  role: 'project_manager' | 'meter_reader' | 'collection_officer';
+  role: 'project_manager' | 'meter_reader' | 'collection_officer' | 'operations_maintenance';
   full_name: string;
   email: string;
 };
@@ -16,6 +16,7 @@ const roleLabels: Record<string, string> = {
   project_manager: 'مدير المشروع',
   meter_reader: 'قارئ العدادات',
   collection_officer: 'المحصل',
+  operations_maintenance: 'مسؤول التشغيل والصيانة',
 };
 
 function generatePassword() {
@@ -48,12 +49,12 @@ export default {
     }));
 
     if (
-      normalizedUsers.length !== 3 ||
-      new Set(normalizedUsers.map((u) => u.role)).size !== 3 ||
-      new Set(normalizedUsers.map((u) => u.email)).size !== 3 ||
+      normalizedUsers.length !== 4 ||
+      new Set(normalizedUsers.map((u) => u.role)).size !== 4 ||
+      new Set(normalizedUsers.map((u) => u.email)).size !== 4 ||
       normalizedUsers.some((u) => !u.full_name || !u.email)
     ) {
-      return json({ error: 'EXACTLY_THREE_DISTINCT_USERS_REQUIRED' }, 400);
+      return json({ error: 'EXACTLY_FOUR_DISTINCT_USERS_REQUIRED' }, 400);
     }
 
     const { data: actor, error: actorError } = await ctx.supabaseAdmin
