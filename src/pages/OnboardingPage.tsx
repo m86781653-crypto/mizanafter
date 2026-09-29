@@ -1,10 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { AlertCircle, CheckCircle2, KeyRound, Scale } from 'lucide-react';
 
 export function OnboardingPage() {
-  const navigate = useNavigate();
   const [token, setToken] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,7 +43,7 @@ export function OnboardingPage() {
 
       if (data.session) {
         setNotice('تم إنشاء الحساب وربطه بالمشروع. سيتم نقلك الآن.');
-        window.setTimeout(() => navigate('/'), 500);
+        window.setTimeout(() => { window.location.href = '/'; }, 500);
       } else {
         setNotice('تم إنشاء الحساب. افتح رسالة تأكيد البريد، ثم سجّل الدخول. سيُربط الحساب تلقائياً برمز التهيئة.');
       }
@@ -73,7 +71,7 @@ export function OnboardingPage() {
           {notice && <div className="flex items-start gap-2 rounded-xl bg-success-50 text-success-700 px-4 py-3 text-sm"><CheckCircle2 size={18} className="mt-0.5 shrink-0" /><span>{notice}</span></div>}
           <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2"><KeyRound size={18} />{loading ? 'جاري إنشاء الحساب...' : 'إنشاء الحساب'}</button>
         </form>
-        <button onClick={() => navigate('/')} className="w-full mt-3 text-sm text-primary-700 hover:text-primary-900">العودة لتسجيل الدخول</button>
+        <button onClick={() => { window.location.href = '/'; }} className="w-full mt-3 text-sm text-primary-700 hover:text-primary-900">العودة لتسجيل الدخول</button>
       </div>
     </div>
   );
