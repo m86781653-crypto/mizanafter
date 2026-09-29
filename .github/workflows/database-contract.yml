@@ -129,6 +129,9 @@ jobs:
       - name: Run water production measurement contract
         run: supabase test db supabase/tests/029_water_production_measurement_contract.test.sql
 
+      - name: Run no service-role application contract
+        run: supabase test db supabase/tests/030_no_service_role_application_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
