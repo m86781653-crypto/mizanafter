@@ -268,7 +268,7 @@ export function ReadingsPage() {
       }
       setSelectedMeter(null);
       setCapturedPhoto(null);
-      setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
+      setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', detected_meter_serial: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
       void load();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'تعذر تسجيل القراءة');
