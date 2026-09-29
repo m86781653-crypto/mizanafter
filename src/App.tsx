@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ProjectProvider } from '@/context/ProjectContext';
 import { Layout } from '@/components/Layout';
 import { LoginPage } from '@/pages/LoginPage';
+import { OnboardingPage } from '@/pages/OnboardingPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { ChangePasswordPage } from '@/pages/ChangePasswordPage';
 import { DashboardPage } from '@/pages/DashboardPage';
@@ -41,6 +42,7 @@ const roleAccess: Record<UserRole, PageId[]> = {
 
 function AuthedApp(){
   const {profile,loading}=useAuth();
+  if (typeof window !== 'undefined' && window.location.pathname === '/onboarding') return <OnboardingPage/>;
   const [page,setPage]=useState<PageId>('dashboard');
   const isRecoveryFlow=typeof window!=='undefined' && window.location.hash.includes('type=recovery');
 
