@@ -1,0 +1,12 @@
+revoke execute on function public.mizan_report_fault(uuid,text,text,text,uuid,uuid,uuid) from public,anon;
+revoke execute on function public.mizan_update_fault_status(uuid,text,text) from public,anon;
+revoke execute on function public.mizan_create_work_order(uuid,text,text,text,text,date,uuid,uuid,uuid,uuid) from public,anon;
+revoke execute on function public.mizan_update_work_order_status(uuid,text,text) from public,anon;
+revoke execute on function public.mizan_report_service_interruption(uuid,text,text,text,text,text,timestamptz,integer,numeric) from public,anon;
+revoke execute on function public.mizan_update_service_interruption_status(uuid,text,text) from public,anon;
+grant execute on function public.mizan_report_fault(uuid,text,text,text,uuid,uuid,uuid) to authenticated;
+grant execute on function public.mizan_update_fault_status(uuid,text,text) to authenticated;
+grant execute on function public.mizan_create_work_order(uuid,text,text,text,text,date,uuid,uuid,uuid,uuid) to authenticated;
+grant execute on function public.mizan_update_work_order_status(uuid,text,text) to authenticated;
+grant execute on function public.mizan_report_service_interruption(uuid,text,text,text,text,text,timestamptz,integer,numeric) to authenticated;
+grant execute on function public.mizan_update_service_interruption_status(uuid,text,text) to authenticated;
