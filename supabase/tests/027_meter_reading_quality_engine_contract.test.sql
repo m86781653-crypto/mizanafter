@@ -1,6 +1,6 @@
 begin;
 
-select plan(11);
+select plan(12);
 
 select has_column(
   'public',
@@ -74,6 +74,13 @@ select ok(
     'private.mizan_assess_meter_reading_quality()'::regprocedure
   ) like '%reading_quality%',
   'quality evidence is persisted with each reading'
+);
+
+select ok(
+  pg_get_functiondef(
+    'private.mizan_assess_meter_reading_quality()'::regprocedure
+  ) like '%(tg_op = ''INSERT'' or mr.id <> new.id)%',
+  'quality history excludes the row currently being updated'
 );
 
 select ok(
