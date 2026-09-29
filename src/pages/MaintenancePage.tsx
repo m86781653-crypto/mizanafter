@@ -95,18 +95,16 @@ export function MaintenancePage() {
 
   const createOutage=async()=>{
     if(!currentProject||!profile||!form.description?.trim())throw new Error('وصف التوقف مطلوب');
-    const { error: e } = await supabase.from('service_interruptions').insert({
-      project_id: currentProject.id,
-      interruption_type: form.interruption_type || 'service_stop',
-      severity: form.severity || 'medium',
-      status: 'open',
-      description: form.description,
-      cause_category: form.cause_category || null,
-      cause_description: form.cause_description || null,
-      started_at: form.started_at || new Date().toISOString(),
-      affected_subscribers: Number(form.affected_subscribers || 0),
-      estimated_water_loss_m3: Number(form.water_loss || 0),
-      reported_by: profile.id
+    const { error: e } = await supabase.rpc('mizan_report_service_interruption', {
+      p_project_id: currentProject.id,
+      p_interruption_type: form.interruption_type || 'service_stop',
+      p_severity: form.severity || 'medium',
+      p_description: form.description,
+      p_cause_category: form.cause_category || null,
+      p_cause_description: form.cause_description || null,
+      p_started_at: form.started_at || new Date().toISOString(),
+      p_affected_subscribers: Number(form.affected_subscribers || 0),
+      p_estimated_water_loss_m3: Number(form.water_loss || 0),
     });
     if (e) throw e;
   };
