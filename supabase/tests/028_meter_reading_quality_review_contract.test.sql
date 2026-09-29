@@ -1,6 +1,6 @@
 begin;
 
-select plan(10);
+select plan(11);
 
 select has_column(
   'public',
@@ -74,6 +74,16 @@ select ok(
     'private.mizan_sync_meter_reading_quality_review_status()'::regprocedure
   ) like '%not_required%',
   'quality review status is derived from the server anomaly state'
+);
+
+select ok(
+  pg_get_triggerdef(
+    'public.trg_meter_reading_quality_review_status'::regtrigger
+  ) like '%reading_value%'
+  and pg_get_triggerdef(
+    'public.trg_meter_reading_quality_review_status'::regtrigger
+  ) like '%ai_confidence%',
+  'quality review resynchronizes when source reading evidence changes'
 );
 
 select * from finish();
