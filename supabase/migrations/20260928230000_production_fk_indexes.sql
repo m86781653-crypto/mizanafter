@@ -1,3 +1,17 @@
+-- Production audit lineage columns required by governed server-side audit writes.
+-- They are nullable because historical audit rows may not have project/entity context.
+alter table public.audit_logs
+  add column if not exists actor_user_id uuid,
+  add column if not exists project_id uuid,
+  add column if not exists entity_type text,
+  add column if not exists entity_id uuid,
+  add column if not exists result text,
+  add column if not exists before_data jsonb,
+  add column if not exists after_data jsonb;
+
+alter table public.ai_logs
+  add column if not exists project_id uuid;
+
 -- Production FK indexes for tenant/project-scale growth.
 -- These indexes support RLS joins, tenant filtering, invoice/payment lineage,
 -- maintenance relations, and cascade/delete checks.

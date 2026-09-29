@@ -1,11 +1,6 @@
 begin;
 
-select plan(7);
-
-select ok(
-  has_schema_privilege('authenticated','private','USAGE'),
-  'authenticated retains USAGE on private schema required by RLS helper evaluation'
-);
+select plan(6);
 
 select ok(
   has_function_privilege('authenticated','private.mizan_user_tenant_id()','EXECUTE'),

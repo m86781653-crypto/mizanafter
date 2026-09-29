@@ -120,6 +120,12 @@ jobs:
       - name: Run meter identity contract
         run: supabase test db supabase/tests/026_meter_identity_contract.test.sql
 
+      - name: Run meter reading quality engine contract
+        run: supabase test db supabase/tests/027_meter_reading_quality_engine_contract.test.sql
+
+      - name: Run meter reading quality review contract
+        run: supabase test db supabase/tests/028_meter_reading_quality_review_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup

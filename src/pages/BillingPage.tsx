@@ -129,26 +129,44 @@ export function BillingPage() {
     if(!currentProject||!tariffForm.name_ar.trim()){setFormError('اسم التعرفة مطلوب');return;}
     const baseLiters=Number(tariffForm.base_liters_per_person_per_day);
     const basePrice=Number(tariffForm.base_price_per_m3);
-    if(!Number.isFinite(baseLiters)||baseLiters<0||!Number.isFinite(basePrice)||basePrice<0){setFormError('قيم التعرفة الأساسية غير صحيحة');return;}
-    const normalized=tariffForm.tiers.map(t=>({from_m3:Number(t.from_m3),to_m3:t.to_m3?Number(t.to_m3):null,price_per_m3:Number(t.price_per_m3)}));
-    if(normalized.some(t=>!Number.isFinite(t.from_m3)||t.from_m3<0||!Number.isFinite(t.price_per_m3)||t.price_per_m3<0||(t.to_m3!==null&&(!Number.isFinite(t.to_m3)||t.to_m3<=t.from_m3)))){setFormError('شرائح التعرفة غير صحيحة');return;}
-    if(normalized.length&&normalized[0].from_m3!==0){setFormError('يجب أن تبدأ شرائح الاستهلاك الزائد من 0 م³');return;}
-    for(let i=1;i<normalized.length;i++)if(normalized[i].from_m3!==normalized[i-1].to_m3){setFormError('شرائح التعرفة يجب أن تكون متصلة بلا فجوات');return;}
-    if(normalized.length&&normalized[normalized.length-1].to_m3!==null){setFormError('يجب أن تنتهي شريحة التعرفة الزائدة بشريحة مفتوحة');return;}
+    const normalized=tariffForm.tiers.map(t=>({
+      from_m3:Number(t.from_m3),
+      to_m3:t.to_m3?Number(t.to_m3):null,
+      price_per_m3:Number(t.price_per_m3)
+    }));
+
+    if(!Number.isFinite(baseLiters)||baseLiters<0){setFormError('قيمة الأساس للفرد غير صالحة');return;}
+    if(!Number.isFinite(basePrice)||basePrice<0){setFormError('سعر المتر الأساسي غير صالح');return;}
+    if(!Number.isInteger(Number(tariffForm.reference_period_days))||Number(tariffForm.reference_period_days)<=0){setFormError('الفترة المرجعية غير صالحة');return;}
+    if(!normalized.length){setFormError('أضف شريحة تعرفة واحدة على الأقل');return;}
+    for(let i=0;i<normalized.length;i++){
+      const tier=normalized[i];
+      if(!Number.isFinite(tier.from_m3)||tier.from_m3<0||!Number.isFinite(tier.price_per_m3)||tier.price_per_m3<0){
+        setFormError('بيانات شرائح التعرفة غير صالحة');return;
+      }
+      if(tier.to_m3!==null&&(!Number.isFinite(tier.to_m3)||tier.to_m3<=tier.from_m3)){
+        setFormError('نطاق شريحة التعرفة غير صالح');return;
+      }
+      if(i>0&&normalized[i].from_m3!==normalized[i-1].to_m3){
+        setFormError('شرائح التعرفة يجب أن تكون متصلة بلا فجوات');return;
+      }
+    }
+    if(normalized[0].from_m3!==0){setFormError('يجب أن تبدأ أول شريحة من 0 م³');return;}
+    if(normalized[normalized.length-1].to_m3!==null){setFormError('يجب أن تنتهي شريحة التعرفة الزائدة بشريحة مفتوحة');return;}
 
     setSaving(true);setFormError(null);
     try{
-      const version=(tariffs.filter(t=>t.customer_type===tariffForm.customer_type).reduce((m,t)=>Math.max(m,t.version||0),0)+1);
-      const {data:tar,error:e}=await supabase.from('tariffs').insert({
-        project_id:currentProject.id,name_ar:tariffForm.name_ar.trim(),customer_type:tariffForm.customer_type,
-        fixed_fee:Number(tariffForm.fixed_fee)||0,base_liters_per_person_per_day:baseLiters,base_price_per_m3:basePrice,reference_period_days:Number(tariffForm.reference_period_days)||30,
-        is_active:true,version
-      }).select().single();
+      const {error:e}=await supabase.rpc('mizan_create_tariff_with_tiers',{
+        p_project_id:currentProject.id,
+        p_name_ar:tariffForm.name_ar.trim(),
+        p_customer_type:tariffForm.customer_type,
+        p_fixed_fee:Number(tariffForm.fixed_fee)||0,
+        p_base_liters_per_person_per_day:baseLiters,
+        p_base_price_per_m3:basePrice,
+        p_reference_period_days:Number(tariffForm.reference_period_days)||30,
+        p_tiers:normalized
+      });
       if(e)throw e;
-      if(normalized.length){
-        const {error:te}=await supabase.from('tariff_tiers').insert(normalized.map(t=>({...t,tariff_id:tar.id})));
-        if(te)throw te;
-      }
       setShowTariffForm(false);
       setTariffForm({name_ar:'',customer_type:'residential',fixed_fee:'0',base_liters_per_person_per_day:'50',base_price_per_m3:'0',reference_period_days:'30',tiers:[{from_m3:'0',to_m3:'',price_per_m3:''}]});
       await fetchData();
@@ -158,14 +176,14 @@ export function BillingPage() {
 
   const printInvoice=async(invoice:Invoice)=>{
     const customer=invoices.find(i=>i.id===invoice.id)?.customers;
-    const { data: meter } = invoice.meter_id ? await supabase.from('meters').select('meter_number,serial_number').eq('id',invoice.meter_id).maybeSingle() : { data: null };
+    const { data: meter } = invoice.meter_id ? await supabase.from('meters').select('serial_number,meter_number').eq('id',invoice.meter_id).maybeSingle() : { data: null };
     const w=window.open('','_blank','noopener,noreferrer');
     if(!w)return;
     const safe=(v:unknown)=>String(v??'—').replace(/[<>&]/g,(c)=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]!));
     w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${safe(tenantName)} - ${safe(invoice.invoice_number)}</title>
       <style>@page{size:A4 portrait;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,Tahoma,sans-serif;color:#111;margin:0;font-size:12px}h1{font-size:21px;margin:0}h2{font-size:14px;margin:18px 0 8px;border-bottom:1px solid #ddd;padding-bottom:6px}.head{display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:14px}.muted{color:#666}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.box{border:1px solid #ddd;border-radius:6px;padding:10px;margin-top:12px}.row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee}.total{font-size:16px;font-weight:bold;border-top:2px solid #111;border-bottom:0;margin-top:8px;padding-top:10px}.footer{margin-top:32px;border-top:1px solid #ddd;padding-top:10px;font-size:10px;color:#666}table{width:100%;border-collapse:collapse}td,th{padding:7px;border:1px solid #ddd;text-align:right}@media print{.no-print{display:none}}</style></head><body>
       <div class="head"><div><h1>${safe(tenantName)}</h1><div class="muted">${safe(currentProject?.name_ar)}</div><div class="muted">فاتورة مياه</div></div><div><b>${safe(invoice.invoice_number)}</b><br><span class="muted">${safe(formatDate(invoice.issue_date))}</span></div></div>
-      <h2>بيانات المشترك</h2><div class="grid box"><div><b>الاسم:</b> ${safe(customer?.name_ar)}</div><div><b>رقم المشترك:</b> ${safe(customer?.customer_number)}</div><div><b>الهاتف:</b> ${safe(customer?.phone)}</div><div><b>العداد:</b> ${safe(meter?.meter_number)}</div></div>
+      <h2>بيانات المشترك</h2><div class="grid box"><div><b>الاسم:</b> ${safe(customer?.name_ar)}</div><div><b>رقم المشترك:</b> ${safe(customer?.customer_number)}</div><div><b>الهاتف:</b> ${safe(customer?.phone)}</div><div><b>الرقم التسلسلي الفعلي للعداد:</b> ${safe(meter?.serial_number)}</div></div>
       <h2>فترة الاستهلاك والقراءة</h2><table><tr><th>الفترة</th><th>الأيام</th><th>القراءة السابقة</th><th>القراءة الحالية</th><th>الاستهلاك</th></tr><tr><td>${safe(invoice.billing_period_start)} إلى ${safe(invoice.billing_period_end)}</td><td>${safe(formatNumber(invoice.billing_days))}</td><td>${safe(formatNumber(invoice.previous_reading))}</td><td>${safe(formatNumber(invoice.current_reading))}</td><td>${safe(formatNumber(invoice.consumption_m3))} م³</td></tr></table>
       <h2>تفاصيل الاستحقاق</h2><div class="box"><div class="row"><span>الحد الأساسي للفترة</span><b>${safe(formatNumber(invoice.allowance_m3))} م³</b></div><div class="row"><span>الكمية ضمن التعرفة الأساسية</span><b>${safe(formatNumber(invoice.included_consumption_m3))} م³</b></div><div class="row"><span>الكمية بالتعرفة الزائدة</span><b>${safe(formatNumber(invoice.tiered_consumption_m3))} م³</b></div><div class="row"><span>الرسوم الثابتة</span><b>${safe(formatCurrency(invoice.fixed_fee))}</b></div><div class="row"><span>رسوم الاستهلاك</span><b>${safe(formatCurrency(invoice.consumption_fee))}</b></div><div class="row"><span>المتأخرات السابقة</span><b>${safe(formatCurrency(invoice.previous_balance))}</b></div><div class="row total"><span>إجمالي المستحق</span><b>${safe(formatCurrency(invoice.grand_total))}</b></div><div class="row"><span>المدفوع</span><b>${safe(formatCurrency(invoice.amount_paid))}</b></div><div class="row"><span>الرصيد المتبقي</span><b>${safe(formatCurrency(invoice.balance))}</b></div></div>
       <div class="footer">تم إنشاء هذه الفاتورة آلياً من قراءة عداد مسجلة ومتحقق منها. الاعتماد المالي يتم عند التحصيل. التعرفة المستخدمة محفوظة مع الفاتورة لضمان إمكانية المراجعة اللاحقة.</div>

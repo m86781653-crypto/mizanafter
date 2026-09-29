@@ -17,5 +17,10 @@ END$$;
 SELECT ok(true,'tier calculation fixture executed');
 SELECT throws_ok($$SELECT private.mizan_calculate_consumption_fee((SELECT id FROM public.tariffs WHERE name_ar='gap tariff'),20)$$,'TARIFF_TIER_GAP','gaps are rejected rather than silently billed');
 SELECT ok((SELECT private.mizan_calculate_consumption_fee((SELECT id FROM public.tariffs WHERE name_ar='CI tariff'),0))=0,'zero consumption has zero variable fee');
-SELECT ok(pg_get_functiondef((SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='mizan_create_invoice' AND pg_get_function_identity_arguments(p.oid)='p_project_id uuid, p_customer_id uuid, p_meter_id uuid, p_period_start date, p_period_end date')) LIKE '%mizan_calculate_consumption_fee%','invoice issuance delegates tariff calculation to governed engine');
+SELECT ok(
+  pg_get_functiondef((SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='private' AND p.proname='mizan_issue_invoice_for_reading' AND pg_get_function_identity_arguments(p.oid)='p_reading_id uuid, p_period_start date, p_period_end date')) LIKE '%mizan_calculate_consumption_fee_for_period%'
+  AND
+  pg_get_functiondef((SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname='mizan_create_invoice' AND pg_get_function_identity_arguments(p.oid)='p_project_id uuid, p_customer_id uuid, p_meter_id uuid, p_period_start date, p_period_end date')) LIKE '%mizan_issue_invoice_for_reading%',
+  'invoice issuance delegates tariff calculation to the governed variable-period engine'
+);
 SELECT * FROM finish(); ROLLBACK;

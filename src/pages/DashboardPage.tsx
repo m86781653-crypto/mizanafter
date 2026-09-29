@@ -40,10 +40,10 @@ export function DashboardPage() {
     lowConfidence: 0,
   });
 
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
     if (!currentProject) return;
     const pid = currentProject.id;
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const [customers, meters, invoices, payments, faults, wos, readings, wells, pumps, ocrReadings, anomalies, lowConfidence] = await Promise.all([
@@ -64,7 +64,7 @@ export function DashboardPage() {
       const invData = invoices.data as Invoice[] || [];
       const unpaid = invData.filter(i => i.status === 'unpaid' || i.status === 'overdue');
       const overdueAmt = invData.filter(i => i.status === 'overdue').reduce((s, i) => s + Number(i.balance), 0);
-      const totalRev = invData.reduce((s, i) => s + Number(i.total_amount), 0);
+      const totalRev = invData.reduce((s, i) => s + Number(i.grand_total), 0);
       const collectedRev = (payments.data || []).filter((p: any) => p.approval_status === 'approved').reduce((s, p: any) => s + Number(p.amount), 0);
       const production = (wells.data as Well[] || []).reduce((s, w) => s + Number(w.daily_output_m3), 0);
       const consumption = invData.reduce((s, i) => s + Number(i.consumption_m3), 0);
@@ -96,7 +96,23 @@ export function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchData();
+    if (!currentProject) return;
+    void fetchData();
+
+    const channel = supabase
+      .channel(`dashboard-${currentProject.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meters', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meter_readings', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'faults', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_work_orders', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, [currentProject]);
 
   if (!currentProject) {

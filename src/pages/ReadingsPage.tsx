@@ -38,13 +38,15 @@ export function ReadingsPage() {
   const [search, setSearch] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState<{ file: File; previewUrl: string } | null>(null);
-  const [form, setForm] = useState({ reading_value: '', ai_extracted_value: '', ai_confidence: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
+  const [form, setForm] = useState({ reading_value: '', ai_extracted_value: '', ai_confidence: '', detected_meter_serial: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [ocrProcessing, setOcrProcessing] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const [reviewSaving, setReviewSaving] = useState<string | null>(null);
 
   useEffect(() => {
     startMeterReadingSync();
@@ -143,7 +145,7 @@ export function ReadingsPage() {
     setSearch(meter.customers.name_ar);
     setShowResults(false);
     setCapturedPhoto(null);
-    setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
+    setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', detected_meter_serial: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
     const hasTodayReading = readings.some((r) => r.meter_id === meter.id && r.business_date === today && !['void','exception'].includes(r.status));
     setFormError(hasTodayReading ? 'تم تسجيل قراءة لهذا العداد اليوم. يمنع النظام تكرار القراءة في نفس التاريخ.' : null);
   };
@@ -160,7 +162,7 @@ export function ReadingsPage() {
   const handleCapture = async (file: File, previewUrl: string) => {
     if (!selectedMeter) return;
     setCapturedPhoto({ file, previewUrl });
-    setForm((f) => ({ ...f, reading_value: '', ai_extracted_value: '', ai_confidence: '' }));
+    setForm((f) => ({ ...f, reading_value: '', ai_extracted_value: '', ai_confidence: '', detected_meter_serial: '' }));
     setFormError(null);
     setOcrProcessing(true);
     captureLocation();
@@ -180,6 +182,7 @@ export function ReadingsPage() {
         reading_value: String(result.readingValue),
         ai_extracted_value: String(result.readingValue),
         ai_confidence: String(result.readingConfidence),
+        detected_meter_serial: result.detectedMeterSerialNumber || '',
       }));
       toast.success('تم التحقق من هوية العداد واستخراج القراءة آلياً.');
     } catch (err) {
@@ -198,6 +201,7 @@ export function ReadingsPage() {
     const confidence = Number(form.ai_confidence);
     if (!Number.isFinite(value) || value < 0) { setFormError('القراءة الحالية غير صحيحة.'); return; }
     if (!Number.isFinite(confidence) || confidence < 70) { setFormError('الثقة في استخراج القراءة أقل من الحد المسموح. أعد التصوير.'); return; }
+    if (!form.detected_meter_serial) { setFormError('تعذر حفظ إثبات هوية العداد المستخرج من الصورة. أعد التصوير.'); return; }
     if (value < selectedMeter.last_reading) { setFormError('القراءة الحالية أقل من القراءة السابقة. يلزم مسار استثناء.'); return; }
 
     setSaving(true);
@@ -219,13 +223,13 @@ export function ReadingsPage() {
           aiExtractedValue: value,
           aiConfidence: confidence,
           aiModel: 'local-ocr',
-          detectedMeterSerialNumber: selectedMeter.serial_number,
+          detectedMeterSerialNumber: form.detected_meter_serial,
           notes: form.notes || null,
         }, capturedPhoto.file);
         toast.success('تم حفظ القراءة والصورة محلياً. ستتم المزامنة تلقائياً عند عودة الاتصال.');
         setSelectedMeter(null);
         setCapturedPhoto(null);
-        setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
+        setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', detected_meter_serial: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
         return;
       }
 
@@ -249,7 +253,7 @@ export function ReadingsPage() {
         p_ai_model: 'local-ocr',
         p_notes: form.notes || null,
         p_client_capture_id: clientCaptureId,
-        p_detected_meter_number: selectedMeter.serial_number,
+        p_detected_meter_number: form.detected_meter_serial,
       });
       if (error) {
         await supabase.storage.from('meter-readings').remove([imagePath]);
@@ -259,15 +263,44 @@ export function ReadingsPage() {
       const recorded = data as MeterReading;
       setReadings((rows) => [recorded, ...rows]);
       setMeters((rows) => rows.map((m) => m.id === selectedMeter.id ? { ...m, last_reading: value, last_reading_date: readingDate } : m));
-      toast.success('تم تسجيل القراءة وحساب الفاتورة تلقائياً. الاعتماد المالي يكون عند التحصيل.');
+      if (recorded.anomaly_flag) {
+        toast.warning(`تم تسجيل القراءة، لكن نظام جودة القراءة طلب مراجعتها: ${recorded.anomaly_reason || 'إشارة جودة غير طبيعية'}`);
+      } else {
+        toast.success('تم تسجيل القراءة وحساب الفاتورة تلقائياً. الاعتماد المالي يكون عند التحصيل.');
+      }
       setSelectedMeter(null);
       setCapturedPhoto(null);
-      setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
+      setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', detected_meter_serial: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
       void load();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'تعذر تسجيل القراءة');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const reviewReading = async (readingId: string, decision: 'confirmed' | 'rejected' | 'waived') => {
+    const note = (reviewNotes[readingId] || '').trim();
+    if (!note) {
+      toast.error('أدخل ملاحظة المراجعة قبل اعتماد القرار.');
+      return;
+    }
+    setReviewSaving(readingId);
+    try {
+      const { data, error } = await supabase.rpc('mrx_review_meter_reading', {
+        p_reading_id: readingId,
+        p_decision: decision,
+        p_note: note,
+      });
+      if (error) throw error;
+      const reviewed = data as MeterReading;
+      setReadings((rows) => rows.map((row) => row.id === reviewed.id ? reviewed : row));
+      setReviewNotes((notes) => ({ ...notes, [readingId]: '' }));
+      toast.success('تم توثيق قرار مراجعة جودة القراءة.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'تعذر حفظ قرار المراجعة');
+    } finally {
+      setReviewSaving(null);
     }
   };
 
@@ -370,7 +403,30 @@ export function ReadingsPage() {
           </tr></thead><tbody className="divide-y">
             {readings.slice(0,30).map((r) => {
               const meter = meters.find((m) => m.id === r.meter_id);
-              return <tr key={r.id}><td className="px-4 py-3">{meter?.customers.name_ar || '—'}</td><td className="px-4 py-3">{meter?.serial_number || '—'}</td><td className="px-4 py-3">{formatNumber(r.previous_reading)}</td><td className="px-4 py-3 font-semibold">{formatNumber(r.reading_value)}</td><td className="px-4 py-3">{formatNumber(r.consumption)} م³</td><td className="px-4 py-3"><Badge status={r.status} label={readingStatusLabels[r.status] || r.status}/></td><td className="px-4 py-3 text-xs text-neutral-400">{formatRelativeTime(r.reading_date)}</td></tr>;
+              return <tr key={r.id}><td className="px-4 py-3">{meter?.customers.name_ar || '—'}</td><td className="px-4 py-3">{meter?.serial_number || '—'}</td><td className="px-4 py-3">{formatNumber(r.previous_reading)}</td><td className="px-4 py-3 font-semibold">{formatNumber(r.reading_value)}</td><td className="px-4 py-3">{formatNumber(r.consumption)} م³</td><td className="px-4 py-3">
+  <div className="flex flex-wrap gap-1 items-center">
+    <Badge status={r.status} label={readingStatusLabels[r.status] || r.status}/>
+    {r.anomaly_flag && <Badge status="warning" label={r.quality_review_status === 'pending' ? 'مراجعة مطلوبة' : `مراجعة: ${r.quality_review_status}`}/>}
+  </div>
+  {r.anomaly_flag && r.anomaly_reason && <div className="text-[11px] text-warning-700 mt-1">{r.anomaly_reason}</div>}
+  {r.anomaly_flag && r.quality_review_status === 'pending' && (
+    <div className="mt-2 space-y-2 min-w-[260px]">
+      <input
+        className="input-field text-xs"
+        placeholder="سبب/ملاحظة المراجعة (مطلوب)"
+        value={reviewNotes[r.id] || ''}
+        onChange={(e) => setReviewNotes((notes) => ({ ...notes, [r.id]: e.target.value }))}
+        disabled={reviewSaving === r.id}
+      />
+      <div className="flex flex-wrap gap-1">
+        <button className="btn-secondary text-xs px-2 py-1" disabled={reviewSaving === r.id} onClick={() => void reviewReading(r.id, 'confirmed')}>تأكيد القراءة</button>
+        <button className="btn-secondary text-xs px-2 py-1" disabled={reviewSaving === r.id} onClick={() => void reviewReading(r.id, 'rejected')}>رفض القراءة</button>
+        <button className="btn-secondary text-xs px-2 py-1" disabled={reviewSaving === r.id} onClick={() => void reviewReading(r.id, 'waived')}>تجاوز الإشارة</button>
+      </div>
+    </div>
+  )}
+  {r.quality_review_note && <div className="text-[11px] text-neutral-500 mt-1">ملاحظة المراجعة: {r.quality_review_note}</div>}
+</td><td className="px-4 py-3 text-xs text-neutral-400">{formatRelativeTime(r.reading_date)}</td></tr>;
             })}
           </tbody></table></div>}
       </section>

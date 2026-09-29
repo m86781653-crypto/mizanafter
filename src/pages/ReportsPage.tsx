@@ -27,9 +27,9 @@ export function ReportsPage() {
     interruptions: [] as any[],
   });
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (silent = false) => {
     if (!currentProject) { setLoading(false); return; }
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     const pid = currentProject.id;
     try {
@@ -68,7 +68,25 @@ export function ReportsPage() {
     }
   }, [currentProject]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(false); }, [fetchData]);
+
+  useEffect(() => {
+    if (!currentProject) return;
+    const channel = supabase.channel(`mizan-reports-${currentProject.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meters', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meter_readings', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'faults', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'maintenance_work_orders', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wells', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pumps', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'assets', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'service_interruptions', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [currentProject, fetchData]);
 
   if (!currentProject) return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
   if (loading) return <LoadingSpinner label="جاري تحليل البيانات..." />;
