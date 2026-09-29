@@ -1,6 +1,6 @@
 begin;
 
-select plan(12);
+select plan(13);
 
 select has_column(
   'public',
@@ -94,6 +94,16 @@ select ok(
     'private.mizan_sync_meter_reading_quality_review_status()'::regprocedure
   ) like '%new.quality_review_status := ''pending''%',
   'anomalous evidence changes always return review status to pending'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.mrx_review_meter_reading(uuid,text,text)'::regprocedure
+  ) like '%v_previous_review_status%'
+  and pg_get_functiondef(
+    'public.mrx_review_meter_reading(uuid,text,text)'::regprocedure
+  ) like '%quality_review_status'', v_previous_review_status%',
+  'quality review audit records the actual prior review status'
 );
 
 select * from finish();
