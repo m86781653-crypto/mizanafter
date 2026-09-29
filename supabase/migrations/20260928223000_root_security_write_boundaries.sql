@@ -122,7 +122,7 @@ begin
       and privilege_type in ('TRUNCATE','TRIGGER','REFERENCES')
   loop
     execute format(
-      'revoke truncate, trigger, references on table %I.%I from anon, authenticated',
+      'revoke truncate, trigger, references on table %I.%I from public, anon, authenticated',
       r.table_schema, r.table_name
     );
   end loop;
