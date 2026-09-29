@@ -1,5 +1,5 @@
 export type UserRole =
-  | 'platform_admin' | 'central_governance' | 'project_manager' | 'tenant_manager' | 'operations_officer'
+  | 'platform_admin' | 'central_governance' | 'project_manager' | 'tenant_manager' | 'operations_officer' | 'operations_maintenance'
   | 'meter_reader' | 'collection_officer' | 'maintenance_officer' | 'technician' | 'data_exception_officer' | 'viewer';
 
 export interface Profile { id:string; email:string; full_name:string; role:UserRole; project_id:string|null; tenant_id:string|null; phone:string|null; must_change_password:boolean; created_at:string; updated_at:string; }
