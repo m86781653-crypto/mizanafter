@@ -160,7 +160,7 @@ export function ReadingsPage() {
   const handleCapture = async (file: File, previewUrl: string) => {
     if (!selectedMeter) return;
     setCapturedPhoto({ file, previewUrl });
-    setForm((f) => ({ ...f, reading_value: '', ai_extracted_value: '', ai_confidence: '' }));
+    setForm((f) => ({ ...f, reading_value: '', ai_extracted_value: '', ai_confidence: '', detected_meter_serial: '' }));
     setFormError(null);
     setOcrProcessing(true);
     captureLocation();
@@ -227,7 +227,7 @@ export function ReadingsPage() {
         toast.success('تم حفظ القراءة والصورة محلياً. ستتم المزامنة تلقائياً عند عودة الاتصال.');
         setSelectedMeter(null);
         setCapturedPhoto(null);
-        setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
+        setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', detected_meter_serial: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
         return;
       }
 
