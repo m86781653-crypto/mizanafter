@@ -126,6 +126,9 @@ jobs:
       - name: Run meter reading quality review contract
         run: supabase test db supabase/tests/028_meter_reading_quality_review_contract.test.sql
 
+      - name: Run water production measurement contract
+        run: supabase test db supabase/tests/029_water_production_measurement_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
