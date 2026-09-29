@@ -20,9 +20,9 @@ const paymentMethodLabels: Record<string,string> = { cash:'نقدي', wallet:'م
 export function BillingPage() {
   const { currentProject } = useProject();
   const { profile } = useAuth();
-  const canRecordPayment = profile?.role === 'platform_admin' || profile?.role === 'tenant_manager' || profile?.role === 'collection_officer';
-  const canApprove = profile?.role === 'platform_admin' || profile?.role === 'tenant_manager';
-  const canManageTariff = profile?.role === 'platform_admin' || profile?.role === 'tenant_manager' || profile?.role === 'project_manager';
+  const canRecordPayment = profile?.role === 'platform_admin' || profile?.role === 'collection_officer';
+  const canApprove = profile?.role === 'platform_admin' || profile?.role === 'project_manager';
+  const canManageTariff = profile?.role === 'platform_admin' || profile?.role === 'project_manager';
   const [tab,setTab] = useState<Tab>('invoices');
   const [invoices,setInvoices] = useState<(Invoice & {customers?:Customer})[]>([]);
   const [payments,setPayments] = useState<(Payment & {customers?:Customer;invoices?:Invoice})[]>([]);
