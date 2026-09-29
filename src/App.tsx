@@ -42,8 +42,8 @@ const roleAccess: Record<UserRole, PageId[]> = {
 
 function AuthedApp(){
   const {profile,loading}=useAuth();
-  if (typeof window !== 'undefined' && window.location.pathname === '/onboarding') return <OnboardingPage/>;
   const [page,setPage]=useState<PageId>('dashboard');
+  if (typeof window !== 'undefined' && window.location.pathname === '/onboarding') return <OnboardingPage/>;
   const isRecoveryFlow=typeof window!=='undefined' && window.location.hash.includes('type=recovery');
 
   if(isRecoveryFlow)return <ResetPasswordPage/>;
