@@ -11,8 +11,8 @@ SELECT ok(
  'authorization helper covers all four canonical operational identities'
 );
 SELECT ok(
- pg_get_functiondef('private.mizan_can_manage_project_user(uuid)'::regprocedure) ~ 'parent_tenant_id\\s*=\\s*actor_tenant_id'
- AND pg_get_functiondef('private.mizan_can_manage_project_user(uuid)'::regprocedure) ~ 'target_project\\.status\\s*<>\\s*''archived''',
+ pg_get_functiondef('private.mizan_can_manage_project_user(uuid)'::regprocedure) ~ 'parent_tenant_id\s*=\s*actor_tenant_id'
+ AND pg_get_functiondef('private.mizan_can_manage_project_user(uuid)'::regprocedure) ~ 'target_project\\.status\s*<>\s*''archived''',
  'authorization helper enforces central child-tenant and active-project scope'
 );
 SELECT ok(NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND cmd='UPDATE' AND roles @> ARRAY['authenticated']::name[] AND policyname='central_governance_project_users_update'),'central governance receives no direct profile UPDATE policy');
