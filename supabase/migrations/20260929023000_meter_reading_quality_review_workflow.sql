@@ -73,6 +73,7 @@ declare
   v_reading public.meter_readings%rowtype;
   v_status text;
   v_uid uuid := (select auth.uid());
+  v_previous_review_status text;
 begin
   if v_uid is null then raise exception 'AUTH_REQUIRED'; end if;
 
@@ -100,6 +101,8 @@ begin
     raise exception 'QUALITY_REVIEW_NOTE_REQUIRED';
   end if;
 
+  v_previous_review_status := v_reading.quality_review_status;
+
   update public.meter_readings
   set quality_review_status = v_status,
       quality_reviewed_by = v_uid,
@@ -116,11 +119,7 @@ begin
     'meter_readings', v_reading.id, 'MRX_QUALITY_REVIEW', v_uid, v_uid, v_reading.project_id,
     'meter_reading', v_reading.id, trim(p_note), v_status,
     jsonb_build_object(
-      'quality_review_status', (
-        select mr.quality_review_status
-        from public.meter_readings mr
-        where mr.id = v_reading.id
-      ),
+      'quality_review_status', v_previous_review_status,
       'anomaly_flag', v_reading.anomaly_flag,
       'anomaly_reason', v_reading.anomaly_reason
     ),
