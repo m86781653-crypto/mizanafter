@@ -116,7 +116,11 @@ begin
     'meter_readings', v_reading.id, 'MRX_QUALITY_REVIEW', v_uid, v_uid, v_reading.project_id,
     'meter_reading', v_reading.id, trim(p_note), v_status,
     jsonb_build_object(
-      'quality_review_status', 'pending',
+      'quality_review_status', (
+        select mr.quality_review_status
+        from public.meter_readings mr
+        where mr.id = v_reading.id
+      ),
       'anomaly_flag', v_reading.anomaly_flag,
       'anomaly_reason', v_reading.anomaly_reason
     ),
