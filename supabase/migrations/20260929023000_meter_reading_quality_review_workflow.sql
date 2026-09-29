@@ -27,17 +27,19 @@ security definer
 set search_path=''
 as $function$
 begin
-  if new.anomaly_flag then
-    if coalesce(old.quality_review_status, 'not_required') = 'not_required'
-       or new.anomaly_flag is distinct from old.anomaly_flag
-    then
-      new.quality_review_status := 'pending';
-      new.quality_reviewed_by := null;
-      new.quality_reviewed_at := null;
-      new.quality_review_note := null;
-    end if;
-  elsif coalesce(new.quality_review_status, 'not_required') = 'pending' then
-    new.quality_review_status := 'not_required';
+  if tg_op = 'INSERT' then
+    new.quality_review_status := case when new.anomaly_flag then 'pending' else 'not_required' end;
+    new.quality_reviewed_by := null;
+    new.quality_reviewed_at := null;
+    new.quality_review_note := null;
+    return new;
+  end if;
+
+  if new.anomaly_flag and (
+    old.anomaly_flag is distinct from new.anomaly_flag
+    or old.quality_review_status = 'not_required'
+  ) then
+    new.quality_review_status := 'pending';
     new.quality_reviewed_by := null;
     new.quality_reviewed_at := null;
     new.quality_review_note := null;
