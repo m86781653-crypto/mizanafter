@@ -51,7 +51,7 @@ export function prewarmOcrAssets(): Promise<boolean> {
 }
 
 export interface OcrToken { text: string; confidence: number; height: number; kind: "reading" | "meter-number" | "date" | "unit" | "other"; }
-export interface MeterOcrResult { rawText: string; tokens: OcrToken[]; meterNumberMatch: string | null; readingCandidate: string | null; readingValue: number | null; readingConfidence: number; readingAmbiguous: boolean; otherTokens: OcrToken[]; }
+export interface MeterOcrResult { rawText: string; tokens: OcrToken[]; meterNumberMatch: string | null; detectedMeterSerialNumber: string | null; readingCandidate: string | null; readingValue: number | null; readingConfidence: number; readingAmbiguous: boolean; otherTokens: OcrToken[]; }
 
 const ARABIC_DIGITS = /[٠-٩۰-۹]/g;
 export function normalizeDigits(input: string) { return input.replace(ARABIC_DIGITS, (d) => { const code = d.charCodeAt(0); return code >= 0x0660 && code <= 0x0669 ? String(code - 0x0660) : String(code - 0x06f0); }); }
@@ -188,11 +188,13 @@ export async function recognizeMeterImage(image: Blob | File | string, options: 
       const scored = candidates.map((c) => { const digitLen = normalizeDigits(c.text).replace(/\D/g, "").length; let score = c.height * 2 + c.confidence + digitLen * 8; if (prev != null && c.shape.value != null) { if (c.shape.value >= prev) score += 25; if (Math.abs(c.shape.value - prev) <= Math.max(50, prev * 0.5)) score += 25; } return { ...c, score }; }).sort((a, b) => b.score - a.score);
       const filteredPrev = scored.filter((c) => prev == null || c.shape.value !== prev); const seen = new Set<number>(); const usable = filteredPrev.filter((c) => { const v = c.shape.value as number; if (seen.has(v)) return false; seen.add(v); return true; }); const best = usable[0] ?? null; const second = usable[1] ?? null; const readingAmbiguous = (!!best && !!second && second.score >= best.score * 0.97) || (profile.decimalDigits == null && decimalLike);
       const tokens: OcrToken[] = allWords.map((w) => ({ text: w.text, confidence: Math.round(w.confidence), height: Math.round(w.height), kind: classify(w.text, known, best ? w.text === best.text : false) }));
+      const matchedSerialToken = known ? allWords.find((w) => normalizeSerial(w.text) === known) : null;
       const meterNumberMatch = serialProven ? (options.knownMeterNumber ?? null) : null;
+      const detectedMeterSerialNumber = matchedSerialToken?.text ?? null;
       if (known && !serialProven) throw new Error(`عذراً، تعذر إثبات رقم العداد المرتبط (${options.knownMeterNumber}). أعد تصوير الرقم كاملاً وبوضوح.`);
-      if (readingAmbiguous) return { rawText, tokens, meterNumberMatch, readingCandidate: null, readingValue: null, readingConfidence: 0, readingAmbiguous: true, otherTokens: tokens.filter((t) => t.kind !== "reading") };
+      if (readingAmbiguous) return { rawText, tokens, meterNumberMatch, detectedMeterSerialNumber, readingCandidate: null, readingValue: null, readingConfidence: 0, readingAmbiguous: true, otherTokens: tokens.filter((t) => t.kind !== "reading") };
       deadline.assertWithinDeadline();
-      return { rawText, tokens, meterNumberMatch, readingCandidate: best?.text ?? null, readingValue: best?.shape.value ?? null, readingConfidence: best ? Math.round(best.confidence) : 0, readingAmbiguous: false, otherTokens: tokens.filter((t) => t.kind !== "reading") };
+      return { rawText, tokens, meterNumberMatch, detectedMeterSerialNumber, readingCandidate: best?.text ?? null, readingValue: best?.shape.value ?? null, readingConfidence: best ? Math.round(best.confidence) : 0, readingAmbiguous: false, otherTokens: tokens.filter((t) => t.kind !== "reading") };
     };
     try {
       return await withMeterReadingDeadline(run(), deadline);
