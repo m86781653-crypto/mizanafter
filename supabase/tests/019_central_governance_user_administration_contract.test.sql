@@ -10,7 +10,11 @@ SELECT ok(
  AND pg_get_functiondef('private.mizan_can_manage_project_user(uuid)'::regprocedure) LIKE '%operations_maintenance%',
  'authorization helper covers all four canonical operational identities'
 );
-SELECT ok(pg_get_functiondef('private.mizan_can_manage_project_user(uuid)'::regprocedure) LIKE '%parent_tenant_id = actor_tenant_id%' AND pg_get_functiondef('private.mizan_can_manage_project_user(uuid)'::regprocedure) LIKE '%target_project.status <> ''archived''%','authorization helper enforces central child-tenant and active-project scope');
+SELECT ok(
+ regexp_replace(pg_get_functiondef('private.mizan_can_manage_project_user(uuid)'::regprocedure), '\\s+', ' ', 'g') LIKE '%parent_tenant_id = actor_tenant_id%'
+ AND regexp_replace(pg_get_functiondef('private.mizan_can_manage_project_user(uuid)'::regprocedure), '\\s+', ' ', 'g') LIKE '%target_project.status <> ''archived''%',
+ 'authorization helper enforces central child-tenant and active-project scope'
+);
 SELECT ok(NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='profiles' AND cmd='UPDATE' AND roles @> ARRAY['authenticated']::name[] AND policyname='central_governance_project_users_update'),'central governance receives no direct profile UPDATE policy');
-SELECT ok(pg_get_functiondef('private.mizan_can_manage_project_user(uuid)'::regprocedure) LIKE '%mizan_user_role() <> ''central_governance''%','authorization helper rejects non-central actors');
+SELECT ok(regexp_replace(pg_get_functiondef('private.mizan_can_manage_project_user(uuid)'::regprocedure), '\\s+', ' ', 'g') LIKE '%mizan_user_role() <> ''central_governance''%','authorization helper rejects non-central actors');
 SELECT * FROM finish(); ROLLBACK;
