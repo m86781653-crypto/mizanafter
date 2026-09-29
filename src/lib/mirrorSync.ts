@@ -92,12 +92,15 @@ async function syncOne(item: PendingReading) {
   if (item.readingSource === "OCR" && !item.detectedMeterSerialNumber?.trim()) {
     throw new Error("OCR_METER_IDENTITY_EVIDENCE_MISSING");
   }
+  if (item.readingSource === "MANUAL" && !item.notes?.trim()) {
+    throw new Error("MANUAL_EXCEPTION_REASON_REQUIRED");
+  }
 
   const { error } = await supabase.rpc("mrx_capture_meter_reading", {
     p_meter_id: item.meterId,
     p_reading_value: item.current,
     p_reading_date: item.readingDate,
-    p_reading_method: item.readingSource === "OCR" ? "photo" : "manual",
+    p_reading_method: item.readingSource === "OCR" ? "photo" : "manual_exception",
     p_image_url: imagePath,
     p_gps_lat: item.latitude ?? null,
     p_gps_lng: item.longitude ?? null,
