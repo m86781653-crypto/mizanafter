@@ -92,7 +92,7 @@ select is(
   'fault trigger creates maintenance work order automatically'
 )
 from pg_trigger
-where tgname = 'trg_fault_to_work_order';
+where tgname = 'mizan_fault_create_work_order';
 
 select * from finish();
 rollback;
