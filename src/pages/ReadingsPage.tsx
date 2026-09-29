@@ -38,7 +38,7 @@ export function ReadingsPage() {
   const [search, setSearch] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState<{ file: File; previewUrl: string } | null>(null);
-  const [form, setForm] = useState({ reading_value: '', ai_extracted_value: '', ai_confidence: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
+  const [form, setForm] = useState({ reading_value: '', ai_extracted_value: '', ai_confidence: '', detected_meter_serial: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -143,7 +143,7 @@ export function ReadingsPage() {
     setSearch(meter.customers.name_ar);
     setShowResults(false);
     setCapturedPhoto(null);
-    setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
+    setForm({ reading_value: '', ai_extracted_value: '', ai_confidence: '', detected_meter_serial: '', gps_lat: '', gps_lng: '', gps_accuracy: '', notes: '' });
     const hasTodayReading = readings.some((r) => r.meter_id === meter.id && r.business_date === today && !['void','exception'].includes(r.status));
     setFormError(hasTodayReading ? 'تم تسجيل قراءة لهذا العداد اليوم. يمنع النظام تكرار القراءة في نفس التاريخ.' : null);
   };
@@ -180,6 +180,7 @@ export function ReadingsPage() {
         reading_value: String(result.readingValue),
         ai_extracted_value: String(result.readingValue),
         ai_confidence: String(result.readingConfidence),
+        detected_meter_serial: result.detectedMeterSerialNumber || '',
       }));
       toast.success('تم التحقق من هوية العداد واستخراج القراءة آلياً.');
     } catch (err) {
@@ -198,6 +199,7 @@ export function ReadingsPage() {
     const confidence = Number(form.ai_confidence);
     if (!Number.isFinite(value) || value < 0) { setFormError('القراءة الحالية غير صحيحة.'); return; }
     if (!Number.isFinite(confidence) || confidence < 70) { setFormError('الثقة في استخراج القراءة أقل من الحد المسموح. أعد التصوير.'); return; }
+    if (!form.detected_meter_serial) { setFormError('تعذر حفظ إثبات هوية العداد المستخرج من الصورة. أعد التصوير.'); return; }
     if (value < selectedMeter.last_reading) { setFormError('القراءة الحالية أقل من القراءة السابقة. يلزم مسار استثناء.'); return; }
 
     setSaving(true);
@@ -219,7 +221,7 @@ export function ReadingsPage() {
           aiExtractedValue: value,
           aiConfidence: confidence,
           aiModel: 'local-ocr',
-          detectedMeterSerialNumber: selectedMeter.serial_number,
+          detectedMeterSerialNumber: form.detected_meter_serial,
           notes: form.notes || null,
         }, capturedPhoto.file);
         toast.success('تم حفظ القراءة والصورة محلياً. ستتم المزامنة تلقائياً عند عودة الاتصال.');
@@ -249,7 +251,7 @@ export function ReadingsPage() {
         p_ai_model: 'local-ocr',
         p_notes: form.notes || null,
         p_client_capture_id: clientCaptureId,
-        p_detected_meter_number: selectedMeter.serial_number,
+        p_detected_meter_number: form.detected_meter_serial,
       });
       if (error) {
         await supabase.storage.from('meter-readings').remove([imagePath]);
