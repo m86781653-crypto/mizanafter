@@ -57,7 +57,8 @@ revoke all on function private.mizan_sync_meter_reading_quality_review_status() 
 
 drop trigger if exists trg_meter_reading_quality_review_status on public.meter_readings;
 create trigger trg_meter_reading_quality_review_status
-before insert or update of anomaly_flag
+before insert or update of anomaly_flag, reading_value, previous_reading, consumption,
+  reading_method, ai_extracted_value, ai_confidence, status
 on public.meter_readings
 for each row execute function private.mizan_sync_meter_reading_quality_review_status();
 
