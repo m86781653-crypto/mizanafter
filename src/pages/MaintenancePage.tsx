@@ -147,23 +147,19 @@ export function MaintenancePage() {
   };
 
   const updateFault=async(f:Fault,status:string)=>{
-    
     const { error: e } = await supabase.rpc('mizan_update_fault_status', {
       p_fault_id: f.id,
       p_status: status,
-      p_resolution_notes: updates.resolution_notes ? String(updates.resolution_notes) : null,
+      p_resolution_notes: status === 'resolved' ? 'تم الحل من مسار التشغيل والصيانة.' : null,
     });
     if(e)setError(e.message);else await load();
   };
 
   const updateOutage=async(x:Interruption,status:string)=>{
-    const updates:Record<string,unknown>={status};
-    if(status==='restored')updates.restored_at=new Date().toISOString();
-    if(status==='closed')updates.closed_at=new Date().toISOString();
     const { error: e } = await supabase.rpc('mizan_update_service_interruption_status', {
       p_interruption_id: x.id,
       p_status: status,
-      p_resolution_notes: null,
+      p_resolution_notes: status === 'closed' ? 'تم إغلاق التوقف بعد الاستعادة.' : null,
     });
     if(e)setError(e.message);else await load();
   };
