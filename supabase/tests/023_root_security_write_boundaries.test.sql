@@ -17,10 +17,16 @@ end $$;
 do $$
 declare v_bad integer;
 begin
-  select count(*) into v_bad from information_schema.role_table_grants
-  where grantee in ('anon','authenticated') and table_schema='public'
-    and privilege_type in ('TRUNCATE','TRIGGER','REFERENCES')
-    and not exists (select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_depend d on d.classid='pg_class'::regclass and d.objid=c.oid and d.deptype='e' join pg_extension e on e.oid=d.refobjid where n.nspname='public' and c.relname=information_schema.role_table_grants.table_name);
+  select count(*) into v_bad
+  from pg_class c
+  join pg_namespace n on n.oid=c.relnamespace
+  cross join lateral (values ('anon'::name),('authenticated'::name)) roles(grantee)
+  where n.nspname='public'
+    and c.relkind='r'
+    and c.relname not in ('geography_columns','geometry_columns','spatial_ref_sys')
+    and has_table_privilege(roles.grantee,c.oid,'TRUNCATE')
+       or (n.nspname='public' and c.relkind='r' and c.relname not in ('geography_columns','geometry_columns','spatial_ref_sys') and has_table_privilege(roles.grantee,c.oid,'TRIGGER'))
+       or (n.nspname='public' and c.relkind='r' and c.relname not in ('geography_columns','geometry_columns','spatial_ref_sys') and has_table_privilege(roles.grantee,c.oid,'REFERENCES'));
   if v_bad <> 0 then raise exception 'STRUCTURAL_CLIENT_GRANTS_REMAIN: %',v_bad; end if;
 end $$;
 
