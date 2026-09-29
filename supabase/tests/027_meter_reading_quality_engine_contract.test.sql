@@ -11,6 +11,7 @@ select has_column(
 
 select has_index(
   'public',
+  'meter_readings',
   'idx_meter_readings_anomaly',
   'meter_readings has an anomaly lookup index'
 );
