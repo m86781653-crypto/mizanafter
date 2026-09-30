@@ -58,5 +58,8 @@ begin
 end;
 $function$;
 
+-- Meter mutations are application-governed; browser roles may read but not mutate the table directly.
+revoke insert, update, delete on public.meters from public, anon, authenticated;
+
 revoke all on function public.mizan_add_meter_to_customer(uuid,uuid,text,text,integer,text) from public,anon;
 grant execute on function public.mizan_add_meter_to_customer(uuid,uuid,text,text,integer,text) to authenticated;
