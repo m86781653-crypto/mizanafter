@@ -164,6 +164,8 @@ export function MaintenancePage() {
       const result=await recognizeMeterImage(file,{knownMeterNumber:meter?.serial_number||meter?.meter_number});
       if(result.readingValue==null||result.readingAmbiguous)throw new Error('تعذر استخراج قراءة موثوقة من الصورة. أعد التصوير مع ظهور أرقام العداد كاملة.');
       setEvidenceReading(String(result.readingValue));
+      setEvidenceOcrSerial(result.detectedMeterSerialNumber || meter?.serial_number || null);
+      setEvidenceOcrConfidence(result.readingConfidence);
     }catch(e){setError(e instanceof Error?e.message:'تعذر تحليل صورة عداد الإنتاج.');}
     finally{setEvidenceProcessing(false);}
   };
@@ -185,7 +187,8 @@ export function MaintenancePage() {
       });
       const {data,error:e}=await supabase.rpc('mizan_capture_interruption_meter_reading',{
         p_interruption_id:evidenceInterruption.id,p_reading_value:value,p_captured_at:new Date().toISOString(),
-        p_image_url:path,p_gps_lat:gps.lat,p_gps_lng:gps.lng,p_gps_accuracy:gps.accuracy,p_notes:null,p_evidence_phase:evidencePhase
+        p_image_url:path,p_gps_lat:gps.lat,p_gps_lng:gps.lng,p_gps_accuracy:gps.accuracy,p_notes:null,p_evidence_phase:evidencePhase,
+        p_detected_serial_number:evidenceOcrSerial,p_ai_confidence:evidenceOcrConfidence,p_ai_model:'local-tesseract'
       });
       if(e)throw e;
       if(evidencePhase==='restart'){
