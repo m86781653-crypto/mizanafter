@@ -1,4 +1,4 @@
-select plan(22);
+select plan(26);
 select has_column('public','faults','causes_service_interruption','fault records interruption decision');
 select has_column('public','faults','interruption_id','fault links interruption');
 select has_column('public','service_interruptions','fault_id','interruption links fault');
@@ -21,4 +21,8 @@ select is(has_table_privilege('authenticated','public.maintenance_work_orders','
 select is(has_table_privilege('authenticated','public.assets','INSERT'),false,'authenticated cannot directly insert assets');
 select is(has_function_privilege('authenticated','public.mizan_report_service_interruption(uuid,text,text,text,text,text,timestamptz,integer,numeric)','EXECUTE'),false,'legacy interruption report RPC is retired');
 select is(has_function_privilege('authenticated','public.mizan_update_service_interruption_status(uuid,text,text)','EXECUTE'),false,'legacy interruption status RPC is retired');
+select is(has_function_privilege('authenticated','public.mizan_report_fault(uuid,text,text,text,uuid,uuid,uuid)','EXECUTE'),false,'legacy fault RPC is retired');
+select is(has_function_privilege('authenticated','public.mizan_update_fault_status(uuid,text,text)','EXECUTE'),false,'legacy fault status RPC is retired');
+select is(has_function_privilege('authenticated','public.mizan_update_work_order_status(uuid,text,text)','EXECUTE'),false,'legacy work-order status RPC is retired');
+select is(has_function_privilege('authenticated','public.mizan_monthly_maintenance_report(uuid,date)','EXECUTE'),false,'legacy monthly report RPC is retired');
 select * from finish();
