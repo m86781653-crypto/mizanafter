@@ -44,6 +44,8 @@ export function MaintenancePage() {
   const [evidencePhase,setEvidencePhase] = useState<'stop'|'restart'>('stop');
   const [evidencePhoto,setEvidencePhoto] = useState<{file:File;previewUrl:string}|null>(null);
   const [evidenceReading,setEvidenceReading] = useState('');
+  const [evidenceOcrSerial,setEvidenceOcrSerial] = useState<string|null>(null);
+  const [evidenceOcrConfidence,setEvidenceOcrConfidence] = useState<number|null>(null);
   const [evidenceProcessing,setEvidenceProcessing] = useState(false);
   const [evidenceSaving,setEvidenceSaving] = useState(false);
   const [show,setShow] = useState(false);
@@ -153,7 +155,7 @@ export function MaintenancePage() {
   };
 
   const openEvidence=(x:Interruption,phase:'stop'|'restart')=>{
-    setEvidenceInterruption(x);setEvidencePhase(phase);setEvidencePhoto(null);setEvidenceReading('');setError(null);
+    setEvidenceInterruption(x);setEvidencePhase(phase);setEvidencePhoto(null);setEvidenceReading('');setEvidenceOcrSerial(null);setEvidenceOcrConfidence(null);setError(null);
   };
 
   const captureInterruptionEvidence=async(file:File,previewUrl:string)=>{
@@ -199,7 +201,7 @@ export function MaintenancePage() {
         });
         if(restoreError)throw restoreError;
       }
-      setEvidenceInterruption(null);setEvidencePhoto(null);setEvidenceReading('');await load();
+      setEvidenceInterruption(null);setEvidencePhoto(null);setEvidenceReading('');setEvidenceOcrSerial(null);setEvidenceOcrConfidence(null);await load();
     }catch(e){setError(e instanceof Error?e.message:'تعذر حفظ دليل التوقف.');}
     finally{setEvidenceSaving(false);}
   };
