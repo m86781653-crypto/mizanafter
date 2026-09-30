@@ -18,6 +18,12 @@ export function ReportsPage() {
   const [maintenanceReport, setMaintenanceReport] = useState<any | null>(null);
   const [operationalReport, setOperationalReport] = useState<any | null>(null);
   const validPeriod = periodStart.length === 10 && periodEnd.length === 10 && periodEnd >= periodStart;
+  const periodEndExclusive = (() => {
+    if (!periodEnd || periodEnd.length !== 10) return periodEnd;
+    const d = new Date(`${periodEnd}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
   const [data, setData] = useState({
     customers: 0,
     meters: 0,
@@ -41,15 +47,15 @@ export function ReportsPage() {
       const [c, m, inv, pay, r, f, wo, w, p, a, si] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('project_id', pid),
         supabase.from('meters').select('id', { count: 'exact', head: true }).eq('project_id', pid),
-        supabase.from('invoices').select('*').eq('project_id', pid).gte('issue_date', periodStart).lte('issue_date', periodEnd),
-        supabase.from('payments').select('*').eq('project_id', pid).gte('payment_date', periodStart).lte('payment_date', periodEnd),
-        supabase.from('meter_readings').select('*').eq('project_id', pid).gte('reading_date', periodStart).lte('reading_date', periodEnd),
-        supabase.from('faults').select('*').eq('project_id', pid).gte('reported_at', periodStart).lte('reported_at', periodEnd),
+        supabase.from('invoices').select('*').eq('project_id', pid).gte('issue_date', periodStart).lt('issue_date', periodEndExclusive),
+        supabase.from('payments').select('*').eq('project_id', pid).gte('payment_date', periodStart).lt('payment_date', periodEndExclusive),
+        supabase.from('meter_readings').select('*').eq('project_id', pid).gte('reading_date', periodStart).lt('reading_date', periodEndExclusive),
+        supabase.from('faults').select('*').eq('project_id', pid).gte('reported_at', periodStart).lt('reported_at', periodEndExclusive),
         supabase.from('maintenance_work_orders').select('*').eq('project_id', pid),
         supabase.from('wells').select('*').eq('project_id', pid),
         supabase.from('pumps').select('*').eq('project_id', pid),
         supabase.from('assets').select('*').eq('project_id', pid),
-        supabase.from('service_interruptions').select('*').eq('project_id', pid).gte('started_at', periodStart).lte('started_at', periodEnd).order('started_at',{ ascending: false }),
+        supabase.from('service_interruptions').select('*').eq('project_id', pid).lt('started_at', periodEndExclusive).or(`restored_at.is.null,restored_at.gte.${periodStart}`).order('started_at',{ ascending: false }),
       ]);
       const firstError = c.error || m.error || inv.error || pay.error || r.error || f.error || wo.error || w.error || p.error || a.error || si.error;
       if (firstError) throw firstError;
@@ -138,7 +144,7 @@ export function ReportsPage() {
   const nrw: number | null = null;
   const collectionRate = totalRevenue > 0 ? (collected / totalRevenue * 100) : 0;
   const openFaults = data.faults.filter((f: any) => f.status !== 'closed' && f.status !== 'resolved').length;
-  const openWOs = data.workOrders.filter((w: any) => w.status === 'open' || w.status === 'in_progress').length;
+  const openWOs = Number(maintenanceReport?.work_orders_open_at_end ?? data.workOrders.filter((w: any) => w.status === 'open' || w.status === 'in_progress').length);
   const anomalies = Number(report.reading_anomaly_count || 0);
   const periodReadings = Number(report.reading_count || 0);
   const dataCompleteness = data.meters > 0 ? Math.min(periodReadings / data.meters * 100, 100) : 0; // coverage proxy, not completeness
