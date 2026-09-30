@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
-import { Bot, Send, Sparkles, User, Loader2, TrendingDown, AlertTriangle, Receipt, Wrench } from 'lucide-react';
+import { Bot, Send, Sparkles, User, Loader2, AlertTriangle } from 'lucide-react';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -37,70 +37,20 @@ export function CopilotPage() {
     if (!currentProject) {
       return { role: 'assistant', content: 'الرجاء اختيار مشروع أولاً.' };
     }
-    const pid = currentProject.id;
+
     const { data: aiResult, error: aiError } = await supabase.functions.invoke('mizan-copilot', {
-      body: { project_id: pid, question: query },
+      body: { project_id: currentProject.id, question: query },
     });
+
     if (!aiError && aiResult?.answer) {
       return { role: 'assistant', content: aiResult.answer };
     }
-    const q = query.toLowerCase();
 
-    if (q.includes('فواتير متأخرة') || q.includes('متأخرات')) {
-      const { data } = await supabase.from('invoices').select('invoice_number, grand_total, balance, customers(name_ar)').eq('project_id', pid).neq('status', 'paid');
-      if (!data || data.length === 0) return { role: 'assistant', content: 'لا توجد فواتير متأخرة حالياً. جميع الفواتير مدفوعة.' };
-      const total = data.reduce((s: number, i: any) => s + Number(i.balance), 0);
-      const list = data.slice(0, 5).map((i: any) => `• ${i.invoice_number} - ${i.customers?.name_ar || '—'} - متبقي: ${Number(i.balance).toLocaleString('ar-EG')} ر.ي`).join('\n');
-      return { role: 'assistant', content: `يوجد ${data.length} فاتورة غير مدفوعة بإجمالي ${total.toLocaleString('ar-EG')} ر.ي:\n\n${list}${data.length > 5 ? `\n... و ${data.length - 5} فاتورة أخرى` : ''}` };
-    }
-
-    if (q.includes('أعطال') || q.includes('عطل') || q.includes('بلاغ')) {
-      const { data } = await supabase.from('faults').select('fault_number, fault_type, severity, status, description').eq('project_id', pid).neq('status', 'closed').neq('status', 'resolved');
-      if (!data || data.length === 0) return { role: 'assistant', content: 'لا توجد أعطال مفتوحة حالياً.' };
-      const critical = data.filter((f: any) => f.severity === 'critical' || f.severity === 'high');
-      const list = data.slice(0, 5).map((f: any) => `• ${f.fault_number} - ${f.fault_type} - خطورة: ${f.severity} - ${f.description?.substring(0, 50) || ''}`).join('\n');
-      return { role: 'assistant', content: `يوجد ${data.length} عطل مفتوح${critical.length > 0 ? `، منها ${critical.length} عطل حرج/عالٍ` : ''}:\n\n${list}` };
-    }
-
-    if (q.includes('مشترك') || q.includes('مشتركين')) {
-      const { count } = await supabase.from('customers').select('id', { count: 'exact', head: true }).eq('project_id', pid).eq('status', 'active');
-      return { role: 'assistant', content: `يوجد ${count || 0} مشترك نشط في المشروع.` };
-    }
-
-    if (q.includes('فاقد') || q.includes('nrw')) {
-      const { data: wells } = await supabase.from('wells').select('daily_output_m3').eq('project_id', pid);
-      const { data: invs } = await supabase.from('invoices').select('consumption_m3').eq('project_id', pid);
-      const production = (wells || []).reduce((s: number, w: any) => s + Number(w.daily_output_m3), 0);
-      const consumption = (invs || []).reduce((s: number, i: any) => s + Number(i.consumption_m3), 0);
-      const nrw = production > 0 ? ((production - consumption) / production * 100) : 0;
-      return { role: 'assistant', content: `نسبة الفاقد (NRW): ${nrw.toFixed(1)}%\nالإنتاج اليومي: ${production.toLocaleString('ar-EG')} م³\nالاستهلاك المسجل: ${consumption.toLocaleString('ar-EG')} م³\nالفاقد: ${(production - consumption).toLocaleString('ar-EG')} م³\n\nملاحظة: دقة هذا المؤشر تعتمد على اكتمال بيانات القراءات.` };
-    }
-
-    if (q.includes('إنتاج') || q.includes('انتاج')) {
-      const { data } = await supabase.from('wells').select('code, name_ar, daily_output_m3, status').eq('project_id', pid);
-      if (!data || data.length === 0) return { role: 'assistant', content: 'لا توجد آبار مسجلة في هذا المشروع.' };
-      const total = data.reduce((s: number, w: any) => s + Number(w.daily_output_m3), 0);
-      const list = data.map((w: any) => `• ${w.code} - ${w.name_ar || ''}: ${Number(w.daily_output_m3).toLocaleString('ar-EG')} م³/يوم (${w.status === 'operational' ? 'يعمل' : 'متوقف'})`).join('\n');
-      return { role: 'assistant', content: `إجمالي الإنتاج اليومي: ${total.toLocaleString('ar-EG')} م³ من ${data.length} بئر:\n\n${list}` };
-    }
-
-    if (q.includes('صيانة') || q.includes('أوامر')) {
-      const { data } = await supabase.from('maintenance_work_orders').select('work_order_number, type, status, description, assigned_to').eq('project_id', pid).in('status', ['open', 'in_progress']);
-      if (!data || data.length === 0) return { role: 'assistant', content: 'لا توجد أوامر صيانة معلقة حالياً.' };
-      const list = data.slice(0, 5).map((w: any) => `• ${w.work_order_number} - ${w.type} - ${w.status} - ${w.assigned_to || 'غير معين'}`).join('\n');
-      return { role: 'assistant', content: `يوجد ${data.length} أمر صيانة قيد التنفيذ:\n\n${list}` };
-    }
-
-    if (q.includes('إيراد') || q.includes('تحصيل') || q.includes('مدفوع')) {
-      const { data: invs } = await supabase.from('invoices').select('grand_total, amount_paid, balance, status').eq('project_id', pid);
-      const { data: pays } = await supabase.from('payments').select('amount').eq('project_id', pid);
-      const total = (invs || []).reduce((s: number, i: any) => s + Number(i.grand_total), 0);
-      const collected = (pays || []).reduce((s: number, p: any) => s + Number(p.amount), 0);
-      const rate = total > 0 ? (collected / total * 100) : 0;
-      return { role: 'assistant', content: `الإيرادات:\n• إجمالي الفواتير: ${total.toLocaleString('ar-EG')} ر.ي\n• المحصّل: ${collected.toLocaleString('ar-EG')} ر.ي\n• نسبة التحصيل: ${rate.toFixed(1)}%\n• عدد الفواتير: ${invs?.length || 0}` };
-    }
-
-    return { role: 'assistant', content: 'لم أتمكن من فهم سؤالك. يمكنك السؤال عن: الفواتير المتأخرة، الأعطال، المشتركين، نسبة الفاقد، إنتاج المياه، أو أوامر الصيانة.' };
+    console.error('MIZAN Copilot request failed:', aiError);
+    return {
+      role: 'assistant',
+      content: 'تعذر الوصول إلى مساعد ميزان الخادمي. لم يتم استخدام بديل يحسب المؤشرات محلياً حتى لا تظهر بيانات متعارضة مع مصادر الحقيقة التشغيلية.',
+    };
   };
 
   const handleSend = async (text?: string) => {
