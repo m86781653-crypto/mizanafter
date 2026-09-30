@@ -20,7 +20,7 @@ export function ReportsPage() {
     day: '2-digit',
   }).format(new Date());
 
-  const [periodStart, setPeriodStart] = useState(() => `${new Date().getFullYear()}-01-01`);
+  const [periodStart, setPeriodStart] = useState(() => `${getYemenBusinessDate().slice(0, 4)}-01-01`);
   const [periodEnd, setPeriodEnd] = useState(() => getYemenBusinessDate());
   const [maintenanceReport, setMaintenanceReport] = useState<any | null>(null);
   const [operationalReport, setOperationalReport] = useState<any | null>(null);
