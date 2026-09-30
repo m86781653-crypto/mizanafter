@@ -12,7 +12,7 @@ select ok((select count(*) from pg_constraint where conname in (
   'fk_work_orders_project_asset','fk_work_orders_project_fault','fk_work_orders_project_well','fk_work_orders_project_pump',
   'fk_interruptions_project_fault','fk_interruptions_project_production_meter','fk_interruptions_project_stop_reading','fk_interruptions_project_restart_reading',
   'fk_cycles_project_well','fk_cycles_project_pump','fk_cycles_project_production_meter','fk_cycles_project_start_reading'
-)) = 27, 'project-scoped relationship constraints exist');
+)) = 28, 'project-scoped relationship constraints exist');
 
 select ok((select count(*) from pg_constraint where conname='fk_cycles_project_stop_reading')=1,'cycle stop reading scope constraint exists');
 select ok((select count(*) from pg_constraint where conname like 'fk_wpr_project_%')=3,'all production-reading project scope constraints exist');
