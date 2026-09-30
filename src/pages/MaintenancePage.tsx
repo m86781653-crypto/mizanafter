@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Activity, Wrench, Boxes, Clock3, Plus, Printer, UserRound, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Activity, Wrench, Boxes, Clock3, Plus, Printer, UserRound, CheckCircle2, Camera } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { useAuth } from '@/context/AuthContext';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { StatCard } from '@/components/ui/StatCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';
+import { MeterCamera } from '@/components/MeterCamera';
 import { formatDate, formatRelativeTime, formatCurrency, severityLabels, faultStatusLabels, workOrderStatusLabels, statusColor } from '@/lib/utils';
 import type { Asset, Fault, Pump, Well, WorkOrder } from '@/types';
 
@@ -50,15 +51,16 @@ export function MaintenancePage() {
     if(!currentProject){setLoading(false);return;}
     setLoading(true);setError(null);
     const pid=currentProject.id;
-    const [f,i,w,a,wl,p] = await Promise.all([
+    const [f,i,w,a,wl,p,pm] = await Promise.all([
       supabase.from('faults').select('*').eq('project_id',pid).order('reported_at',{ascending:false}),
       supabase.from('service_interruptions').select('*').eq('project_id',pid).order('started_at',{ascending:false}),
       supabase.from('maintenance_work_orders').select('*, faults(fault_number,severity,description)').eq('project_id',pid).order('created_at',{ascending:false}),
       supabase.from('assets').select('*').eq('project_id',pid).order('asset_code'),
       supabase.from('wells').select('*').eq('project_id',pid).order('code'),
       supabase.from('pumps').select('*').eq('project_id',pid).order('code'),
+      supabase.from('water_production_meters').select('*').eq('project_id',pid).eq('status','active').order('meter_number'),
     ]);
-    const firstError=[f,i,w,a,wl,p].find(x=>x.error);
+    const firstError=[f,i,w,a,wl,p,pm].find(x=>x.error);
     if(firstError?.error){setError(firstError.error.message);}
     else{
       setFaults((f.data||[]) as Fault[]);
@@ -67,6 +69,7 @@ export function MaintenancePage() {
       setAssets((a.data||[]) as Asset[]);
       setWells((wl.data||[]) as Well[]);
       setPumps((p.data||[]) as Pump[]);
+      setProductionMeters(pm.data||[]);
     }
     setLoading(false);
   },[currentProject]);
@@ -83,7 +86,11 @@ export function MaintenancePage() {
 
   const createFault=async()=>{
     if(!currentProject||!profile||!form.fault_type?.trim())throw new Error('نوع العطل مطلوب');
-    const { error: e } = await supabase.rpc('mizan_report_fault', {
+    const causesInterruption=form.causes_service_interruption==='true';
+    if (causesInterruption && !form.pump_id && !form.asset_id && !form.well_id) throw new Error('عند تسجيل توقف فعلي يجب تحديد الأصل أو البئر أو المضخة.');
+    if (causesInterruption && form.started_at && !form.start_time_reason?.trim()) throw new Error('سبب اختلاف وقت بداية التوقف مطلوب.');
+    const selectedMeter=productionMeters.find((m:any)=>m.id===form.production_meter_id);
+    const { error: e } = await supabase.rpc('mizan_report_fault_with_impact', {
       p_project_id: currentProject.id,
       p_fault_type: form.fault_type,
       p_severity: form.severity || 'medium',
@@ -91,22 +98,14 @@ export function MaintenancePage() {
       p_asset_id: form.asset_id || null,
       p_well_id: form.well_id || null,
       p_pump_id: form.pump_id || null,
-    });
-    if (e) throw e;
-  };
-
-  const createOutage=async()=>{
-    if(!currentProject||!profile||!form.description?.trim())throw new Error('وصف التوقف مطلوب');
-    const { error: e } = await supabase.rpc('mizan_report_service_interruption', {
-      p_project_id: currentProject.id,
-      p_interruption_type: form.interruption_type || 'service_stop',
-      p_severity: form.severity || 'medium',
-      p_description: form.description,
-      p_cause_category: form.cause_category || null,
-      p_cause_description: form.cause_description || null,
-      p_started_at: form.started_at || new Date().toISOString(),
-      p_affected_subscribers: Number(form.affected_subscribers || 0),
-      p_estimated_water_loss_m3: Number(form.water_loss || 0),
+      p_causes_service_interruption: causesInterruption,
+      p_interruption_type: form.interruption_type || 'production_stop',
+      p_started_at: causesInterruption && form.started_at ? new Date(form.started_at).toISOString() : null,
+      p_start_time_reason: causesInterruption ? (form.start_time_reason || null) : null,
+      p_cause_category: causesInterruption ? (form.cause_category || null) : null,
+      p_cause_description: causesInterruption ? (form.cause_description || null) : null,
+      p_production_meter_id: causesInterruption ? (selectedMeter?.id || null) : null,
+      p_coverage_benchmark_lpd: causesInterruption && form.coverage_benchmark_lpd ? Number(form.coverage_benchmark_lpd) : null,
     });
     if (e) throw e;
   };
@@ -123,12 +122,12 @@ export function MaintenancePage() {
 
   const createAsset=async()=>{
     if(!currentProject||!form.name_ar?.trim())throw new Error('اسم الأصل مطلوب');
-    const {error:e}=await supabase.from('assets').insert({
-      project_id:currentProject.id,name_ar:form.name_ar,category:form.category||null,type:form.type||null,
-      manufacturer:form.manufacturer||null,model:form.model||null,serial_number:form.serial_number||null,
-      status:form.status||'operational',purchase_cost:form.purchase_cost?Number(form.purchase_cost):null,
-      expected_lifespan_years:form.expected_lifespan_years?Number(form.expected_lifespan_years):null,
-      purchase_date:form.purchase_date||null,installation_date:form.installation_date||null
+    const {error:e}=await supabase.rpc('mizan_register_asset',{
+      p_project_id:currentProject.id,p_name_ar:form.name_ar,p_category:form.category||null,p_type:form.type||null,
+      p_manufacturer:form.manufacturer||null,p_model:form.model||null,p_serial_number:form.serial_number||null,
+      p_status:form.status||'operational',p_purchase_cost:form.purchase_cost?Number(form.purchase_cost):null,
+      p_expected_lifespan_years:form.expected_lifespan_years?Number(form.expected_lifespan_years):null,
+      p_purchase_date:form.purchase_date||null,p_installation_date:form.installation_date||null
     });
     if(e)throw e;
   };
@@ -155,13 +154,49 @@ export function MaintenancePage() {
     if(e)setError(e.message);else await load();
   };
 
-  const updateOutage=async(x:Interruption,status:string)=>{
-    const { error: e } = await supabase.rpc('mizan_update_service_interruption_status', {
-      p_interruption_id: x.id,
-      p_status: status,
-      p_resolution_notes: status === 'closed' ? 'تم إغلاق التوقف بعد الاستعادة.' : null,
-    });
-    if(e)setError(e.message);else await load();
+  const openEvidence=(x:Interruption,phase:'stop'|'restart')=>{
+    setEvidenceInterruption(x);setEvidencePhase(phase);setEvidencePhoto(null);setEvidenceReading('');setError(null);
+  };
+
+  const captureInterruptionEvidence=async(file:File,previewUrl:string)=>{
+    setEvidencePhoto({file,previewUrl});setEvidenceReading('');setEvidenceProcessing(true);setError(null);
+    try{
+      const meter=productionMeters.find((m:any)=>m.id===evidenceInterruption?.production_meter_id);
+      const {recognizeMeterImage}=await import('@/lib/meter-ocr');
+      const result=await recognizeMeterImage(file,{knownMeterNumber:meter?.serial_number||meter?.meter_number});
+      if(result.readingValue==null||result.readingAmbiguous)throw new Error('تعذر استخراج قراءة موثوقة من الصورة. أعد التصوير مع ظهور أرقام العداد كاملة.');
+      setEvidenceReading(String(result.readingValue));
+    }catch(e){setError(e instanceof Error?e.message:'تعذر تحليل صورة عداد الإنتاج.');}
+    finally{setEvidenceProcessing(false);}
+  };
+
+  const saveInterruptionEvidence=async()=>{
+    if(!currentProject||!evidenceInterruption||!evidencePhoto)throw new Error('صورة عداد الإنتاج مطلوبة.');
+    const value=Number(evidenceReading);if(!Number.isFinite(value)||value<0)throw new Error('قراءة العداد غير صحيحة.');
+    setEvidenceSaving(true);
+    try{
+      const meter=evidenceInterruption.production_meter_id;
+      if(!meter)throw new Error('لا يوجد عداد إنتاج مرتبط بهذا التوقف.');
+      const ext=evidencePhoto.file.type.includes('png')?'png':evidencePhoto.file.type.includes('webp')?'webp':'jpg';
+      const path=`${currentProject.id}/production/${meter}/interruption/${evidenceInterruption.id}/${crypto.randomUUID()}.${ext}`;
+      const up=await supabase.storage.from('meter-readings').upload(path,evidencePhoto.file,{contentType:evidencePhoto.file.type||'image/jpeg',upsert:false});
+      if(up.error)throw up.error;
+      const gps=await new Promise<{lat:number|null;lng:number|null;accuracy:number|null}>(resolve=>{
+        if(!navigator.geolocation)return resolve({lat:null,lng:null,accuracy:null});
+        navigator.geolocation.getCurrentPosition(p=>resolve({lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy}),()=>resolve({lat:null,lng:null,accuracy:null}),{enableHighAccuracy:true,timeout:10000,maximumAge:60000});
+      });
+      const {data,error:e}=await supabase.rpc('mizan_capture_interruption_meter_reading',{
+        p_interruption_id:evidenceInterruption.id,p_reading_value:value,p_captured_at:new Date().toISOString(),
+        p_image_url:path,p_gps_lat:gps.lat,p_gps_lng:gps.lng,p_gps_accuracy:gps.accuracy,p_notes:null,p_evidence_phase:evidencePhase
+      });
+      if(e)throw e;
+      if(evidencePhase==='restart'){
+        const {error:restoreError}=await supabase.rpc('mizan_restore_service_interruption',{p_interruption_id:evidenceInterruption.id,p_restart_reading_id:data.reading_id});
+        if(restoreError)throw restoreError;
+      }
+      setEvidenceInterruption(null);setEvidencePhoto(null);setEvidenceReading('');await load();
+    }catch(e){setError(e instanceof Error?e.message:'تعذر حفظ دليل التوقف.');}
+    finally{setEvidenceSaving(false);}
   };
 
   const assignOrder=async(wo:WorkOrder)=>{
@@ -223,7 +258,7 @@ export function MaintenancePage() {
       <div><h1 className="text-2xl font-bold text-neutral-900">التشغيل والصيانة</h1><p className="text-sm text-neutral-500 mt-1">إدارة الأعطال والتوقفات وأوامر الصيانة والأصول في سجل تشغيلي مترابط — {currentProject.name_ar}</p></div>
       <div className="flex gap-2">
         <button className="btn-primary" onClick={()=>openForm('faults')}><Plus size={18}/> تسجيل عطل</button>
-        <button className="btn-secondary" onClick={()=>openForm('outages')}><Clock3 size={18}/> تسجيل توقف</button>
+        
       </div>
     </div>
 
@@ -246,7 +281,7 @@ export function MaintenancePage() {
 
     {tab==='faults'&&<div className="space-y-3">{faults.length===0?<div className="card"><EmptyState icon={AlertTriangle} title="لا توجد أعطال" description="سجل العطل من هنا، وسيُنشئ النظام أمر الصيانة تلقائياً." action={{label:'تسجيل عطل',onClick:()=>openForm('faults')}}/></div>:faults.map(f=><div className="card p-4" key={f.id}><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex gap-2 items-center flex-wrap"><b>{f.fault_number}</b><Badge status={f.severity} label={severityLabels[f.severity]||f.severity}/><Badge status={f.status} label={faultStatusLabels[f.status]||f.status}/></div><p className="text-sm mt-2">{f.description||f.fault_type||'—'}</p><p className="text-xs text-neutral-400 mt-1">{f.reported_by||'—'} · {formatRelativeTime(f.reported_at)}</p></div><select className="input-field w-auto" value={f.status} onChange={e=>updateFault(f,e.target.value)}><option value="reported">مبلغ عنه</option><option value="verified">تم التحقق</option><option value="in_progress">قيد المعالجة</option><option value="resolved">تم الحل</option><option value="closed">مغلق</option></select></div></div>)}</div>}
 
-    {tab==='outages'&&<div className="space-y-3">{interruptions.length===0?<div className="card"><EmptyState icon={Clock3} title="لا توجد توقفات" description="سجل توقف الخدمة أو الإنتاج مع بيانات الأثر والفاقد." action={{label:'تسجيل توقف',onClick:()=>openForm('outages')}}/></div>:interruptions.map(x=><div className="card p-4" key={x.id}><div className="flex flex-wrap justify-between gap-4"><div><div className="flex gap-2 items-center"><b>{x.interruption_number}</b><Badge status={x.severity} label={severityLabels[x.severity]||x.severity}/><Badge status={x.status} label={interruptionStatuses[x.status]||x.status}/></div><p className="font-medium mt-2">{interruptionLabels[x.interruption_type]||x.interruption_type}</p><p className="text-sm text-neutral-600 mt-1">{x.description||'—'}</p><p className="text-xs text-neutral-400 mt-2">بدأ {formatDate(x.started_at)} · المتأثرون {x.affected_subscribers} · الفاقد {x.estimated_water_loss_m3} م³</p></div><select className="input-field w-auto h-fit" value={x.status} onChange={e=>updateOutage(x,e.target.value)}>{Object.entries(interruptionStatuses).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div></div>)}</div>}
+    {tab==='outages'&&<div className="space-y-3">{interruptions.length===0?<div className="card"><EmptyState icon={Clock3} title="لا توجد توقفات" description="سجل توقف الخدمة أو الإنتاج مع بيانات الأثر والفاقد." action={{label:'سجل عطل',onClick:()=>openForm('faults')}}/></div>:interruptions.map(x=><div className="card p-4" key={x.id}><div className="flex flex-wrap justify-between gap-4"><div><div className="flex gap-2 items-center"><b>{x.interruption_number}</b><Badge status={x.severity} label={severityLabels[x.severity]||x.severity}/><Badge status={x.status} label={interruptionStatuses[x.status]||x.status}/></div><p className="font-medium mt-2">{interruptionLabels[x.interruption_type]||x.interruption_type}</p><p className="text-sm text-neutral-600 mt-1">{x.description||'—'}</p><p className="text-xs text-neutral-400 mt-2">بدأ {formatDate(x.started_at)} · المتأثرون {x.affected_subscribers ?? 'غير محدد'} · الإنتاج المحتمل المتأثر {x.potentially_affected_production_m3 ?? 'يحسب عند الاستعادة'} م³</p></div><div className="flex flex-wrap gap-2">{!x.stop_reading_id&&x.production_meter_id&&<button className="btn-secondary" onClick={()=>openEvidence(x,'stop')}><Camera size={15}/> توثيق قراءة التوقف</button>}{x.status==='open'&&x.stop_reading_id&&<button className="btn-primary" onClick={()=>openEvidence(x,'restart')}><Camera size={15}/> تصوير إعادة التشغيل</button>}</div></div></div>)}</div>}
 
     {tab==='workorders'&&<div className="space-y-3"><div className="flex justify-end"><button className="btn-primary" onClick={()=>openForm('workorders')}><Plus size={18}/> أمر صيانة جديد</button></div>{workOrders.length===0?<div className="card"><EmptyState icon={Wrench} title="لا توجد أوامر صيانة" description="العطل الجديد ينشئ أمراً تصحيحياً تلقائياً." /></div>:workOrders.map(wo=>{const canAssign=profile?.role==='project_manager'||profile?.role==='platform_admin';const canExecute=['operations_maintenance','maintenance_officer','platform_admin'].includes(profile?.role||'');const canClose=profile?.role==='project_manager'||profile?.role==='platform_admin';return <div className="card p-4" key={wo.id}><div className="flex flex-wrap justify-between gap-4"><div className="min-w-0"><div className="flex gap-2 items-center flex-wrap"><b>{wo.work_order_number}</b><Badge status={statusColor(wo.priority)} label={'أولوية '+(wo.priority||'medium')}/><Badge status={statusColor(wo.status)} label={workOrderStatusLabels[wo.status]||wo.status}/></div><p className="text-sm mt-2">{wo.description||'—'}</p><p className="text-xs text-neutral-500 mt-2 flex items-center gap-2"><UserRound size={13}/>{wo.assigned_to||'لم يخصص منفذ بعد'} {wo.scheduled_date?' · '+wo.scheduled_date:''}</p>{wo.memo_issued_at&&<p className="text-xs text-emerald-600 mt-1">مذكرة صيانة مولدة آلياً · الإصدار {wo.memo_version}</p>}{wo.status==='completed'&&<p className="text-xs text-success-600 mt-1">تم تسجيل التنفيذ والنتيجة — بانتظار إغلاق مدير المشروع.</p>}</div><div className="flex flex-wrap gap-2 h-fit">{canAssign&&wo.status!=='closed'&&wo.status!=='completed'&&wo.status!=='cancelled'&&<button className="btn-secondary" onClick={()=>assignOrder(wo)}>تخصيص المنفذ</button>}<button className="btn-secondary" onClick={()=>printMemo(wo)}><Printer size={16}/> مذكرة صيانة</button>{canExecute&&wo.status==='in_progress'&&<button className="btn-primary" onClick={()=>{setExecutionOrder(wo);setExecutionForm({downtime_hours:'',parts_used:'',cost:String(wo.cost||0),notes:''});}}>تسجيل التنفيذ</button>}{canClose&&wo.status==='completed'&&<button className="btn-primary" onClick={()=>closeOrder(wo)}><CheckCircle2 size={16}/> إغلاق</button>}{!['completed','closed'].includes(wo.status)&&<select className="input-field w-auto" value={wo.status} onChange={e=>updateOrder(wo,e.target.value)}><option value="open">مفتوح</option><option value="in_progress">قيد المعالجة</option><option value="review_required">مراجعة</option><option value="cancelled">ملغى</option></select>}</div></div></div>})}</div>}
 
@@ -266,6 +301,15 @@ export function MaintenancePage() {
         <div className="flex gap-3"><button className="btn-secondary flex-1" onClick={()=>setExecutionOrder(null)}>إلغاء</button><button className="btn-primary flex-1" onClick={recordExecution}>اعتماد التنفيذ وإرساله للإغلاق</button></div>
       </div>}
     </Modal>
+    <Modal open={!!evidenceInterruption} onClose={()=>setEvidenceInterruption(null)} title={evidencePhase==='stop'?'توثيق قراءة عداد عند التوقف':'توثيق قراءة عداد عند إعادة التشغيل'} size="lg">
+      {evidenceInterruption&&<div className="space-y-4">
+        <div className="rounded-xl bg-neutral-50 p-4 text-sm"><b>{evidenceInterruption.interruption_number}</b><div className="text-neutral-500 mt-1">الصورة والقراءة والوقت والموقع تحفظ كدليل ميداني مرتبط بالتوقف.</div></div>
+        <MeterCamera initialPreview={evidencePhoto?.previewUrl} disabled={evidenceSaving} onCapture={captureInterruptionEvidence}/>
+        <div><label className="label-field">القراءة المستخرجة</label><input className="input-field text-lg font-bold" value={evidenceReading} onChange={e=>setEvidenceReading(e.target.value)} inputMode="decimal"/></div>
+        <div className="text-xs text-neutral-500">OCR هو وسيلة استخراج؛ القيمة المؤكدة تبقى تحت مراجعة النظام ولا يصف اختلافها تلقائياً بأنه تلاعب.</div>
+        <div className="flex gap-3"><button className="btn-secondary flex-1" onClick={()=>setEvidenceInterruption(null)}>إلغاء</button><button className="btn-primary flex-1" disabled={evidenceSaving||evidenceProcessing||!evidenceReading} onClick={()=>void saveInterruptionEvidence()}>{evidenceSaving?'جاري الحفظ...':evidencePhase==='restart'?'حفظ وإعادة الخدمة':'حفظ دليل التوقف'}</button></div>
+      </div>}
+    </Modal>
     <Modal open={show} onClose={()=>setShow(false)} title={tab==='faults'?'تسجيل عطل':tab==='outages'?'تسجيل توقف خدمة':tab==='workorders'?'إنشاء أمر صيانة':'إضافة أصل'} size="lg">
       {tab==='faults'&&<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div><label className="label-field">نوع العطل *</label><select className="input-field" value={form.fault_type||''} onChange={e=>setForm({...form,fault_type:e.target.value})}><option value="">— اختر —</option><option value="pump_failure">عطل مضخة</option><option value="pipe_leak">تسريب</option><option value="electrical">كهربائي</option><option value="meter_issue">عداد</option><option value="water_quality">جودة المياه</option><option value="other">أخرى</option></select></div>
@@ -273,15 +317,13 @@ export function MaintenancePage() {
         <div><label className="label-field">المضخة</label><select className="input-field" value={form.pump_id||''} onChange={e=>setForm({...form,pump_id:e.target.value})}><option value="">—</option>{pumps.map(p=><option key={p.id} value={p.id}>{p.code}</option>)}</select></div>
         <div><label className="label-field">البئر</label><select className="input-field" value={form.well_id||''} onChange={e=>setForm({...form,well_id:e.target.value})}><option value="">—</option>{wells.map(w=><option key={w.id} value={w.id}>{w.code} — {w.name_ar}</option>)}</select></div>
         <div><label className="label-field">الأصل</label><select className="input-field" value={form.asset_id||''} onChange={e=>setForm({...form,asset_id:e.target.value})}><option value="">—</option>{assets.map(a=><option key={a.id} value={a.id}>{a.asset_code} — {a.name_ar}</option>)}</select></div>
-        <div className="md:col-span-2"><label className="label-field">الوصف</label><textarea className="input-field min-h-24" value={form.description||''} onChange={e=>setForm({...form,description:e.target.value})}/></div>
-      </div>}
-      {tab==='outages'&&<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div><label className="label-field">نوع التوقف</label><select className="input-field" value={form.interruption_type||'service_stop'} onChange={e=>setForm({...form,interruption_type:e.target.value})}>{Object.entries(interruptionLabels).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div>
-        <div><label className="label-field">الخطورة</label><select className="input-field" value={form.severity||'medium'} onChange={e=>setForm({...form,severity:e.target.value})}><option value="low">منخفض</option><option value="medium">متوسط</option><option value="high">عالٍ</option><option value="critical">حرج</option></select></div>
-        <div><label className="label-field">وقت البداية</label><input className="input-field" type="datetime-local" value={form.started_at||''} onChange={e=>setForm({...form,started_at:e.target.value})}/></div>
-        <div><label className="label-field">المشتركون المتأثرون</label><input className="input-field" type="number" min="0" value={form.affected_subscribers||''} onChange={e=>setForm({...form,affected_subscribers:e.target.value})}/></div>
-        <div><label className="label-field">الفاقد التقديري (م³)</label><input className="input-field" type="number" min="0" value={form.water_loss||''} onChange={e=>setForm({...form,water_loss:e.target.value})}/></div>
+        <div className="md:col-span-2 rounded-xl bg-neutral-50 p-4"><label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={form.causes_service_interruption==='true'} onChange={e=>setForm({...form,causes_service_interruption:String(e.target.checked)})}/> هل تسبب العطل في توقف فعلي للإنتاج/الخدمة؟</label></div>
+        {form.causes_service_interruption==='true'&&<><div><label className="label-field">نوع التوقف</label><select className="input-field" value={form.interruption_type||'production_stop'} onChange={e=>setForm({...form,interruption_type:e.target.value})}><option value="production_stop">توقف إنتاج</option><option value="service_stop">توقف خدمة</option><option value="emergency_shutdown">توقف طارئ</option></select></div>
+        <div><label className="label-field">عداد الإنتاج المرتبط</label><select className="input-field" value={form.production_meter_id||''} onChange={e=>setForm({...form,production_meter_id:e.target.value})}><option value="">—</option>{productionMeters.filter((m:any)=>!form.pump_id||m.pump_id===form.pump_id).map((m:any)=><option key={m.id} value={m.id}>{m.meter_number}{m.serial_number?' · '+m.serial_number:''}</option>)}</select></div>
+        <div><label className="label-field">وقت البداية الفعلي (إن سبق البلاغ)</label><input className="input-field" type="datetime-local" value={form.started_at||''} onChange={e=>setForm({...form,started_at:e.target.value})}/></div>
+        <div><label className="label-field">سبب اختلاف الوقت</label><input className="input-field" value={form.start_time_reason||''} onChange={e=>setForm({...form,start_time_reason:e.target.value})}/></div>
         <div><label className="label-field">تصنيف السبب</label><input className="input-field" value={form.cause_category||''} onChange={e=>setForm({...form,cause_category:e.target.value})}/></div>
+        <div><label className="label-field">معدل معيار التغطية (لتر/فرد/يوم) — اختياري</label><input className="input-field" type="number" min="0" value={form.coverage_benchmark_lpd||''} onChange={e=>setForm({...form,coverage_benchmark_lpd:e.target.value})}/></div></>}
         <div className="md:col-span-2"><label className="label-field">الوصف</label><textarea className="input-field min-h-24" value={form.description||''} onChange={e=>setForm({...form,description:e.target.value})}/></div>
       </div>}
       {tab==='workorders'&&<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
