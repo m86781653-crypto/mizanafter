@@ -25,6 +25,10 @@ export function ReportsPage() {
   const [maintenanceReport, setMaintenanceReport] = useState<any | null>(null);
   const [operationalReport, setOperationalReport] = useState<any | null>(null);
   const validPeriod = periodStart.length === 10 && periodEnd.length === 10 && periodEnd >= periodStart;
+  const toYemenBoundaryUtc = (date: string) => new Date(`${date}T00:00:00+03:00`).toISOString();
+  const periodStartAt = /^\\d{4}-\\d{2}-\\d{2}$/.test(periodStart) ? toYemenBoundaryUtc(periodStart) : periodStart;
+  const periodEndExclusiveAt = /^\\d{4}-\\d{2}-\\d{2}$/.test(periodEndExclusive) ? toYemenBoundaryUtc(periodEndExclusive) : periodEndExclusive;
+
   const periodEndExclusive = (() => {
     if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(periodEnd)) return periodEnd;
     const [year, month, day] = periodEnd.split('-').map(Number);
@@ -53,15 +57,15 @@ export function ReportsPage() {
       const [c, m, inv, pay, r, f, wo, w, p, a, si] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('project_id', pid),
         supabase.from('meters').select('id', { count: 'exact', head: true }).eq('project_id', pid),
-        supabase.from('invoices').select('*').eq('project_id', pid).gte('issue_date', periodStart).lt('issue_date', periodEndExclusive),
-        supabase.from('payments').select('*').eq('project_id', pid).gte('payment_date', periodStart).lt('payment_date', periodEndExclusive),
-        supabase.from('meter_readings').select('*').eq('project_id', pid).gte('reading_date', periodStart).lt('reading_date', periodEndExclusive),
-        supabase.from('faults').select('*').eq('project_id', pid).gte('reported_at', periodStart).lt('reported_at', periodEndExclusive),
+        supabase.from('invoices').select('*').eq('project_id', pid).gte('issue_date', periodStartAt).lt('issue_date', periodEndExclusiveAt),
+        supabase.from('payments').select('*').eq('project_id', pid).gte('payment_date', periodStartAt).lt('payment_date', periodEndExclusiveAt),
+        supabase.from('meter_readings').select('*').eq('project_id', pid).gte('reading_date', periodStartAt).lt('reading_date', periodEndExclusiveAt),
+        supabase.from('faults').select('*').eq('project_id', pid).gte('reported_at', periodStartAt).lt('reported_at', periodEndExclusiveAt),
         supabase.from('maintenance_work_orders').select('*').eq('project_id', pid),
         supabase.from('wells').select('*').eq('project_id', pid),
         supabase.from('pumps').select('*').eq('project_id', pid),
         supabase.from('assets').select('*').eq('project_id', pid),
-        supabase.from('service_interruptions').select('*').eq('project_id', pid).lt('started_at', periodEndExclusive).or(`restored_at.is.null,restored_at.gte.${periodStart}`).order('started_at',{ ascending: false }),
+        supabase.from('service_interruptions').select('*').eq('project_id', pid).lt('started_at', periodEndExclusiveAt).or(`restored_at.is.null,restored_at.gte.${periodStartAt}`).order('started_at',{ ascending: false }),
       ]);
       const firstError = c.error || m.error || inv.error || pay.error || r.error || f.error || wo.error || w.error || p.error || a.error || si.error;
       if (firstError) throw firstError;
@@ -108,7 +112,7 @@ export function ReportsPage() {
     void supabase.rpc('mizan_operational_report', {
       p_project_id: currentProject.id,
       p_period_start: periodStart,
-      p_period_end: periodEnd,
+      p_period_end: periodEndExclusive,
     }).then(({ data: result, error: rpcError }) => {
       if (!active) return;
       if (rpcError) setError(rpcError.message);
