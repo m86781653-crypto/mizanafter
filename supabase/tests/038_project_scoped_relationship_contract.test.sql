@@ -17,11 +17,11 @@ select ok((select count(*) from pg_constraint where conname in (
 select ok((select count(*) from pg_constraint where conname='fk_cycles_project_stop_reading')=1,'cycle stop reading scope constraint exists');
 select ok((select count(*) from pg_constraint where conname like 'fk_wpr_project_%')=3,'all production-reading project scope constraints exist');
 select ok((select count(*) from pg_class c where c.relname in (
-  'uq_customers_project_id_id','uq_meters_project_id_id','uq_wells_project_id_id','uq_pumps_project_id_id',
+  'uq_customers_project_id_id','uq_meters_project_id_id','uq_wells_project_id_id','uq_meter_readings_project_id_id','uq_pumps_project_id_id',
   'uq_assets_project_id_id','uq_tariffs_project_id_id','uq_faults_project_id_id',
   'uq_service_interruptions_project_id_id','uq_water_production_meters_project_id_id',
   'uq_water_production_readings_project_id_id','uq_invoices_project_id_id'
-))=11,'composite parent uniqueness indexes exist');
+))=12,'composite parent uniqueness indexes exist');
 select * from finish();
 rollback;
 -- Regression contract remains four assertions; CI must execute it on this branch head.
