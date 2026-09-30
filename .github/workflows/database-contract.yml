@@ -163,3 +163,5 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+      - name: Run invoker report schema usage contract
+        run: supabase test db supabase/tests/041_invoker_report_schema_usage_contract.test.sql
