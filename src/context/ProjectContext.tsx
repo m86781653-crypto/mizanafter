@@ -33,17 +33,18 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       setIsCentralTenant(central);
       let list: Project[] = [];
       if (central) {
-        const { data: functionData, error: functionError } = await supabase.functions.invoke('admin-manage-project-user', {
-          body: { action: 'list_projects' },
-        });
-        if (functionError) {
-          console.error('Failed to load central governance projects:', functionError.message);
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*')
+          .order('name_ar');
+        if (error) {
+          console.error('Failed to load central governance projects:', error.message);
           setProjects([]);
           setCurrentProject(null);
           setLoading(false);
           return;
         }
-        list = (functionData?.projects || []) as Project[];
+        list = (data || []) as Project[];
       } else {
         const { data, error } = await supabase
           .from('projects')
