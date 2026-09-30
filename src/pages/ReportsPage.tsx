@@ -152,14 +152,13 @@ export function ReportsPage() {
   const consumption = Number(report.recorded_consumption_m3 || 0);
   const waterBalanceGap = Number(report.water_balance_gap_m3 || 0);
   const waterBalanceComparable = Boolean(report.water_balance_has_production && report.water_balance_has_consumption);
-  const nrw: number | null = null;
   const collectionRate = totalRevenue > 0 ? (collected / totalRevenue * 100) : 0;
-  const openFaults = data.faults.filter((f: any) => f.status !== 'closed' && f.status !== 'resolved').length;
-  const openWOs = Number(maintenanceReport?.work_orders_open_at_end ?? data.workOrders.filter((w: any) => w.status === 'open' || w.status === 'in_progress').length);
+  const openFaults = Number(report.open_fault_count || 0);
+  const openWOs = Number(maintenanceReport?.work_orders_open_at_end ?? report.open_maintenance_count ?? 0);
   const anomalies = Number(report.reading_anomaly_count || 0);
   const periodReadings = Number(report.reading_count || 0);
   const dataCompleteness = data.meters > 0 ? Math.min(periodReadings / data.meters * 100, 100) : 0; // coverage proxy, not completeness
-  const openInterruptions = data.interruptions.filter((x: any) => !['restored','closed'].includes(x.status)).length;
+  const openInterruptions = Number(report.open_service_interruption_count || 0);
 
   const printReport = (title: string, body: string) => {
     const filename = `${currentProject.name_ar} - ${title}`;
@@ -200,9 +199,9 @@ export function ReportsPage() {
     }
     printReport('التقرير التشغيلي الشامل', `<div class="grid">
       <div class="card"><div class="label">معدل التحصيل</div><div class="value">${formatNumber(collectionRate)}%</div></div>
-      <div class="card"><div class="label">الفاقد NRW</div><div class="value">${nrw === null ? '—' : formatNumber(nrw)+'%'}</div></div>
-      <div class="card"><div class="label">اكتمال البيانات</div><div class="value">${formatNumber(dataCompleteness)}%</div></div>
-      <div class="card"><div class="label">الفواتير</div><div class="value">${data.invoices.length}</div></div>
+      <div class="card"><div class="label">الفجوة المائية</div><div class="value">${waterBalanceComparable ? formatNumber((waterBalanceGap / Math.max(production, 1)) * 100)+'%' : '—'}</div></div>
+      <div class="card"><div class="label">تغطية القراءات</div><div class="value">${formatNumber(dataCompleteness)}%</div></div>
+      <div class="card"><div class="label">الفواتير</div><div class="value">${Number(report.invoice_count || 0)}</div></div>
       <div class="card"><div class="label">أعطال مفتوحة</div><div class="value">${openFaults}</div></div>
       <div class="card"><div class="label">أوامر صيانة مفتوحة</div><div class="value">${openWOs}</div></div>
     </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج خلال الفترة المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل من القراءات</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>فجوة ميزان المياه</th><td>${waterBalanceComparable ? formatNumber(waterBalanceGap)+' م³' : 'غير متاحة — بيانات الفترة غير مكتملة'}</td></tr><tr><th>التصنيف</th><td>${waterBalanceComparable ? 'فجوة ميزان المياه وليست NRW نهائياً' : 'غير مكتمل'}</td></tr></tbody></table>
