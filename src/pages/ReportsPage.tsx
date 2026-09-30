@@ -27,7 +27,7 @@ export function ReportsPage() {
   const validPeriod = periodStart.length === 10 && periodEnd.length === 10 && periodEnd >= periodStart;
 
   const periodEndExclusive = (() => {
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(periodEnd)) return periodEnd;
+    if (periodEnd.length !== 10) return periodEnd;
     const [year, month, day] = periodEnd.split('-').map(Number);
     return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
   })();
