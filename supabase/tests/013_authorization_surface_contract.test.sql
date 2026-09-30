@@ -8,8 +8,8 @@ SELECT ok(
 );
 
 SELECT ok(
-  NOT has_schema_privilege('authenticated', 'private', 'USAGE'),
-  'authenticated cannot use the private schema directly'
+  has_schema_privilege('authenticated', 'private', 'USAGE'),
+  'authenticated may resolve private authorization helpers required by SECURITY INVOKER report RPCs'
 );
 
 SELECT ok(
