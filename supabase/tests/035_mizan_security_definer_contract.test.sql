@@ -1,9 +1,9 @@
 begin;
 select plan(5);
 
-select is(
-  (
-    select coalesce(string_agg(p.oid::regprocedure::text, ', ' order by p.oid::regprocedure::text), '')
+select ok(
+  not exists (
+    select 1
     from pg_proc p
     join pg_namespace n on n.oid=p.pronamespace
     where n.nspname='public'
@@ -11,7 +11,6 @@ select is(
       and p.prosecdef
       and has_function_privilege('anon', p.oid, 'execute')
   ),
-  '',
   'no MIZAN SECURITY DEFINER function is executable by anon'
 );
 
