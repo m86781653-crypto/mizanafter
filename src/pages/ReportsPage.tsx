@@ -40,15 +40,15 @@ export function ReportsPage() {
       const [c, m, inv, pay, r, f, wo, w, p, a, si] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('project_id', pid),
         supabase.from('meters').select('id', { count: 'exact', head: true }).eq('project_id', pid),
-        supabase.from('invoices').select('*').eq('project_id', pid),
-        supabase.from('payments').select('*').eq('project_id', pid),
-        supabase.from('meter_readings').select('*').eq('project_id', pid),
-        supabase.from('faults').select('*').eq('project_id', pid),
-        supabase.from('maintenance_work_orders').select('*').eq('project_id', pid),
+        supabase.from('invoices').select('*').eq('project_id', pid).gte('issue_date', periodStart).lte('issue_date', periodEnd),
+        supabase.from('payments').select('*').eq('project_id', pid).gte('payment_date', periodStart).lte('payment_date', periodEnd),
+        supabase.from('meter_readings').select('*').eq('project_id', pid).gte('reading_date', periodStart).lte('reading_date', periodEnd),
+        supabase.from('faults').select('*').eq('project_id', pid).gte('reported_at', periodStart).lte('reported_at', periodEnd),
+        supabase.from('maintenance_work_orders').select('*').eq('project_id', pid).gte('created_at', periodStart),
         supabase.from('wells').select('*').eq('project_id', pid),
         supabase.from('pumps').select('*').eq('project_id', pid),
         supabase.from('assets').select('*').eq('project_id', pid),
-        supabase.from('service_interruptions').select('*').eq('project_id', pid).order('started_at',{ ascending: false }),
+        supabase.from('service_interruptions').select('*').eq('project_id', pid).gte('started_at', periodStart).lte('started_at', periodEnd).order('started_at',{ ascending: false }),
       ]);
       const firstError = c.error || m.error || inv.error || pay.error || r.error || f.error || wo.error || w.error || p.error || a.error || si.error;
       if (firstError) throw firstError;
@@ -70,7 +70,7 @@ export function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentProject]);
+  }, [currentProject, periodStart, periodEnd]);
 
   useEffect(() => { fetchData(false); }, [fetchData]);
 
