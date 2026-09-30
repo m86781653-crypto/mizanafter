@@ -1,6 +1,6 @@
 drop function if exists public.mizan_capture_interruption_meter_reading(uuid,numeric,timestamptz,text,numeric,numeric,numeric,text,text);
 
-create function public.mizan_capture_interruption_meter_reading(
+create or replace function public.mizan_capture_interruption_meter_reading(
  p_interruption_id uuid,p_reading_value numeric,p_captured_at timestamptz,p_image_url text,p_gps_lat numeric default null,
  p_gps_lng numeric default null,p_gps_accuracy numeric default null,p_notes text default null,p_evidence_phase text default 'stop',
  p_detected_serial_number text default null,p_ai_confidence numeric default null,p_ai_model text default null)
