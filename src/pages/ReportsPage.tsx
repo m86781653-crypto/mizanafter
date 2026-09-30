@@ -152,7 +152,7 @@ export function ReportsPage() {
       .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     printWindow.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${escapeHtml(filename)}</title>
       <style>@page{size:A4;margin:14mm}body{font-family:Arial,Tahoma,sans-serif;color:#17202a;line-height:1.6;font-size:12px}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:18px 0 8px;border-bottom:1px solid #ddd;padding-bottom:5px}.meta{color:#667085;margin-bottom:18px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.card{border:1px solid #ddd;padding:9px}.label{color:#667085;font-size:10px}.value{font-size:16px;font-weight:700}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #ddd;padding:6px;text-align:right}th{background:#f5f5f5}.footer{margin-top:22px;color:#667085;font-size:10px}</style></head><body>
-      <h1>${escapeHtml(title)}</h1><div class="meta">المشروع: <strong>${escapeHtml(currentProject.name_ar)}</strong><br>تاريخ الإصدار: ${escapeHtml(new Date().toLocaleString('ar-YE'))}</div>
+      <h1>${escapeHtml(title)}</h1><div class="meta">المشروع: <strong>${escapeHtml(currentProject.name_ar)}</strong><br>الفترة: <strong>${escapeHtml(periodStart)} → ${escapeHtml(periodEnd)}</strong><br>تاريخ الإصدار: ${escapeHtml(new Date().toLocaleString('ar-YE'))}</div>
       ${body}<div class="footer">تم إنشاء التقرير من MIZAN AI — البيانات المتاحة للمشروع وقت الإصدار.</div>
       <script>window.onload=function(){window.print();}</script></body></html>`);
     printWindow.document.close();
@@ -201,14 +201,13 @@ export function ReportsPage() {
       case 'production':
         filename = 'production_report';
         rows = [['البئر', 'الإنتاج اليومي (م³)', 'الحالة', 'ساعات التشغيل']];
-        data.wells.forEach((w: any) => {
-          rows.push([w.code, String(w.daily_output_m3 || 0), w.status, String(w.operating_hours || 0)]);
-        });
+        rows.push(['إجمالي الفترة', String(production), 'من قاعدة البيانات', '—']);
+        rows.push(['الاستهلاك المسجل', String(consumption), 'من قاعدة البيانات', '—']);
         break;
       case 'nrw':
         filename = 'nrw_report';
-        rows = [['الإنتاج (م³)', 'الاستهلاك (م³)', 'الفاقد (م³)', 'نسبة الفاقد (%)']];
-        rows.push(['—', '—', '—', '—']);
+        rows = [['الإنتاج (م³)', 'الاستهلاك (م³)', 'فجوة ميزان المياه (م³)', 'الحالة']];
+        rows.push([String(production), String(consumption), waterBalanceComparable ? String(waterBalanceGap) : '—', waterBalanceComparable ? 'قابلة للمقارنة' : 'غير مكتملة']);
         break;
       case 'revenue':
         filename = 'revenue_report';
@@ -231,8 +230,8 @@ export function ReportsPage() {
         break;
       case 'interruptions':
         filename = 'service_interruptions_report';
-        rows = [['رقم التوقف','النوع','الخطورة','الحالة','بداية التوقف','المشتركون المتأثرون','الفاقد المقدر م3']];
-        data.interruptions.forEach((x:any) => rows.push([x.interruption_number,x.interruption_type||'',x.severity,x.status,formatDate(x.started_at),String(x.affected_subscribers||0),String(x.estimated_water_loss_m3||0)]));
+        rows = [['رقم التوقف','النوع','الخطورة','الحالة','بداية التوقف','المشتركون المتأثرون','الإنتاج المحتمل المتأثر م3']];
+        data.interruptions.forEach((x:any) => rows.push([x.interruption_number,x.interruption_type||'',x.severity,x.status,formatDate(x.started_at),String(x.affected_subscribers||0),String(x.potentially_affected_production_m3||0)]));
         break;
       case 'assets':
         filename = 'assets_report';
