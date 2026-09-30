@@ -19,10 +19,9 @@ export function ReportsPage() {
   const [operationalReport, setOperationalReport] = useState<any | null>(null);
   const validPeriod = periodStart.length === 10 && periodEnd.length === 10 && periodEnd >= periodStart;
   const periodEndExclusive = (() => {
-    if (!periodEnd || periodEnd.length !== 10) return periodEnd;
-    const d = new Date(`${periodEnd}T00:00:00`);
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(periodEnd)) return periodEnd;
+    const [year, month, day] = periodEnd.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
   })();
   const [data, setData] = useState({
     customers: 0,
@@ -87,7 +86,7 @@ export function ReportsPage() {
     void supabase.rpc('mizan_maintenance_report', {
       p_project_id: currentProject.id,
       p_period_start: periodStart,
-      p_period_end: periodEnd,
+      p_period_end: periodEndExclusive,
     }).then(({ data: result, error: rpcError }) => {
       if (!active) return;
       if (rpcError) setError(rpcError.message);
@@ -169,15 +168,15 @@ export function ReportsPage() {
     const escapeHtml = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     if (type === 'maintenance') {
       const reportLabel = `${periodStart} → ${periodEnd}`;
-      const monthWOs = data.workOrders.filter((w: any) => {
+      const periodWOs = data.workOrders.filter((w: any) => {
         const inPeriod = (value: unknown) => { const d = String(value || '').slice(0,10); return d >= periodStart && d <= periodEnd; };
         return inPeriod(w.created_at) || inPeriod(w.completed_date) || inPeriod(w.closed_at);
       });
-      const rows = monthWOs.map((w: any) => `<tr><td>${escapeHtml(w.work_order_number)}</td><td>${escapeHtml(w.type)}</td><td>${escapeHtml(w.priority)}</td><td>${escapeHtml(w.status)}</td><td>${escapeHtml(w.assigned_to || '—')}</td><td>${escapeHtml(formatDate(w.scheduled_date))}</td><td>${escapeHtml(formatDate(w.completed_date))}</td><td>${escapeHtml(formatDate(w.closed_at))}</td></tr>`).join('');
+      const rows = periodWOs.map((w: any) => `<tr><td>${escapeHtml(w.work_order_number)}</td><td>${escapeHtml(w.type)}</td><td>${escapeHtml(w.priority)}</td><td>${escapeHtml(w.status)}</td><td>${escapeHtml(w.assigned_to || '—')}</td><td>${escapeHtml(formatDate(w.scheduled_date))}</td><td>${escapeHtml(formatDate(w.completed_date))}</td><td>${escapeHtml(formatDate(w.closed_at))}</td></tr>`).join('');
       const m = maintenanceReport || {};
       printReport(`تقرير الصيانة - ${reportLabel}`, `<div class="grid">
         <div class="card"><div class="label">أوامر الصيانة المنشأة</div><div class="value">${m.work_orders_created ?? 0}</div></div>
-        <div class="card"><div class="label">المكتملة خلال الشهر</div><div class="value">${m.work_orders_completed ?? 0}</div></div>
+        <div class="card"><div class="label">المكتملة خلال الفترة</div><div class="value">${m.work_orders_completed ?? 0}</div></div>
         <div class="card"><div class="label">المغلقة</div><div class="value">${m.work_orders_closed ?? 0}</div></div>
         <div class="card"><div class="label">المفتوحة عند نهاية الشهر</div><div class="value">${m.work_orders_open_at_end ?? 0}</div></div>
         <div class="card"><div class="label">الأعطال المبلغ عنها</div><div class="value">${m.faults_reported ?? 0}</div></div>

@@ -1,0 +1,2 @@
+revoke execute on function public.mizan_capture_interruption_meter_reading(uuid,numeric,timestamptz,text,numeric,numeric,numeric,text,text,text,numeric,text) from public,anon;
+grant execute on function public.mizan_capture_interruption_meter_reading(uuid,numeric,timestamptz,text,numeric,numeric,numeric,text,text,text,numeric,text) to authenticated;

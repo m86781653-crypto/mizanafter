@@ -42,6 +42,8 @@ export function WaterProductionPage() {
   const [selectedMeterId, setSelectedMeterId] = useState('');
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [reading, setReading] = useState('');
+  const [detectedSerial, setDetectedSerial] = useState<string | null>(null);
+  const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
   const [phase, setPhase] = useState<'start' | 'stop'>('start');
   const [activeCycle, setActiveCycle] = useState<ProductionCycle | null>(null);
   const [saving, setSaving] = useState(false);
@@ -108,6 +110,8 @@ export function WaterProductionPage() {
   const capture = async (file: File, previewUrl: string) => {
     setPhoto({ file, previewUrl });
     setReading('');
+    setDetectedSerial(null);
+    setOcrConfidence(null);
     setError(null);
     setOcrProcessing(true);
     try {
@@ -120,6 +124,8 @@ export function WaterProductionPage() {
         throw new Error('تعذر استخراج قراءة موثوقة من الصورة. أعد التصوير مع ظهور أرقام العداد كاملة.');
       }
       setReading(String(result.readingValue));
+      setDetectedSerial(result.detectedMeterSerialNumber || selectedMeter?.serial_number || null);
+      setOcrConfidence(result.readingConfidence);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'تعذر تحليل صورة عداد الإنتاج.');
     } finally {
@@ -174,6 +180,9 @@ export function WaterProductionPage() {
         p_gps_lng: gps.lng,
         p_gps_accuracy: gps.accuracy,
         p_notes: null,
+        p_detected_serial_number: detectedSerial,
+        p_ai_confidence: ocrConfidence,
+        p_ai_model: 'local-tesseract',
       });
       if (captureError) throw captureError;
 
@@ -198,6 +207,8 @@ export function WaterProductionPage() {
 
       setPhoto(null);
       setReading('');
+      setDetectedSerial(null);
+      setOcrConfidence(null);
       await load();
     } catch (e) {
       if (imagePath) await supabase.storage.from('meter-readings').remove([imagePath]);
@@ -209,8 +220,8 @@ export function WaterProductionPage() {
 
   const registerMeter = async () => {
     if (!currentProject) return;
-    if (!meterForm.well_id || !meterForm.pump_id || !meterForm.meter_number.trim()) {
-      setError('البئر والمضخة ورقم عداد الإنتاج مطلوبة.');
+    if (!meterForm.well_id || !meterForm.pump_id || !meterForm.meter_number.trim() || !meterForm.serial_number.trim()) {
+      setError('البئر والمضخة ورقم عداد الإنتاج والرقم التسلسلي الفعلي مطلوبة.');
       return;
     }
     setSaving(true);
@@ -333,7 +344,7 @@ export function WaterProductionPage() {
           <div><label className="label-field">البئر *</label><select className="input-field" value={meterForm.well_id} onChange={(e) => setMeterForm((f) => ({ ...f, well_id: e.target.value, pump_id: '' }))}><option value="">اختر البئر</option>{wells.map((w) => <option key={w.id} value={w.id}>{w.code} · {w.name_ar || ''}</option>)}</select></div>
           <div><label className="label-field">المضخة *</label><select className="input-field" value={meterForm.pump_id} onChange={(e) => setMeterForm((f) => ({ ...f, pump_id: e.target.value }))}><option value="">اختر المضخة</option>{pumps.filter((p) => p.well_id === meterForm.well_id).map((p) => <option key={p.id} value={p.id}>{p.code}</option>)}</select></div>
           <div><label className="label-field">رقم عداد الإنتاج *</label><input className="input-field" value={meterForm.meter_number} onChange={(e) => setMeterForm((f) => ({ ...f, meter_number: e.target.value }))} /></div>
-          <div><label className="label-field">الرقم التسلسلي</label><input className="input-field" value={meterForm.serial_number} onChange={(e) => setMeterForm((f) => ({ ...f, serial_number: e.target.value }))} /></div>
+          <div><label className="label-field">الرقم التسلسلي الفعلي *</label><input className="input-field" value={meterForm.serial_number} onChange={(e) => setMeterForm((f) => ({ ...f, serial_number: e.target.value }))} /></div>
           <div><label className="label-field">القراءة الابتدائية *</label><input className="input-field" value={meterForm.initial_reading} onChange={(e) => setMeterForm((f) => ({ ...f, initial_reading: e.target.value }))} inputMode="decimal" /></div>
           <button className="btn-primary w-full" disabled={saving} onClick={() => void registerMeter()}>{saving ? 'جارٍ الحفظ...' : 'حفظ عداد الإنتاج'}</button>
         </div>

@@ -38,6 +38,8 @@ export function DashboardPage() {
     ocrReadings: 0,
     anomalies: 0,
     lowConfidence: 0,
+    openFaultCount: 0,
+    openMaintenanceCount: 0,
   });
 
   const fetchData = async (silent = false) => {
@@ -46,7 +48,10 @@ export function DashboardPage() {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const [customers, meters, invoices, payments, faults, wos, readings, wells, pumps, ocrReadings, anomalies, lowConfidence] = await Promise.all([
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Aden', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+      const [year, month, day] = today.split('-').map(Number);
+      const tomorrow = new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+      const [customers, meters, invoices, payments, faults, wos, readings, wells, pumps, ocrReadings, anomalies, lowConfidence, operational] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('project_id', pid).eq('status', 'active'),
         supabase.from('meters').select('id', { count: 'exact', head: true }).eq('project_id', pid).eq('status', 'active'),
         supabase.from('invoices').select('*').eq('project_id', pid).order('issue_date', { ascending: false }).limit(50),
@@ -58,16 +63,18 @@ export function DashboardPage() {
         supabase.from('pumps').select('*').eq('project_id', pid),
         supabase.from('meter_readings').select('id', { count: 'exact', head: true }).eq('project_id', pid).not('ai_extracted_value','is',null),
         supabase.from('meter_readings').select('id', { count: 'exact', head: true }).eq('project_id', pid).eq('anomaly_flag',true),
-        supabase.from('meter_readings').select('id', { count: 'exact', head: true }).eq('project_id', pid).not('ai_extracted_value','is',null).lt('ai_confidence',0.8),
+        supabase.from('meter_readings').select('id', { count: 'exact', head: true }).eq('project_id', pid).not('ai_extracted_value','is',null).lt('ai_confidence',80),
+        supabase.rpc('mizan_operational_report', { p_project_id: pid, p_period_start: today, p_period_end: tomorrow }),
       ]);
 
       const invData = invoices.data as Invoice[] || [];
       const unpaid = invData.filter(i => i.status === 'unpaid' || i.status === 'overdue');
       const overdueAmt = invData.filter(i => i.status === 'overdue').reduce((s, i) => s + Number(i.balance), 0);
-      const totalRev = invData.reduce((s, i) => s + Number(i.grand_total), 0);
-      const collectedRev = (payments.data || []).filter((p: any) => p.approval_status === 'approved').reduce((s, p: any) => s + Number(p.amount), 0);
-      const production = (wells.data as Well[] || []).reduce((s, w) => s + Number(w.daily_output_m3), 0);
-      const consumption = invData.reduce((s, i) => s + Number(i.consumption_m3), 0);
+      const operationalReport = (operational.data || {}) as any;
+      const totalRev = Number(operationalReport.invoiced_amount || 0);
+      const collectedRev = Number(operationalReport.approved_collected_amount || 0);
+      const production = Number(operationalReport.production_m3 || 0);
+      const consumption = Number(operationalReport.recorded_consumption_m3 || 0);
 
       setStats({
         customers: customers.count || 0,
@@ -87,6 +94,8 @@ export function DashboardPage() {
         ocrReadings: ocrReadings.count || 0,
         anomalies: anomalies.count || 0,
         lowConfidence: lowConfidence.count || 0,
+        openFaultCount: Number(operationalReport.open_fault_count || 0),
+        openMaintenanceCount: Number(operationalReport.open_maintenance_count || 0),
       });
     } catch (err: any) {
       setError(err?.message || 'حدث خطأ غير متوقع أثناء تحميل البيانات');
@@ -139,7 +148,9 @@ export function DashboardPage() {
     ? (stats.collectedRevenue / stats.totalRevenue * 100)
     : 0;
   const openFaults = stats.faults.filter(f => f.status !== 'closed' && f.status !== 'resolved');
+  const openFaultCount = stats.openFaultCount;
   const openWOs = stats.workOrders.filter(w => w.status === 'open' || w.status === 'in_progress');
+  const openMaintenanceCount = stats.openMaintenanceCount;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -209,14 +220,14 @@ export function DashboardPage() {
           value={formatCurrency(stats.overdueAmount)}
           icon={AlertTriangle}
           color={stats.overdueAmount > 0 ? 'error' : 'neutral'}
-          subtitle={`${stats.unpaidInvoices.length} فاتورة غير مدفوعة`}
+          subtitle={`${stats.unpaidInvoices.length} من أحدث الفواتير غير المدفوعة`}
         />
         <StatCard
           title="أعطال مفتوحة"
-          value={formatNumber(openFaults.length)}
+          value={formatNumber(openFaultCount)}
           icon={AlertTriangle}
           color={openFaults.length > 0 ? 'error' : 'success'}
-          subtitle={`${openWOs.length} أمر صيانة قيد التنفيذ`}
+          subtitle={`${openMaintenanceCount} أمر صيانة مفتوح`}
         />
       </div>
 

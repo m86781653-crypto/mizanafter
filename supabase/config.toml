@@ -1,7 +1,27 @@
-[functions.setup-admin]
-verify_jwt = false
-entrypoint = "./functions/setup-admin/index.ts"
-
 [functions.create-project]
 verify_jwt = true
 entrypoint = "./functions/create-project/index.ts"
+
+[functions.provision-user]
+verify_jwt = true
+entrypoint = "./functions/provision-user/index.ts"
+
+[functions.provision-subtenant]
+verify_jwt = true
+entrypoint = "./functions/provision-subtenant/index.ts"
+
+[functions.mizan-copilot]
+verify_jwt = true
+entrypoint = "./functions/mizan-copilot/index.ts"
+
+[functions.bootstrap-authority-manager]
+verify_jwt = true
+entrypoint = "./functions/bootstrap-authority-manager/index.ts"
+
+[functions.admin-bootstrap-project-user]
+verify_jwt = true
+entrypoint = "./functions/admin-bootstrap-project-user/index.ts"
+
+[functions.admin-manage-project-user]
+verify_jwt = true
+entrypoint = "./functions/admin-manage-project-user/index.ts"

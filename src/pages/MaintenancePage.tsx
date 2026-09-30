@@ -44,6 +44,8 @@ export function MaintenancePage() {
   const [evidencePhase,setEvidencePhase] = useState<'stop'|'restart'>('stop');
   const [evidencePhoto,setEvidencePhoto] = useState<{file:File;previewUrl:string}|null>(null);
   const [evidenceReading,setEvidenceReading] = useState('');
+  const [evidenceOcrSerial,setEvidenceOcrSerial] = useState<string|null>(null);
+  const [evidenceOcrConfidence,setEvidenceOcrConfidence] = useState<number|null>(null);
   const [evidenceProcessing,setEvidenceProcessing] = useState(false);
   const [evidenceSaving,setEvidenceSaving] = useState(false);
   const [show,setShow] = useState(false);
@@ -153,7 +155,7 @@ export function MaintenancePage() {
   };
 
   const openEvidence=(x:Interruption,phase:'stop'|'restart')=>{
-    setEvidenceInterruption(x);setEvidencePhase(phase);setEvidencePhoto(null);setEvidenceReading('');setError(null);
+    setEvidenceInterruption(x);setEvidencePhase(phase);setEvidencePhoto(null);setEvidenceReading('');setEvidenceOcrSerial(null);setEvidenceOcrConfidence(null);setError(null);
   };
 
   const captureInterruptionEvidence=async(file:File,previewUrl:string)=>{
@@ -164,6 +166,8 @@ export function MaintenancePage() {
       const result=await recognizeMeterImage(file,{knownMeterNumber:meter?.serial_number||meter?.meter_number});
       if(result.readingValue==null||result.readingAmbiguous)throw new Error('تعذر استخراج قراءة موثوقة من الصورة. أعد التصوير مع ظهور أرقام العداد كاملة.');
       setEvidenceReading(String(result.readingValue));
+      setEvidenceOcrSerial(result.detectedMeterSerialNumber || meter?.serial_number || null);
+      setEvidenceOcrConfidence(result.readingConfidence);
     }catch(e){setError(e instanceof Error?e.message:'تعذر تحليل صورة عداد الإنتاج.');}
     finally{setEvidenceProcessing(false);}
   };
@@ -185,7 +189,8 @@ export function MaintenancePage() {
       });
       const {data,error:e}=await supabase.rpc('mizan_capture_interruption_meter_reading',{
         p_interruption_id:evidenceInterruption.id,p_reading_value:value,p_captured_at:new Date().toISOString(),
-        p_image_url:path,p_gps_lat:gps.lat,p_gps_lng:gps.lng,p_gps_accuracy:gps.accuracy,p_notes:null,p_evidence_phase:evidencePhase
+        p_image_url:path,p_gps_lat:gps.lat,p_gps_lng:gps.lng,p_gps_accuracy:gps.accuracy,p_notes:null,p_evidence_phase:evidencePhase,
+        p_detected_serial_number:evidenceOcrSerial,p_ai_confidence:evidenceOcrConfidence,p_ai_model:'local-tesseract'
       });
       if(e)throw e;
       if(evidencePhase==='restart'){
@@ -196,7 +201,7 @@ export function MaintenancePage() {
         });
         if(restoreError)throw restoreError;
       }
-      setEvidenceInterruption(null);setEvidencePhoto(null);setEvidenceReading('');await load();
+      setEvidenceInterruption(null);setEvidencePhoto(null);setEvidenceReading('');setEvidenceOcrSerial(null);setEvidenceOcrConfidence(null);await load();
     }catch(e){setError(e instanceof Error?e.message:'تعذر حفظ دليل التوقف.');}
     finally{setEvidenceSaving(false);}
   };
