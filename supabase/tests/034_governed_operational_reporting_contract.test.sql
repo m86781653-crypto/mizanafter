@@ -11,7 +11,7 @@ select is(has_table_privilege('authenticated','public.pump_operation_cycles','SE
 select ok((select pg_get_functiondef('public.mizan_operational_report(uuid,date,date)'::regprocedure) ~ '(?s)recorded_consumption_m3.*from public.meter_readings r'),'operational water balance consumption uses governed meter readings');
 select ok((select pg_get_functiondef('public.mizan_operational_report(uuid,date,date)'::regprocedure) ~ $p_period_start::timestamp at time zone 'Asia/Aden'$),'operational report uses Yemen business-day start boundary');
 select ok((select pg_get_viewdef('public.mizan_water_balance'::regclass,true) ~ $at time zone 'Asia/Aden'$),'water balance view groups by Yemen business date');
-select ok(position('p_period_end-1' in pg_get_functiondef('public.mizan_maintenance_report(uuid,date,date)'::regprocedure)) > 0,'maintenance report uses exclusive end semantics');
+select ok(pg_get_functiondef('public.mizan_maintenance_report(uuid,date,date)'::regprocedure) ~ $p_period_end\\s*-\\s*1$,'maintenance report uses exclusive end semantics');
 
 select * from finish();
 rollback;
