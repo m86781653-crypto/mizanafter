@@ -1,5 +1,5 @@
 begin;
-select plan(28);
+select plan(4);
 
 select ok((select count(*) from pg_constraint where conname in (
   'fk_meters_project_customer',
