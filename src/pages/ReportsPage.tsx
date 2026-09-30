@@ -17,6 +17,7 @@ export function ReportsPage() {
   const [periodEnd, setPeriodEnd] = useState(() => new Date().toISOString().slice(0,10));
   const [maintenanceReport, setMaintenanceReport] = useState<any | null>(null);
   const [operationalReport, setOperationalReport] = useState<any | null>(null);
+  const validPeriod = periodStart.length === 10 && periodEnd.length === 10 && periodEnd >= periodStart;
   const [data, setData] = useState({
     customers: 0,
     meters: 0,
@@ -70,12 +71,12 @@ export function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentProject, periodStart, periodEnd]);
+  }, [currentProject, periodStart, periodEnd, validPeriod]);
 
   useEffect(() => { fetchData(false); }, [fetchData]);
 
   useEffect(() => {
-    if (!currentProject || !periodStart || !periodEnd) return;
+    if (!currentProject || !validPeriod) return;
     let active = true;
     void supabase.rpc('mizan_maintenance_report', {
       p_project_id: currentProject.id,
