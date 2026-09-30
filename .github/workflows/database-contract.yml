@@ -3,6 +3,7 @@ name: database-contract
 # Full migration-chain contract gate: local Supabase must boot before SQL authorization contracts run.
 # The gate intentionally executes against a clean local database.
 # Migration-chain repair is verified on every push.
+# Governance lifecycle contract is kept aligned with retired legacy RPC paths.
 # Governed object reconstruction is part of the clean-room gate.
 # Tenant prerequisites are validated before role enforcement.
 # Authorization policies are applied only after the private kernel exists.

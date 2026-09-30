@@ -13,9 +13,17 @@ export function ReportsPage() {
   const { currentProject } = useProject();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [reportMonth, setReportMonth] = useState(() => new Date().toISOString().slice(0,7));
-  const [maintenanceMonthly, setMaintenanceMonthly] = useState<any | null>(null);
+  const [periodStart, setPeriodStart] = useState(() => new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0,10));
+  const [periodEnd, setPeriodEnd] = useState(() => new Date().toISOString().slice(0,10));
+  const [maintenanceReport, setMaintenanceReport] = useState<any | null>(null);
   const [operationalReport, setOperationalReport] = useState<any | null>(null);
+  const validPeriod = periodStart.length === 10 && periodEnd.length === 10 && periodEnd >= periodStart;
+  const periodEndExclusive = (() => {
+    if (!periodEnd || periodEnd.length !== 10) return periodEnd;
+    const d = new Date(`${periodEnd}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
   const [data, setData] = useState({
     customers: 0,
     meters: 0,
@@ -39,15 +47,15 @@ export function ReportsPage() {
       const [c, m, inv, pay, r, f, wo, w, p, a, si] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('project_id', pid),
         supabase.from('meters').select('id', { count: 'exact', head: true }).eq('project_id', pid),
-        supabase.from('invoices').select('*').eq('project_id', pid),
-        supabase.from('payments').select('*').eq('project_id', pid),
-        supabase.from('meter_readings').select('*').eq('project_id', pid),
-        supabase.from('faults').select('*').eq('project_id', pid),
+        supabase.from('invoices').select('*').eq('project_id', pid).gte('issue_date', periodStart).lt('issue_date', periodEndExclusive),
+        supabase.from('payments').select('*').eq('project_id', pid).gte('payment_date', periodStart).lt('payment_date', periodEndExclusive),
+        supabase.from('meter_readings').select('*').eq('project_id', pid).gte('reading_date', periodStart).lt('reading_date', periodEndExclusive),
+        supabase.from('faults').select('*').eq('project_id', pid).gte('reported_at', periodStart).lt('reported_at', periodEndExclusive),
         supabase.from('maintenance_work_orders').select('*').eq('project_id', pid),
         supabase.from('wells').select('*').eq('project_id', pid),
         supabase.from('pumps').select('*').eq('project_id', pid),
         supabase.from('assets').select('*').eq('project_id', pid),
-        supabase.from('service_interruptions').select('*').eq('project_id', pid).order('started_at',{ ascending: false }),
+        supabase.from('service_interruptions').select('*').eq('project_id', pid).lt('started_at', periodEndExclusive).or(`restored_at.is.null,restored_at.gte.${periodStart}`).order('started_at',{ ascending: false }),
       ]);
       const firstError = c.error || m.error || inv.error || pay.error || r.error || f.error || wo.error || w.error || p.error || a.error || si.error;
       if (firstError) throw firstError;
@@ -69,29 +77,28 @@ export function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentProject]);
+  }, [currentProject, periodStart, periodEnd, validPeriod]);
 
   useEffect(() => { fetchData(false); }, [fetchData]);
 
   useEffect(() => {
-    if (!currentProject || !reportMonth) return;
+    if (!currentProject || !validPeriod) return;
     let active = true;
-    void supabase.rpc('mizan_monthly_maintenance_report', { p_project_id: currentProject.id, p_month: `${reportMonth}-01` })
-      .then(({ data: result, error: rpcError }) => {
-        if (!active) return;
-        if (rpcError) setError(rpcError.message);
-        else setMaintenanceMonthly(result as any);
-      });
+    void supabase.rpc('mizan_maintenance_report', {
+      p_project_id: currentProject.id,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+    }).then(({ data: result, error: rpcError }) => {
+      if (!active) return;
+      if (rpcError) setError(rpcError.message);
+      else setMaintenanceReport(result as any);
+    });
     return () => { active = false; };
-  }, [currentProject, reportMonth]);
+  }, [currentProject, periodStart, periodEnd]);
 
   useEffect(() => {
-    if (!currentProject || !reportMonth) return;
+    if (!currentProject || !periodStart || !periodEnd) return;
     let active = true;
-    const start = new Date(reportMonth + '-01T00:00:00');
-    const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
-    const periodStart = start.getFullYear() + '-' + String(start.getMonth() + 1).padStart(2, '0') + '-01';
-    const periodEnd = end.getFullYear() + '-' + String(end.getMonth() + 1).padStart(2, '0') + '-01';
     void supabase.rpc('mizan_operational_report', {
       p_project_id: currentProject.id,
       p_period_start: periodStart,
@@ -102,7 +109,7 @@ export function ReportsPage() {
       else setOperationalReport(result as any);
     });
     return () => { active = false; };
-  }, [currentProject, reportMonth]);
+  }, [currentProject, periodStart, periodEnd]);
 
   useEffect(() => {
     if (!currentProject) return;
@@ -137,7 +144,7 @@ export function ReportsPage() {
   const nrw: number | null = null;
   const collectionRate = totalRevenue > 0 ? (collected / totalRevenue * 100) : 0;
   const openFaults = data.faults.filter((f: any) => f.status !== 'closed' && f.status !== 'resolved').length;
-  const openWOs = data.workOrders.filter((w: any) => w.status === 'open' || w.status === 'in_progress').length;
+  const openWOs = Number(maintenanceReport?.work_orders_open_at_end ?? data.workOrders.filter((w: any) => w.status === 'open' || w.status === 'in_progress').length);
   const anomalies = Number(report.reading_anomaly_count || 0);
   const periodReadings = Number(report.reading_count || 0);
   const dataCompleteness = data.meters > 0 ? Math.min(periodReadings / data.meters * 100, 100) : 0; // coverage proxy, not completeness
@@ -152,25 +159,23 @@ export function ReportsPage() {
       .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     printWindow.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${escapeHtml(filename)}</title>
       <style>@page{size:A4;margin:14mm}body{font-family:Arial,Tahoma,sans-serif;color:#17202a;line-height:1.6;font-size:12px}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:18px 0 8px;border-bottom:1px solid #ddd;padding-bottom:5px}.meta{color:#667085;margin-bottom:18px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.card{border:1px solid #ddd;padding:9px}.label{color:#667085;font-size:10px}.value{font-size:16px;font-weight:700}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #ddd;padding:6px;text-align:right}th{background:#f5f5f5}.footer{margin-top:22px;color:#667085;font-size:10px}</style></head><body>
-      <h1>${escapeHtml(title)}</h1><div class="meta">المشروع: <strong>${escapeHtml(currentProject.name_ar)}</strong><br>تاريخ الإصدار: ${escapeHtml(new Date().toLocaleString('ar-YE'))}</div>
+      <h1>${escapeHtml(title)}</h1><div class="meta">المشروع: <strong>${escapeHtml(currentProject.name_ar)}</strong><br>الفترة: <strong>${escapeHtml(periodStart)} → ${escapeHtml(periodEnd)}</strong><br>تاريخ الإصدار: ${escapeHtml(new Date().toLocaleString('ar-YE'))}</div>
       ${body}<div class="footer">تم إنشاء التقرير من MIZAN AI — البيانات المتاحة للمشروع وقت الإصدار.</div>
       <script>window.onload=function(){window.print();}</script></body></html>`);
     printWindow.document.close();
   };
 
-  const exportPDF = (type: 'full' | 'maintenance-monthly') => {
+  const exportPDF = (type: 'full' | 'maintenance') => {
     const escapeHtml = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-    if (type === 'maintenance-monthly') {
-      const monthLabel = reportMonth;
+    if (type === 'maintenance') {
+      const reportLabel = `${periodStart} → ${periodEnd}`;
       const monthWOs = data.workOrders.filter((w: any) => {
-        const created = String(w.created_at || '').slice(0,7);
-        const completed = String(w.completed_date || '').slice(0,7);
-        const closed = String(w.closed_at || '').slice(0,7);
-        return created === reportMonth || completed === reportMonth || closed === reportMonth;
+        const inPeriod = (value: unknown) => { const d = String(value || '').slice(0,10); return d >= periodStart && d <= periodEnd; };
+        return inPeriod(w.created_at) || inPeriod(w.completed_date) || inPeriod(w.closed_at);
       });
       const rows = monthWOs.map((w: any) => `<tr><td>${escapeHtml(w.work_order_number)}</td><td>${escapeHtml(w.type)}</td><td>${escapeHtml(w.priority)}</td><td>${escapeHtml(w.status)}</td><td>${escapeHtml(w.assigned_to || '—')}</td><td>${escapeHtml(formatDate(w.scheduled_date))}</td><td>${escapeHtml(formatDate(w.completed_date))}</td><td>${escapeHtml(formatDate(w.closed_at))}</td></tr>`).join('');
-      const m = maintenanceMonthly || {};
-      printReport(`تقرير الصيانة الشهري - ${monthLabel}`, `<div class="grid">
+      const m = maintenanceReport || {};
+      printReport(`تقرير الصيانة - ${reportLabel}`, `<div class="grid">
         <div class="card"><div class="label">أوامر الصيانة المنشأة</div><div class="value">${m.work_orders_created ?? 0}</div></div>
         <div class="card"><div class="label">المكتملة خلال الشهر</div><div class="value">${m.work_orders_completed ?? 0}</div></div>
         <div class="card"><div class="label">المغلقة</div><div class="value">${m.work_orders_closed ?? 0}</div></div>
@@ -179,7 +184,7 @@ export function ReportsPage() {
         <div class="card"><div class="label">تكلفة الصيانة</div><div class="value">${formatCurrency(Number(m.total_maintenance_cost || 0))}</div></div>
         <div class="card"><div class="label">ساعات التوقف المسجلة</div><div class="value">${formatNumber(Number(m.total_downtime_hours || 0))}</div></div>
         <div class="card"><div class="label">متوسط زمن الحل</div><div class="value">${m.average_resolution_hours == null ? '—' : formatNumber(Number(m.average_resolution_hours)) + ' ساعة'}</div></div>
-      </div><h2>تفاصيل دورة الصيانة خلال الشهر</h2><table><thead><tr><th>رقم الأمر</th><th>النوع</th><th>الأولوية</th><th>الحالة</th><th>المسؤول</th><th>الموعد</th><th>اكتمل</th><th>أُغلق</th></tr></thead><tbody>${rows || '<tr><td colspan="8">لا توجد حركة صيانة مسجلة لهذا الشهر.</td></tr>'}</tbody></table><p class="footer">المؤشرات الحسابية في هذا القسم صادرة من قاعدة البيانات وفق فترة شهرية موحدة، وليست تقديرات واجهة.</p>`);
+      </div><h2>تفاصيل دورة الصيانة خلال الفترة</h2><table><thead><tr><th>رقم الأمر</th><th>النوع</th><th>الأولوية</th><th>الحالة</th><th>المسؤول</th><th>الموعد</th><th>اكتمل</th><th>أُغلق</th></tr></thead><tbody>${rows || '<tr><td colspan="8">لا توجد حركة صيانة مسجلة لهذه الفترة.</td></tr>'}</tbody></table><p class="footer">المؤشرات الحسابية في هذا القسم صادرة من قاعدة البيانات وفق الفترة المختارة، وليست تقديرات واجهة.</p>`);
       return;
     }
     printReport('التقرير التشغيلي الشامل', `<div class="grid">
@@ -189,7 +194,7 @@ export function ReportsPage() {
       <div class="card"><div class="label">الفواتير</div><div class="value">${data.invoices.length}</div></div>
       <div class="card"><div class="label">أعطال مفتوحة</div><div class="value">${openFaults}</div></div>
       <div class="card"><div class="label">أوامر صيانة مفتوحة</div><div class="value">${openWOs}</div></div>
-    </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج خلال الفترة المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل في الفواتير</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>الفاقد المحسوب</th><td>غير متاح — يلزم توحيد فترة الإنتاج والاستهلاك</td></tr><tr><th>نسبة الفاقد</th><td>غير متاحة — يلزم توحيد فترة القياس</td></tr></tbody></table>
+    </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج خلال الفترة المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل في الفواتير</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>فجوة ميزان المياه</th><td>${waterBalanceComparable ? formatNumber(waterBalanceGap)+' م³' : 'غير متاحة — بيانات الفترة غير مكتملة'}</td></tr><tr><th>التصنيف</th><td>${waterBalanceComparable ? 'فجوة ميزان المياه وليست NRW نهائياً' : 'غير مكتمل'}</td></tr></tbody></table>
     <h2>الإيرادات والتحصيل</h2><table><tbody><tr><th>إجمالي الفواتير</th><td>${formatCurrency(totalRevenue)}</td></tr><tr><th>التحصيل المعتمد</th><td>${formatCurrency(collected)}</td></tr><tr><th>المتأخرات</th><td>${formatCurrency(outstanding)}</td></tr></tbody></table>`);
   };
 
@@ -200,15 +205,14 @@ export function ReportsPage() {
     switch (type) {
       case 'production':
         filename = 'production_report';
-        rows = [['البئر', 'الإنتاج اليومي (م³)', 'الحالة', 'ساعات التشغيل']];
-        data.wells.forEach((w: any) => {
-          rows.push([w.code, String(w.daily_output_m3 || 0), w.status, String(w.operating_hours || 0)]);
-        });
+        rows = [['المؤشر', 'القيمة', 'المصدر', 'الفترة']];
+        rows.push(['الإنتاج المسجل', String(production), 'قاعدة البيانات', `${periodStart} → ${periodEnd}`]);
+        rows.push(['الاستهلاك المسجل', String(consumption), 'قاعدة البيانات', `${periodStart} → ${periodEnd}`]);
         break;
       case 'nrw':
         filename = 'nrw_report';
-        rows = [['الإنتاج (م³)', 'الاستهلاك (م³)', 'الفاقد (م³)', 'نسبة الفاقد (%)']];
-        rows.push(['—', '—', '—', '—']);
+        rows = [['الإنتاج (م³)', 'الاستهلاك (م³)', 'فجوة ميزان المياه (م³)', 'الحالة']];
+        rows.push([String(production), String(consumption), waterBalanceComparable ? String(waterBalanceGap) : '—', waterBalanceComparable ? 'قابلة للمقارنة' : 'غير مكتملة']);
         break;
       case 'revenue':
         filename = 'revenue_report';
@@ -231,8 +235,8 @@ export function ReportsPage() {
         break;
       case 'interruptions':
         filename = 'service_interruptions_report';
-        rows = [['رقم التوقف','النوع','الخطورة','الحالة','بداية التوقف','المشتركون المتأثرون','الفاقد المقدر م3']];
-        data.interruptions.forEach((x:any) => rows.push([x.interruption_number,x.interruption_type||'',x.severity,x.status,formatDate(x.started_at),String(x.affected_subscribers||0),String(x.estimated_water_loss_m3||0)]));
+        rows = [['رقم التوقف','النوع','الخطورة','الحالة','بداية التوقف','المشتركون المتأثرون','الإنتاج المحتمل المتأثر م3']];
+        data.interruptions.forEach((x:any) => rows.push([x.interruption_number,x.interruption_type||'',x.severity,x.status,formatDate(x.started_at),String(x.affected_subscribers||0),String(x.potentially_affected_production_m3||0)]));
         break;
       case 'assets':
         filename = 'assets_report';
@@ -250,7 +254,7 @@ export function ReportsPage() {
         filename = 'performance_report';
         rows = [['المؤشر', 'القيمة']];
         rows.push(['معدل التحصيل (%)', collectionRate.toFixed(1)]);
-        rows.push(['نسبة الفاقد (%)', '—']);
+        rows.push(['فجوة ميزان المياه (م³)', waterBalanceComparable ? String(waterBalanceGap) : '—']);
         rows.push(['اكتمال البيانات (%)', dataCompleteness.toFixed(1)]);
         rows.push(['أعطال مفتوحة', String(openFaults)]);
         rows.push(['أوامر صيانة معلقة', String(openWOs)]);
@@ -289,9 +293,10 @@ export function ReportsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 print:hidden">
-        <button onClick={() => exportPDF('full')} className="btn-primary flex items-center gap-2"><Printer size={16} /> طباعة / حفظ PDF</button>
-        <input aria-label="شهر تقرير الصيانة" type="month" className="input-field w-auto" value={reportMonth} onChange={e=>setReportMonth(e.target.value)} />
-        <button onClick={() => exportPDF('maintenance-monthly')} disabled={!maintenanceMonthly} className="btn-secondary flex items-center gap-2"><FileText size={16} /> تقرير الصيانة الشهري PDF</button>
+        <button disabled={!validPeriod} onClick={() => void fetchData(true)} className="btn-primary flex items-center gap-2 disabled:opacity-50"><Activity size={16} /> تطبيق الفترة</button>
+        <input aria-label="بداية الفترة" type="date" className="input-field w-auto" value={periodStart} onChange={e=>setPeriodStart(e.target.value)} />
+        <input aria-label="نهاية الفترة" type="date" className="input-field w-auto" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)} />
+        <button onClick={() => exportPDF('full')} className="btn-secondary flex items-center gap-2"><FileText size={16} /> PDF للفترة</button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
