@@ -168,15 +168,15 @@ export function ReportsPage() {
     const escapeHtml = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     if (type === 'maintenance') {
       const reportLabel = `${periodStart} → ${periodEnd}`;
-      const monthWOs = data.workOrders.filter((w: any) => {
+      const periodWOs = data.workOrders.filter((w: any) => {
         const inPeriod = (value: unknown) => { const d = String(value || '').slice(0,10); return d >= periodStart && d <= periodEnd; };
         return inPeriod(w.created_at) || inPeriod(w.completed_date) || inPeriod(w.closed_at);
       });
-      const rows = monthWOs.map((w: any) => `<tr><td>${escapeHtml(w.work_order_number)}</td><td>${escapeHtml(w.type)}</td><td>${escapeHtml(w.priority)}</td><td>${escapeHtml(w.status)}</td><td>${escapeHtml(w.assigned_to || '—')}</td><td>${escapeHtml(formatDate(w.scheduled_date))}</td><td>${escapeHtml(formatDate(w.completed_date))}</td><td>${escapeHtml(formatDate(w.closed_at))}</td></tr>`).join('');
+      const rows = periodWOs.map((w: any) => `<tr><td>${escapeHtml(w.work_order_number)}</td><td>${escapeHtml(w.type)}</td><td>${escapeHtml(w.priority)}</td><td>${escapeHtml(w.status)}</td><td>${escapeHtml(w.assigned_to || '—')}</td><td>${escapeHtml(formatDate(w.scheduled_date))}</td><td>${escapeHtml(formatDate(w.completed_date))}</td><td>${escapeHtml(formatDate(w.closed_at))}</td></tr>`).join('');
       const m = maintenanceReport || {};
       printReport(`تقرير الصيانة - ${reportLabel}`, `<div class="grid">
         <div class="card"><div class="label">أوامر الصيانة المنشأة</div><div class="value">${m.work_orders_created ?? 0}</div></div>
-        <div class="card"><div class="label">المكتملة خلال الشهر</div><div class="value">${m.work_orders_completed ?? 0}</div></div>
+        <div class="card"><div class="label">المكتملة خلال الفترة</div><div class="value">${m.work_orders_completed ?? 0}</div></div>
         <div class="card"><div class="label">المغلقة</div><div class="value">${m.work_orders_closed ?? 0}</div></div>
         <div class="card"><div class="label">المفتوحة عند نهاية الشهر</div><div class="value">${m.work_orders_open_at_end ?? 0}</div></div>
         <div class="card"><div class="label">الأعطال المبلغ عنها</div><div class="value">${m.faults_reported ?? 0}</div></div>
