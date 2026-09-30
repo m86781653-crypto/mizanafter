@@ -15,6 +15,7 @@ export function ReportsPage() {
   const [error, setError] = useState<string | null>(null);
   const [reportMonth, setReportMonth] = useState(() => new Date().toISOString().slice(0,7));
   const [maintenanceMonthly, setMaintenanceMonthly] = useState<any | null>(null);
+  const [operationalReport, setOperationalReport] = useState<any | null>(null);
   const [data, setData] = useState({
     customers: 0,
     meters: 0,
@@ -85,6 +86,25 @@ export function ReportsPage() {
   }, [currentProject, reportMonth]);
 
   useEffect(() => {
+    if (!currentProject || !reportMonth) return;
+    let active = true;
+    const start = new Date(reportMonth + '-01T00:00:00');
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+    const periodStart = start.getFullYear() + '-' + String(start.getMonth() + 1).padStart(2, '0') + '-01';
+    const periodEnd = end.getFullYear() + '-' + String(end.getMonth() + 1).padStart(2, '0') + '-01';
+    void supabase.rpc('mizan_operational_report', {
+      p_project_id: currentProject.id,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+    }).then(({ data: result, error: rpcError }) => {
+      if (!active) return;
+      if (rpcError) setError(rpcError.message);
+      else setOperationalReport(result as any);
+    });
+    return () => { active = false; };
+  }, [currentProject, reportMonth]);
+
+  useEffect(() => {
     if (!currentProject) return;
     const channel = supabase.channel(`mizan-reports-${currentProject.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
@@ -106,19 +126,21 @@ export function ReportsPage() {
   if (loading) return <LoadingSpinner label="جاري تحليل البيانات..." />;
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
-  const totalRevenue = data.invoices.reduce((s: number, i: any) => s + Number(i.grand_total), 0);
-  const collected = data.payments.filter((p: any) => p.approval_status === 'approved').reduce((s: number, p: any) => s + Number(p.amount), 0);
-  const outstanding = data.invoices.filter((i: any) => i.status !== 'paid').reduce((s: number, i: any) => s + Number(i.balance), 0);
-  const production = data.wells.reduce((s: number, w: any) => s + Number(w.daily_output_m3 || 0), 0);
-  const consumption = data.invoices.reduce((s: number, i: any) => s + Number(i.consumption_m3 || 0), 0);
-  // NRW requires production and consumption measured over the same reporting period.
-  // The current well value is a daily operational snapshot while invoices are historical, so do not derive a misleading KPI.
+  const report = operationalReport || {};
+  const totalRevenue = Number(report.invoiced_amount || 0);
+  const collected = Number(report.approved_collected_amount || 0);
+  const outstanding = Number(report.current_outstanding_amount || 0);
+  const production = Number(report.production_m3 || 0);
+  const consumption = Number(report.recorded_consumption_m3 || 0);
+  const waterBalanceGap = Number(report.water_balance_gap_m3 || 0);
+  const waterBalanceComparable = Boolean(report.water_balance_has_production && report.water_balance_has_consumption);
   const nrw: number | null = null;
   const collectionRate = totalRevenue > 0 ? (collected / totalRevenue * 100) : 0;
   const openFaults = data.faults.filter((f: any) => f.status !== 'closed' && f.status !== 'resolved').length;
   const openWOs = data.workOrders.filter((w: any) => w.status === 'open' || w.status === 'in_progress').length;
-  const anomalies = data.readings.filter((r: any) => r.anomaly_flag).length;
-  const dataCompleteness = data.meters > 0 ? Math.min(data.readings.length / data.meters * 100, 100) : 0; // coverage proxy, not period completeness
+  const anomalies = Number(report.reading_anomaly_count || 0);
+  const periodReadings = Number(report.reading_count || 0);
+  const dataCompleteness = data.meters > 0 ? Math.min(periodReadings / data.meters * 100, 100) : 0; // coverage proxy, not completeness
   const openInterruptions = data.interruptions.filter((x: any) => !['restored','closed'].includes(x.status)).length;
 
   const printReport = (title: string, body: string) => {
@@ -167,7 +189,7 @@ export function ReportsPage() {
       <div class="card"><div class="label">الفواتير</div><div class="value">${data.invoices.length}</div></div>
       <div class="card"><div class="label">أعطال مفتوحة</div><div class="value">${openFaults}</div></div>
       <div class="card"><div class="label">أوامر صيانة مفتوحة</div><div class="value">${openWOs}</div></div>
-    </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج اليومي المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل في الفواتير</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>الفاقد المحسوب</th><td>غير متاح — يلزم توحيد فترة الإنتاج والاستهلاك</td></tr><tr><th>نسبة الفاقد</th><td>غير متاحة — يلزم توحيد فترة القياس</td></tr></tbody></table>
+    </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج خلال الفترة المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل في الفواتير</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>الفاقد المحسوب</th><td>غير متاح — يلزم توحيد فترة الإنتاج والاستهلاك</td></tr><tr><th>نسبة الفاقد</th><td>غير متاحة — يلزم توحيد فترة القياس</td></tr></tbody></table>
     <h2>الإيرادات والتحصيل</h2><table><tbody><tr><th>إجمالي الفواتير</th><td>${formatCurrency(totalRevenue)}</td></tr><tr><th>التحصيل المعتمد</th><td>${formatCurrency(collected)}</td></tr><tr><th>المتأخرات</th><td>${formatCurrency(outstanding)}</td></tr></tbody></table>`);
   };
 
@@ -299,7 +321,7 @@ export function ReportsPage() {
           </div>
           <div>
             <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-neutral-600">الاستهلاك المسجل في الفواتير (تراكمي)</span>
+              <span className="text-neutral-600">الاستهلاك المسجل في الفواتير خلال الفترة</span>
               <span className="font-bold text-neutral-800">{formatNumber(consumption)} م³</span>
             </div>
             <div className="h-6 bg-neutral-100 rounded-lg overflow-hidden">
@@ -311,18 +333,18 @@ export function ReportsPage() {
           <div>
             <div className="flex justify-between text-sm mb-1.5">
               <span className="text-neutral-600">الفاقد (NRW)</span>
-              <span className={`font-bold ${nrw === null ? 'text-neutral-500' : nrw > 30 ? 'text-error-600' : 'text-warning-600'}`}>
-                غير متاح — يلزم توحيد فترة الإنتاج والاستهلاك
+              <span className="font-bold text-neutral-700">
+                {waterBalanceComparable ? `${formatNumber(waterBalanceGap)} م³` : 'غير متاح — لا توجد قياسات إنتاج واستهلاك متزامنة'}
               </span>
             </div>
             <div className="h-6 bg-neutral-100 rounded-lg overflow-hidden">
-              <div className="h-full bg-neutral-300 flex items-center justify-start px-2" style={{ width: '0%' }}>
-                <span className="text-xs text-white font-medium">—</span>
+              <div className="h-full bg-neutral-300 flex items-center justify-start px-2" style={{ width: waterBalanceComparable && production > 0 ? `${Math.min(Math.max(Math.abs(waterBalanceGap) / production * 100, 0), 100)}%` : '0%' }}>
+                <span className="text-xs text-white font-medium">{waterBalanceComparable ? formatNumber(Math.abs(waterBalanceGap) / Math.max(production, 1) * 100) + '%' : '—'}</span>
               </div>
             </div>
           </div>
         </div>
-        <p className="text-xs text-neutral-500 mt-4">لا يُحسب NRW إلا عند توفر إنتاج واستهلاك لنفس الفترة الزمنية وبنفس أساس القياس. البيانات الحالية غير قابلة للمقارنة زمنياً، لذلك يُعرض المؤشر كغير متاح بدلاً من إنتاج رقم مضلل.</p>
+        <p className="text-xs text-neutral-500 mt-4">الفارق أعلاه هو فجوة ميزان المياه (الإنتاج − الاستهلاك المسجل) للفترة، وليس تقديراً نهائياً لـ NRW. لا يُعرض NRW كنسبة إلا بعد اكتمال أساس القياس المطلوب.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
