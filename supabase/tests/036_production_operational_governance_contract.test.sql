@@ -1,4 +1,4 @@
-select plan(20);
+select plan(19);
 select has_column('public','faults','causes_service_interruption','fault records interruption decision');
 select has_column('public','faults','interruption_id','fault links interruption');
 select has_column('public','service_interruptions','fault_id','interruption links fault');
