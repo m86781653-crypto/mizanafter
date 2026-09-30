@@ -141,6 +141,9 @@ jobs:
       - name: Run extension schema security contract
         run: supabase test db supabase/tests/033_extension_schema_security_contract.test.sql
 
+      - name: Run governed operational reporting contract
+        run: supabase test db supabase/tests/034_governed_operational_reporting_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
