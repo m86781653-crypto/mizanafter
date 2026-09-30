@@ -19,3 +19,26 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
+      - name: Verify Copilot single authority contract
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const page = fs.readFileSync('src/pages/CopilotPage.tsx', 'utf8');
+          const edge = fs.readFileSync('supabase/functions/mizan-copilot/index.ts', 'utf8');
+          if (page.includes("daily_output_m3") || page.includes("from('payments').select('amount')")) {
+            throw new Error('CopilotPage contains a legacy local KPI source');
+          }
+          if (page.includes('const nrw = production > 0') || page.includes('const production = (wells || []).reduce')) {
+            throw new Error('CopilotPage contains a legacy local KPI calculation fallback');
+          }
+          if (edge.includes('daily_output_m3')) {
+            throw new Error('mizan-copilot must not expose wells.daily_output_m3 to the model context');
+          }
+          if (!edge.includes("mizan_operational_report")) {
+            throw new Error('mizan-copilot must use the governed operational report');
+          }
+          if (!edge.includes("mizan_log_ai_interaction")) {
+            throw new Error('mizan-copilot must use the governed AI audit path');
+          }
+          console.log('Copilot single-authority contract: PASS');
+          NODE
