@@ -39,9 +39,9 @@ select is(
 );
 
 select is(
-  has_function_privilege('authenticated','public.mizan_report_fault(uuid,text,text,text,uuid,uuid,uuid)','EXECUTE'),
+  has_function_privilege('authenticated','public.mizan_report_fault_with_impact(uuid,text,text,text,uuid,uuid,uuid,boolean,text,timestamptz,text,text,text,uuid,numeric)','EXECUTE'),
   true,
-  'authenticated can report faults through governed RPC'
+  'authenticated can report faults with governed interruption decision'
 );
 
 select is(
@@ -63,27 +63,27 @@ select is(
 );
 
 select is(
-  has_function_privilege('authenticated','public.mizan_update_work_order_status(uuid,text,text)','EXECUTE'),
+  has_function_privilege('authenticated','public.mizan_record_work_order_execution(uuid,numeric,text,numeric,text)','EXECUTE'),
   true,
-  'authenticated can update work-order status through governed RPC'
+  'authenticated can execute work orders through governed RPC'
 );
 
 select is(
-  has_function_privilege('anon','public.mizan_update_work_order_status(uuid,text,text)','EXECUTE'),
+  has_function_privilege('anon','public.mizan_record_work_order_execution(uuid,numeric,text,numeric,text)','EXECUTE'),
   false,
-  'anon cannot update work-order status'
+  'anon cannot execute work orders'
 );
 
 select is(
-  has_function_privilege('authenticated','public.mizan_report_service_interruption(uuid,text,text,text,text,text,timestamptz,integer,numeric)','EXECUTE'),
+  has_function_privilege('authenticated','public.mizan_close_work_order(uuid,text)','EXECUTE'),
   true,
-  'authenticated can report service interruptions through governed RPC'
+  'authenticated can request governed work-order closure'
 );
 
 select is(
-  has_function_privilege('anon','public.mizan_report_service_interruption(uuid,text,text,text,text,text,timestamptz,integer,numeric)','EXECUTE'),
+  has_function_privilege('anon','public.mizan_close_work_order(uuid,text)','EXECUTE'),
   false,
-  'anon cannot report service interruptions'
+  'anon cannot close work orders'
 );
 
 select is(
