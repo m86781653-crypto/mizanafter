@@ -43,6 +43,8 @@ export function MaintenancePage() {
   const [error,setError] = useState<string|null>(null);
   const [loading,setLoading] = useState(true);
   const [formError,setFormError] = useState<string|null>(null);
+  const [executionOrder,setExecutionOrder] = useState<WorkOrder|null>(null);
+  const [executionForm,setExecutionForm] = useState<Record<string,string>>({});
 
   const load = useCallback(async()=>{
     if(!currentProject){setLoading(false);return;}
@@ -174,6 +176,26 @@ export function MaintenancePage() {
     if(e)setError(e.message);else await load();
   };
 
+  const recordExecution=async()=>{
+    if(!executionOrder)return;
+    const {error:e}=await supabase.rpc('mizan_record_work_order_execution',{
+      p_work_order_id:executionOrder.id,
+      p_downtime_hours:executionForm.downtime_hours===''?null:Number(executionForm.downtime_hours||0),
+      p_parts_used:executionForm.parts_used||null,
+      p_cost:Number(executionForm.cost||0),
+      p_notes:executionForm.notes||null,
+    });
+    if(e){setError(e.message);return;}
+    setExecutionOrder(null);setExecutionForm({});await load();
+  };
+
+  const closeOrder=async(wo:WorkOrder)=>{
+    const notes=window.prompt('ملاحظات الإغلاق (اختياري)',wo.notes||'');
+    if(notes===null)return;
+    const {error:e}=await supabase.rpc('mizan_close_work_order',{p_work_order_id:wo.id,p_notes:notes||null});
+    if(e)setError(e.message);else await load();
+  };
+
   const printMemo=async(wo:WorkOrder)=>{
     if(!currentProject)return;
     const linkedFault=faults.find(f=>f.id===wo.fault_id);
@@ -226,10 +248,24 @@ export function MaintenancePage() {
 
     {tab==='outages'&&<div className="space-y-3">{interruptions.length===0?<div className="card"><EmptyState icon={Clock3} title="لا توجد توقفات" description="سجل توقف الخدمة أو الإنتاج مع بيانات الأثر والفاقد." action={{label:'تسجيل توقف',onClick:()=>openForm('outages')}}/></div>:interruptions.map(x=><div className="card p-4" key={x.id}><div className="flex flex-wrap justify-between gap-4"><div><div className="flex gap-2 items-center"><b>{x.interruption_number}</b><Badge status={x.severity} label={severityLabels[x.severity]||x.severity}/><Badge status={x.status} label={interruptionStatuses[x.status]||x.status}/></div><p className="font-medium mt-2">{interruptionLabels[x.interruption_type]||x.interruption_type}</p><p className="text-sm text-neutral-600 mt-1">{x.description||'—'}</p><p className="text-xs text-neutral-400 mt-2">بدأ {formatDate(x.started_at)} · المتأثرون {x.affected_subscribers} · الفاقد {x.estimated_water_loss_m3} م³</p></div><select className="input-field w-auto h-fit" value={x.status} onChange={e=>updateOutage(x,e.target.value)}>{Object.entries(interruptionStatuses).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div></div>)}</div>}
 
-    {tab==='workorders'&&<div className="space-y-3"><div className="flex justify-end"><button className="btn-primary" onClick={()=>openForm('workorders')}><Plus size={18}/> أمر صيانة جديد</button></div>{workOrders.length===0?<div className="card"><EmptyState icon={Wrench} title="لا توجد أوامر صيانة" description="العطل الجديد ينشئ أمراً تصحيحياً تلقائياً." /></div>:workOrders.map(wo=><div className="card p-4" key={wo.id}><div className="flex flex-wrap justify-between gap-4"><div><div className="flex gap-2 items-center flex-wrap"><b>{wo.work_order_number}</b><Badge status={statusColor(wo.priority)} label={'أولوية '+(wo.priority||'medium')}/><Badge status={statusColor(wo.status)} label={workOrderStatusLabels[wo.status]||wo.status}/></div><p className="text-sm mt-2">{wo.description||'—'}</p><p className="text-xs text-neutral-500 mt-2 flex items-center gap-2"><UserRound size={13}/>{wo.assigned_to||'لم يخصص منفذ بعد'} {wo.scheduled_date?' · '+wo.scheduled_date:''}</p>{wo.memo_issued_at&&<p className="text-xs text-emerald-600 mt-1">مذكرة صيانة صادرة · الإصدار {wo.memo_version}</p>}</div><div className="flex flex-wrap gap-2 h-fit"><button className="btn-secondary" onClick={()=>assignOrder(wo)}>تخصيص المنفذ</button><button className="btn-secondary" onClick={()=>printMemo(wo)}><Printer size={16}/> مذكرة صيانة</button><select className="input-field w-auto" value={wo.status} onChange={e=>updateOrder(wo,e.target.value)}><option value="open">مفتوح</option><option value="in_progress">قيد المعالجة</option><option value="completed">تم الحل</option><option value="cancelled">ملغى</option></select></div></div></div>)}</div>}
+    {tab==='workorders'&&<div className="space-y-3"><div className="flex justify-end"><button className="btn-primary" onClick={()=>openForm('workorders')}><Plus size={18}/> أمر صيانة جديد</button></div>{workOrders.length===0?<div className="card"><EmptyState icon={Wrench} title="لا توجد أوامر صيانة" description="العطل الجديد ينشئ أمراً تصحيحياً تلقائياً." /></div>:workOrders.map(wo=>{const canAssign=profile?.role==='project_manager'||profile?.role==='platform_admin';const canExecute=['operations_maintenance','maintenance_officer','platform_admin'].includes(profile?.role||'');const canClose=profile?.role==='project_manager'||profile?.role==='platform_admin';return <div className="card p-4" key={wo.id}><div className="flex flex-wrap justify-between gap-4"><div className="min-w-0"><div className="flex gap-2 items-center flex-wrap"><b>{wo.work_order_number}</b><Badge status={statusColor(wo.priority)} label={'أولوية '+(wo.priority||'medium')}/><Badge status={statusColor(wo.status)} label={workOrderStatusLabels[wo.status]||wo.status}/></div><p className="text-sm mt-2">{wo.description||'—'}</p><p className="text-xs text-neutral-500 mt-2 flex items-center gap-2"><UserRound size={13}/>{wo.assigned_to||'لم يخصص منفذ بعد'} {wo.scheduled_date?' · '+wo.scheduled_date:''}</p>{wo.memo_issued_at&&<p className="text-xs text-emerald-600 mt-1">مذكرة صيانة مولدة آلياً · الإصدار {wo.memo_version}</p>}{wo.status==='completed'&&<p className="text-xs text-success-600 mt-1">تم تسجيل التنفيذ والنتيجة — بانتظار إغلاق مدير المشروع.</p>}</div><div className="flex flex-wrap gap-2 h-fit">{canAssign&&wo.status!=='closed'&&wo.status!=='completed'&&wo.status!=='cancelled'&&<button className="btn-secondary" onClick={()=>assignOrder(wo)}>تخصيص المنفذ</button>}<button className="btn-secondary" onClick={()=>printMemo(wo)}><Printer size={16}/> مذكرة صيانة</button>{canExecute&&wo.status==='in_progress'&&<button className="btn-primary" onClick={()=>{setExecutionOrder(wo);setExecutionForm({downtime_hours:'',parts_used:'',cost:String(wo.cost||0),notes:''});}}>تسجيل التنفيذ</button>}{canClose&&wo.status==='completed'&&<button className="btn-primary" onClick={()=>closeOrder(wo)}><CheckCircle2 size={16}/> إغلاق</button>}{!['completed','closed'].includes(wo.status)&&<select className="input-field w-auto" value={wo.status} onChange={e=>updateOrder(wo,e.target.value)}><option value="open">مفتوح</option><option value="in_progress">قيد المعالجة</option><option value="review_required">مراجعة</option><option value="cancelled">ملغى</option></select>}</div></div></div>})}</div>}
 
     {tab==='assets'&&<div className="space-y-3"><div className="flex justify-end"><button className="btn-primary" onClick={()=>openForm('assets')}><Plus size={18}/> إضافة أصل</button></div><div className="card overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-right text-xs text-neutral-400 bg-neutral-50 border-b"><th className="px-4 py-3">الرمز</th><th className="px-4 py-3">الأصل</th><th className="px-4 py-3">التصنيف</th><th className="px-4 py-3">الحالة</th><th className="px-4 py-3">التكلفة</th></tr></thead><tbody className="divide-y">{assets.map(a=><tr key={a.id}><td className="px-4 py-3 font-semibold">{a.asset_code}</td><td className="px-4 py-3">{a.name_ar}</td><td className="px-4 py-3">{a.category||'—'}</td><td className="px-4 py-3"><Badge status={a.status} label={a.status}/></td><td className="px-4 py-3">{a.purchase_cost?formatCurrency(a.purchase_cost):'—'}</td></tr>)}</tbody></table></div></div>}
 
+
+    <Modal open={!!executionOrder} onClose={()=>setExecutionOrder(null)} title="تسجيل تنفيذ الصيانة" size="lg">
+      {executionOrder&&<div className="space-y-4">
+        <div className="rounded-xl bg-neutral-50 p-4 text-sm"><b>{executionOrder.work_order_number}</b><div className="text-neutral-500 mt-1">{executionOrder.description||'—'}</div></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><label className="label-field">مدة التوقف الفعلية (ساعات)</label><input className="input-field" type="number" min="0" step="0.01" value={executionForm.downtime_hours||''} onChange={e=>setExecutionForm({...executionForm,downtime_hours:e.target.value})}/></div>
+          <div><label className="label-field">تكلفة الصيانة</label><input className="input-field" type="number" min="0" step="0.01" value={executionForm.cost||'0'} onChange={e=>setExecutionForm({...executionForm,cost:e.target.value})}/></div>
+          <div className="md:col-span-2"><label className="label-field">الأجزاء/المواد المستخدمة</label><textarea className="input-field min-h-20" value={executionForm.parts_used||''} onChange={e=>setExecutionForm({...executionForm,parts_used:e.target.value})}/></div>
+          <div className="md:col-span-2"><label className="label-field">نتيجة التنفيذ والملاحظات</label><textarea className="input-field min-h-24" value={executionForm.notes||''} onChange={e=>setExecutionForm({...executionForm,notes:e.target.value})}/></div>
+        </div>
+        <div className="text-xs text-neutral-500">هذه الحقول تمثل حقائق ميدانية لا يستطيع النظام استنتاجها بأمان. الحسابات والتحقق من القيم السالبة يتمان داخل قاعدة البيانات.</div>
+        <div className="flex gap-3"><button className="btn-secondary flex-1" onClick={()=>setExecutionOrder(null)}>إلغاء</button><button className="btn-primary flex-1" onClick={recordExecution}>اعتماد التنفيذ وإرساله للإغلاق</button></div>
+      </div>}
+    </Modal>
     <Modal open={show} onClose={()=>setShow(false)} title={tab==='faults'?'تسجيل عطل':tab==='outages'?'تسجيل توقف خدمة':tab==='workorders'?'إنشاء أمر صيانة':'إضافة أصل'} size="lg">
       {tab==='faults'&&<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div><label className="label-field">نوع العطل *</label><select className="input-field" value={form.fault_type||''} onChange={e=>setForm({...form,fault_type:e.target.value})}><option value="">— اختر —</option><option value="pump_failure">عطل مضخة</option><option value="pipe_leak">تسريب</option><option value="electrical">كهربائي</option><option value="meter_issue">عداد</option><option value="water_quality">جودة المياه</option><option value="other">أخرى</option></select></div>

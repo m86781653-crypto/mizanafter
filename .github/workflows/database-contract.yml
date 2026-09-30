@@ -135,6 +135,9 @@ jobs:
       - name: Run maintenance workflow contract
         run: supabase test db supabase/tests/031_maintenance_workflow_contract.test.sql
 
+      - name: Run final maintenance lifecycle contract
+        run: supabase test db supabase/tests/032_maintenance_lifecycle_final_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup

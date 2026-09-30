@@ -13,6 +13,8 @@ export function ReportsPage() {
   const { currentProject } = useProject();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reportMonth, setReportMonth] = useState(() => new Date().toISOString().slice(0,7));
+  const [maintenanceMonthly, setMaintenanceMonthly] = useState<any | null>(null);
   const [data, setData] = useState({
     customers: 0,
     meters: 0,
@@ -71,6 +73,18 @@ export function ReportsPage() {
   useEffect(() => { fetchData(false); }, [fetchData]);
 
   useEffect(() => {
+    if (!currentProject || !reportMonth) return;
+    let active = true;
+    void supabase.rpc('mizan_monthly_maintenance_report', { p_project_id: currentProject.id, p_month: `${reportMonth}-01` })
+      .then(({ data: result, error: rpcError }) => {
+        if (!active) return;
+        if (rpcError) setError(rpcError.message);
+        else setMaintenanceMonthly(result as any);
+      });
+    return () => { active = false; };
+  }, [currentProject, reportMonth]);
+
+  useEffect(() => {
     if (!currentProject) return;
     const channel = supabase.channel(`mizan-reports-${currentProject.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `project_id=eq.${currentProject.id}` }, () => { void fetchData(true); })
@@ -125,19 +139,20 @@ export function ReportsPage() {
   const exportPDF = (type: 'full' | 'maintenance-monthly') => {
     const escapeHtml = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     if (type === 'maintenance-monthly') {
-      const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-      const inMonth = (value: unknown) => { if (!value) return false; const d = new Date(String(value)); return !Number.isNaN(d.getTime()) && d >= start && d <= end; };
-      const monthWOs = data.workOrders.filter((w: any) => inMonth(w.created_at || w.scheduled_date));
-      const monthFaults = data.faults.filter((f: any) => inMonth(f.reported_at || f.created_at));
+      const monthLabel = reportMonth;
+      const monthWOs = data.workOrders.filter((w: any) => String(w.created_at || '').slice(0,7) === reportMonth);
       const rows = monthWOs.map((w: any) => `<tr><td>${escapeHtml(w.work_order_number)}</td><td>${escapeHtml(w.type)}</td><td>${escapeHtml(w.priority)}</td><td>${escapeHtml(w.status)}</td><td>${escapeHtml(w.assigned_to || '—')}</td><td>${escapeHtml(formatDate(w.scheduled_date))}</td></tr>`).join('');
-      printReport('تقرير الصيانة الشهري', `<div class="grid">
-        <div class="card"><div class="label">أوامر الصيانة</div><div class="value">${monthWOs.length}</div></div>
-        <div class="card"><div class="label">مكتملة</div><div class="value">${monthWOs.filter((w:any)=>w.status==='completed').length}</div></div>
-        <div class="card"><div class="label">مفتوحة / قيد المعالجة</div><div class="value">${monthWOs.filter((w:any)=>['open','in_progress'].includes(w.status)).length}</div></div>
-        <div class="card"><div class="label">الأعطال المبلغ عنها</div><div class="value">${monthFaults.length}</div></div>
-      </div><h2>تفاصيل أوامر الصيانة</h2><table><thead><tr><th>رقم الأمر</th><th>النوع</th><th>الأولوية</th><th>الحالة</th><th>المسؤول</th><th>الموعد</th></tr></thead><tbody>${rows || '<tr><td colspan="6">لا توجد أوامر صيانة في هذا الشهر.</td></tr>'}</tbody></table>`);
+      const m = maintenanceMonthly || {};
+      printReport(`تقرير الصيانة الشهري - ${monthLabel}`, `<div class="grid">
+        <div class="card"><div class="label">أوامر الصيانة المنشأة</div><div class="value">${m.work_orders_created ?? 0}</div></div>
+        <div class="card"><div class="label">المكتملة خلال الشهر</div><div class="value">${m.work_orders_completed ?? 0}</div></div>
+        <div class="card"><div class="label">المغلقة</div><div class="value">${m.work_orders_closed ?? 0}</div></div>
+        <div class="card"><div class="label">المفتوحة عند نهاية الشهر</div><div class="value">${m.work_orders_open_at_end ?? 0}</div></div>
+        <div class="card"><div class="label">الأعطال المبلغ عنها</div><div class="value">${m.faults_reported ?? 0}</div></div>
+        <div class="card"><div class="label">تكلفة الصيانة</div><div class="value">${formatCurrency(Number(m.total_maintenance_cost || 0))}</div></div>
+        <div class="card"><div class="label">ساعات التوقف المسجلة</div><div class="value">${formatNumber(Number(m.total_downtime_hours || 0))}</div></div>
+        <div class="card"><div class="label">متوسط زمن الحل</div><div class="value">${m.average_resolution_hours == null ? '—' : formatNumber(Number(m.average_resolution_hours)) + ' ساعة'}</div></div>
+      </div><h2>تفاصيل أوامر الصيانة</h2><table><thead><tr><th>رقم الأمر</th><th>النوع</th><th>الأولوية</th><th>الحالة</th><th>المسؤول</th><th>الموعد</th></tr></thead><tbody>${rows || '<tr><td colspan="6">لا توجد أوامر صيانة منشأة في هذا الشهر.</td></tr>'}</tbody></table><p class="footer">المؤشرات الحسابية في هذا القسم صادرة من قاعدة البيانات وفق فترة شهرية موحدة، وليست تقديرات واجهة.</p>`);
       return;
     }
     printReport('التقرير التشغيلي الشامل', `<div class="grid">
@@ -246,9 +261,10 @@ export function ReportsPage() {
         <p className="text-sm text-neutral-500 mt-1">{currentProject.name_ar}</p>
       </div>
 
-      <div className="flex flex-wrap gap-2 print:hidden">
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
         <button onClick={() => exportPDF('full')} className="btn-primary flex items-center gap-2"><Printer size={16} /> طباعة / حفظ PDF</button>
-        <button onClick={() => exportPDF('maintenance-monthly')} className="btn-secondary flex items-center gap-2"><FileText size={16} /> تقرير الصيانة الشهري PDF</button>
+        <input aria-label="شهر تقرير الصيانة" type="month" className="input-field w-auto" value={reportMonth} onChange={e=>setReportMonth(e.target.value)} />
+        <button onClick={() => exportPDF('maintenance-monthly')} disabled={!maintenanceMonthly} className="btn-secondary flex items-center gap-2"><FileText size={16} /> تقرير الصيانة الشهري PDF</button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
