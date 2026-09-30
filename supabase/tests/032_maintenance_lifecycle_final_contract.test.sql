@@ -1,5 +1,5 @@
 begin;
-select plan(16);
+select plan(18);
 
 select is(has_function_privilege('authenticated','public.mizan_assign_work_order(uuid,text,date)','EXECUTE'),true,'authenticated can assign through governed RPC');
 select is(has_function_privilege('anon','public.mizan_assign_work_order(uuid,text,date)','EXECUTE'),false,'anon cannot assign');
@@ -14,6 +14,8 @@ select is(has_function_privilege('service_role','public.mizan_record_work_order_
 select is((select count(*)::integer from information_schema.columns where table_schema='public' and table_name='maintenance_work_orders' and column_name='memo_issued_at'),1,'maintenance memo issuance metadata exists');
 select is((select count(*)::integer from information_schema.columns where table_schema='public' and table_name='maintenance_work_orders' and column_name='completed_date'),1,'maintenance completion timestamp exists');
 select is((select count(*)::integer from information_schema.columns where table_schema='public' and table_name='maintenance_work_orders' and column_name='downtime_hours'),1,'maintenance downtime field exists');
+select is((select count(*)::integer from information_schema.columns where table_schema='public' and table_name='maintenance_work_orders' and column_name='closed_at'),1,'maintenance closure timestamp exists');
+select is((select count(*)::integer from information_schema.columns where table_schema='public' and table_name='maintenance_work_orders' and column_name='closed_by'),1,'maintenance closure actor exists');
 select is((select count(*)::integer from pg_trigger where tgname='mizan_fault_create_work_order' and tgrelid='public.faults'::regclass),1,'fault trigger automatically creates work order');
 select is(has_function_privilege('authenticated','public.mizan_update_work_order_status(uuid,text,text)','EXECUTE'),true,'authenticated can use governed status transition RPC');
 select is(has_function_privilege('service_role','public.mizan_monthly_maintenance_report(uuid,date)','EXECUTE'),false,'service_role is not used for reporting');
