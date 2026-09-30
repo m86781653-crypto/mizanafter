@@ -18,7 +18,7 @@ type Interruption = {
   cause_category:string|null; cause_description:string|null; description:string|null; started_at:string;
   restored_at:string|null; closed_at:string|null; affected_subscribers:number|null; estimated_water_loss_m3:number|null;
   reported_at:string; fault_id:string|null; asset_id:string|null; well_id:string|null; pump_id:string|null; production_meter_id:string|null; stop_reading_id:string|null; restart_reading_id:string|null; interruption_class:string; potentially_affected_production_m3:number|null;
-  reported_by:string|null; resolution_notes:string|null;
+  reported_by:string|null; resolution_notes:string|null; coverage_benchmark_lpd:number|null;
 };
 
 const interruptionLabels:Record<string,string> = {
