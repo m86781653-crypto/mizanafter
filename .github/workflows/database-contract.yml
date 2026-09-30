@@ -165,3 +165,5 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+      - name: Run governed payment recording lock contract
+        run: supabase test db supabase/tests/042_payment_recording_lock_contract.test.sql
