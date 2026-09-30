@@ -266,7 +266,7 @@ export function ReportsPage() {
         rows = [['المؤشر', 'القيمة']];
         rows.push(['معدل التحصيل (%)', collectionRate.toFixed(1)]);
         rows.push(['فجوة ميزان المياه (م³)', waterBalanceComparable ? String(waterBalanceGap) : '—']);
-        rows.push(['تغطية القراءات (%)', dataCompleteness.toFixed(1)]);
+        rows.push(['تغطية القراءات (%)', dataCoverage.toFixed(1)]);
         rows.push(['أعطال مفتوحة', String(openFaults)]);
         rows.push(['أوامر صيانة معلقة', String(openWOs)]);
         break;
@@ -423,7 +423,7 @@ export function ReportsPage() {
           <div>
             <h3 className="font-bold text-neutral-700 text-sm">ملاحظة حول جودة البيانات</h3>
             <p className="text-xs text-neutral-500 mt-1">
-              جميع المؤشرات محسوبة من البيانات الفعلية في النظام. نسبة اكتمال البيانات: {formatNumber(dataCompleteness)}%.
+              جميع المؤشرات محسوبة من البيانات الفعلية في النظام. نسبة اكتمال البيانات: {formatNumber(dataCoverage)}%.
               المؤشرات قد تكون غير دقيقة إذا كانت بيانات القراءات غير مكتملة. يُنصح بإتمام دورة قراءة العدادات لتحسين دقة المؤشرات.
             </p>
           </div>
