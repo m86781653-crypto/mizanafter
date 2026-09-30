@@ -52,24 +52,19 @@ export function FaultsOutagesPage(){
     setSaving(true);
     if(tab==='faults'){
       if(!form.fault_type?.trim()){setSaving(false);return;}
-      const number='FLT-'+new Date().getFullYear()+'-'+Date.now().toString().slice(-7);
-      const {data,error:e}=await supabase.from('faults').insert({project_id:currentProject.id,fault_number:number,fault_type:form.fault_type,severity:form.severity||'medium',status:'reported',description:form.description||null,reported_by:profile.full_name,reporter_type:'staff'}).select().single();
+      const {data,error:e}=await supabase.rpc('mizan_report_fault',{p_project_id:currentProject.id,p_fault_type:form.fault_type,p_severity:form.severity||'medium',p_description:form.description||null,p_asset_id:form.asset_id||null,p_well_id:form.well_id||null,p_pump_id:form.pump_id||null});
       if(!e&&data){setFaults(v=>[data as Fault,...v]);setShow(false);setForm({});}else setError(e?.message||'تعذر تسجيل العطل');
     }else{
       if(!form.description?.trim()){setSaving(false);return;}
-      const number='INT-'+new Date().getFullYear()+'-'+Date.now().toString().slice(-7);
-      const {data,error:e}=await supabase.from('service_interruptions').insert({project_id:currentProject.id,interruption_number:number,interruption_type:form.interruption_type||'service_stop',severity:form.severity||'medium',status:'open',description:form.description,cause_category:form.cause_category||null,started_at:form.started_at||new Date().toISOString(),affected_subscribers:Number(form.affected_subscribers||0),estimated_water_loss_m3:Number(form.water_loss||0),reported_by:profile.id}).select().single();
+      const {data,error:e}=await supabase.rpc('mizan_report_service_interruption',{p_project_id:currentProject.id,p_interruption_type:form.interruption_type||'service_stop',p_severity:form.severity||'medium',p_description:form.description,p_cause_category:form.cause_category||null,p_cause_description:null,p_started_at:form.started_at||new Date().toISOString(),p_affected_subscribers:Number(form.affected_subscribers||0),p_estimated_water_loss_m3:Number(form.water_loss||0)});
       if(!e&&data){setInterruptions(v=>[data as Interruption,...v]);setShow(false);setForm({});}else setError(e?.message||'تعذر تسجيل التوقف');
     }
     setSaving(false);
   };
 
   const updateInterruption=async(item:Interruption,status:string)=>{
-    const updates:Record<string,unknown>={status};
-    if(status==='restored')updates.restored_at=new Date().toISOString();
-    if(status==='closed')updates.closed_at=new Date().toISOString();
-    const {error:e}=await supabase.from('service_interruptions').update(updates).eq('id',item.id);
-    if(e)setError(e.message);else setInterruptions(v=>v.map(x=>x.id===item.id?{...x,...updates} as Interruption:x));
+    const {error:e}=await supabase.rpc('mizan_update_service_interruption_status',{p_interruption_id:item.id,p_status:status,p_resolution_notes:status==='closed'?'تم إغلاق التوقف بعد الاستعادة.':null});
+    if(e)setError(e.message);else await load();
   };
 
   if(!currentProject)return <div className="text-center py-20 text-neutral-400">اختر مشروعاً للبدء</div>;
