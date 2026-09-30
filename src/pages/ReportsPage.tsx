@@ -289,7 +289,7 @@ export function ReportsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 print:hidden">
-        <button onClick={() => exportPDF('full')} className="btn-primary flex items-center gap-2"><Printer size={16} /> طباعة / حفظ PDF</button>
+        <button disabled={!validPeriod} onClick={() => void load()} className="btn-primary flex items-center gap-2 disabled:opacity-50"><Activity size={16} /> تطبيق الفترة</button>
         <input aria-label="بداية الفترة" type="date" className="input-field w-auto" value={periodStart} onChange={e=>setPeriodStart(e.target.value)} />
         <input aria-label="نهاية الفترة" type="date" className="input-field w-auto" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)} />
         <button onClick={() => exportPDF('full')} className="btn-secondary flex items-center gap-2"><FileText size={16} /> PDF للفترة</button>
