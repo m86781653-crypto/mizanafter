@@ -151,6 +151,9 @@ jobs:
       - name: Run production operational governance contract
         run: supabase test db supabase/tests/036_production_operational_governance_contract.test.sql
 
+      - name: Run AI audit write path contract
+        run: supabase test db supabase/tests/037_ai_audit_write_path_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
