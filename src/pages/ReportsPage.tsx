@@ -140,8 +140,13 @@ export function ReportsPage() {
     const escapeHtml = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     if (type === 'maintenance-monthly') {
       const monthLabel = reportMonth;
-      const monthWOs = data.workOrders.filter((w: any) => String(w.created_at || '').slice(0,7) === reportMonth);
-      const rows = monthWOs.map((w: any) => `<tr><td>${escapeHtml(w.work_order_number)}</td><td>${escapeHtml(w.type)}</td><td>${escapeHtml(w.priority)}</td><td>${escapeHtml(w.status)}</td><td>${escapeHtml(w.assigned_to || '—')}</td><td>${escapeHtml(formatDate(w.scheduled_date))}</td></tr>`).join('');
+      const monthWOs = data.workOrders.filter((w: any) => {
+        const created = String(w.created_at || '').slice(0,7);
+        const completed = String(w.completed_date || '').slice(0,7);
+        const closed = String(w.closed_at || '').slice(0,7);
+        return created === reportMonth || completed === reportMonth || closed === reportMonth;
+      });
+      const rows = monthWOs.map((w: any) => `<tr><td>${escapeHtml(w.work_order_number)}</td><td>${escapeHtml(w.type)}</td><td>${escapeHtml(w.priority)}</td><td>${escapeHtml(w.status)}</td><td>${escapeHtml(w.assigned_to || '—')}</td><td>${escapeHtml(formatDate(w.scheduled_date))}</td><td>${escapeHtml(formatDate(w.completed_date))}</td><td>${escapeHtml(formatDate(w.closed_at))}</td></tr>`).join('');
       const m = maintenanceMonthly || {};
       printReport(`تقرير الصيانة الشهري - ${monthLabel}`, `<div class="grid">
         <div class="card"><div class="label">أوامر الصيانة المنشأة</div><div class="value">${m.work_orders_created ?? 0}</div></div>
@@ -152,7 +157,7 @@ export function ReportsPage() {
         <div class="card"><div class="label">تكلفة الصيانة</div><div class="value">${formatCurrency(Number(m.total_maintenance_cost || 0))}</div></div>
         <div class="card"><div class="label">ساعات التوقف المسجلة</div><div class="value">${formatNumber(Number(m.total_downtime_hours || 0))}</div></div>
         <div class="card"><div class="label">متوسط زمن الحل</div><div class="value">${m.average_resolution_hours == null ? '—' : formatNumber(Number(m.average_resolution_hours)) + ' ساعة'}</div></div>
-      </div><h2>تفاصيل أوامر الصيانة</h2><table><thead><tr><th>رقم الأمر</th><th>النوع</th><th>الأولوية</th><th>الحالة</th><th>المسؤول</th><th>الموعد</th></tr></thead><tbody>${rows || '<tr><td colspan="6">لا توجد أوامر صيانة منشأة في هذا الشهر.</td></tr>'}</tbody></table><p class="footer">المؤشرات الحسابية في هذا القسم صادرة من قاعدة البيانات وفق فترة شهرية موحدة، وليست تقديرات واجهة.</p>`);
+      </div><h2>تفاصيل دورة الصيانة خلال الشهر</h2><table><thead><tr><th>رقم الأمر</th><th>النوع</th><th>الأولوية</th><th>الحالة</th><th>المسؤول</th><th>الموعد</th><th>اكتمل</th><th>أُغلق</th></tr></thead><tbody>${rows || '<tr><td colspan="8">لا توجد حركة صيانة مسجلة لهذا الشهر.</td></tr>'}</tbody></table><p class="footer">المؤشرات الحسابية في هذا القسم صادرة من قاعدة البيانات وفق فترة شهرية موحدة، وليست تقديرات واجهة.</p>`);
       return;
     }
     printReport('التقرير التشغيلي الشامل', `<div class="grid">
