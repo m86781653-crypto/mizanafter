@@ -1,4 +1,4 @@
-select plan(19);
+select plan(20);
 select has_column('public','faults','causes_service_interruption','fault records interruption decision');
 select has_column('public','faults','interruption_id','fault links interruption');
 select has_column('public','service_interruptions','fault_id','interruption links fault');
@@ -18,4 +18,5 @@ select is(has_table_privilege('anon','public.faults','INSERT'),false,'anon canno
 select is(has_table_privilege('authenticated','public.faults','INSERT'),false,'authenticated cannot directly insert faults');
 select is(has_table_privilege('authenticated','public.service_interruptions','INSERT'),false,'authenticated cannot directly insert interruptions');
 select is(has_table_privilege('authenticated','public.maintenance_work_orders','INSERT'),false,'authenticated cannot directly insert work orders');
+select is(has_table_privilege('authenticated','public.assets','INSERT'),false,'authenticated cannot directly insert assets');
 select * from finish();
