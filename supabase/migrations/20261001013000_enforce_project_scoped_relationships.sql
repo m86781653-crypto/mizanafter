@@ -5,6 +5,7 @@
 create unique index if not exists uq_customers_project_id_id on public.customers(project_id,id);
 create unique index if not exists uq_meters_project_id_id on public.meters(project_id,id);
 create unique index if not exists uq_wells_project_id_id on public.wells(project_id,id);
+create unique index if not exists uq_meter_readings_project_id_id on public.meter_readings(project_id,id);
 create unique index if not exists uq_pumps_project_id_id on public.pumps(project_id,id);
 create unique index if not exists uq_assets_project_id_id on public.assets(project_id,id);
 create unique index if not exists uq_tariffs_project_id_id on public.tariffs(project_id,id);
