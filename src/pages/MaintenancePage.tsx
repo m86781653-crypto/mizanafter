@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Activity, Wrench, Boxes, Clock3, Plus, Printer, UserRound, CheckCircle2, Camera } from 'lucide-react';
+import { AlertTriangle, Activity, Wrench, Boxes, Clock3, Plus, Printer, UserRound, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useProject } from '@/context/ProjectContext';
 import { useAuth } from '@/context/AuthContext';
@@ -16,7 +16,8 @@ type Tab = 'overview' | 'faults' | 'outages' | 'workorders' | 'assets';
 type Interruption = {
   id:string; project_id:string; interruption_number:string; interruption_type:string; severity:string; status:string;
   cause_category:string|null; cause_description:string|null; description:string|null; started_at:string;
-  restored_at:string|null; closed_at:string|null; affected_subscribers:number; estimated_water_loss_m3:number;
+  restored_at:string|null; closed_at:string|null; affected_subscribers:number|null; estimated_water_loss_m3:number|null;
+  reported_at:string; fault_id:string|null; asset_id:string|null; well_id:string|null; pump_id:string|null; production_meter_id:string|null; stop_reading_id:string|null; restart_reading_id:string|null; interruption_class:string; potentially_affected_production_m3:number|null;
   reported_by:string|null; resolution_notes:string|null;
 };
 
