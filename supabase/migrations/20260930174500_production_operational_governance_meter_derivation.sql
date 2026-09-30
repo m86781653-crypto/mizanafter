@@ -20,7 +20,7 @@ begin
    select id into v_meter from public.water_production_meters where project_id=v_i.project_id and pump_id=v_i.pump_id and status='active' order by created_at desc limit 1;
  end if;
  if v_meter is null then raise exception 'PRODUCTION_METER_REQUIRED'; end if;
- select * into v_r from public.mizan_capture_water_production_reading(v_meter,p_reading_value,coalesce(p_captured_at,now()),'stop',p_image_url,p_gps_lat,p_gps_lng,p_gps_accuracy,p_notes);
+ select * into v_r from public.mizan_capture_water_production_reading(v_meter,p_reading_value,coalesce(p_captured_at,now()),case when p_evidence_phase='stop' then 'stop' else 'check' end,p_image_url,p_gps_lat,p_gps_lng,p_gps_accuracy,p_notes);
  if p_evidence_phase='stop' then update public.service_interruptions set production_meter_id=v_meter,stop_reading_id=v_r.id where id=v_i.id;
  else update public.service_interruptions set production_meter_id=v_meter,restart_reading_id=v_r.id where id=v_i.id; end if;
  return jsonb_build_object('interruption_id',v_i.id,'reading_id',v_r.id,'evidence_phase',p_evidence_phase,'reading',to_jsonb(v_r));
