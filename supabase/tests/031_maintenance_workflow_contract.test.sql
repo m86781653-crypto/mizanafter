@@ -45,9 +45,9 @@ select is(
 );
 
 select is(
-  has_function_privilege('anon','public.mizan_report_fault(uuid,text,text,text,uuid,uuid,uuid)','EXECUTE'),
+  has_function_privilege('anon','public.mizan_report_fault_with_impact(uuid,text,text,text,uuid,uuid,uuid,boolean,text,timestamptz,text,text,text,uuid,numeric)','EXECUTE'),
   false,
-  'anon cannot report faults'
+  'anon cannot report faults with interruption decision'
 );
 
 select is(
