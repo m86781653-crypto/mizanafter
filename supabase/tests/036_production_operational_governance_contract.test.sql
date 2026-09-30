@@ -1,4 +1,4 @@
-select plan(26);
+select plan(27);
 select has_column('public','faults','causes_service_interruption','fault records interruption decision');
 select has_column('public','faults','interruption_id','fault links interruption');
 select has_column('public','service_interruptions','fault_id','interruption links fault');
@@ -25,4 +25,5 @@ select is(has_function_privilege('authenticated','public.mizan_report_fault(uuid
 select is(has_function_privilege('authenticated','public.mizan_update_fault_status(uuid,text,text)','EXECUTE'),false,'legacy fault status RPC is retired');
 select is(has_function_privilege('authenticated','public.mizan_update_work_order_status(uuid,text,text)','EXECUTE'),false,'legacy work-order status RPC is retired');
 select is(has_function_privilege('authenticated','public.mizan_monthly_maintenance_report(uuid,date)','EXECUTE'),false,'legacy monthly report RPC is retired');
+select ok(position('operations_maintenance' in coalesce((select pg_get_constraintdef(oid) from pg_constraint where conrelid='private.subtenant_user_slots'::regclass and conname='subtenant_user_slots_role_check'),'')) > 0,'provisioning slots include all four operational roles');
 select * from finish();
