@@ -144,6 +144,10 @@ jobs:
       - name: Run governed operational reporting contract
         run: supabase test db supabase/tests/034_governed_operational_reporting_contract.test.sql
 
+      - name: Run MIZAN security definer contract
+        run: supabase test db supabase/tests/035_mizan_security_definer_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+
