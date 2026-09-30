@@ -56,13 +56,33 @@ export function SettingsPage() {
     if (newPassword !== confirmPassword) { setPwdError('كلمتا المرور غير متطابقتين'); return; }
 
     setPwdLoading(true);
-    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-    if (updateError) { setPwdError(updateError.message); setPwdLoading(false); return; }
+    try {
+      const passwordAttributes = {
+        password: newPassword,
+        current_password: currentPassword,
+      } as Parameters<typeof supabase.auth.updateUser>[0];
 
-    if (user) {
-      await supabase.from('profiles').update({ must_change_password: false }).eq('id', user.id);
+      const { error: updateError } = await supabase.auth.updateUser(passwordAttributes);
+      if (updateError) {
+        const message = updateError.message.toLowerCase();
+        if (message.includes('current password')) {
+          setPwdError('كلمة المرور الحالية غير صحيحة.');
+        } else {
+          setPwdError(updateError.message);
+        }
+        return;
+      }
+
+      const { error: profileError } = await supabase.rpc('mizan_complete_password_change');
+      if (profileError) {
+        setPwdError('تم تغيير كلمة المرور، لكن تعذر إكمال إعداد الحساب. أعد تحميل الصفحة ثم حاول مرة أخرى.');
+        return;
+      }
+
+      setPwdSuccess(true);
+    } catch {
+      setPwdError('تعذر إكمال تغيير كلمة المرور. يرجى المحاولة مرة أخرى.');
     }
-    setPwdSuccess(true);
     setPwdLoading(false);
     setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
   };
