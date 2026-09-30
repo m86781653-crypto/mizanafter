@@ -13,8 +13,15 @@ export function ReportsPage() {
   const { currentProject } = useProject();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [periodStart, setPeriodStart] = useState(() => new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0,10));
-  const [periodEnd, setPeriodEnd] = useState(() => new Date().toISOString().slice(0,10));
+  const getYemenBusinessDate = () => new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Aden',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+
+  const [periodStart, setPeriodStart] = useState(() => `${new Date().getFullYear()}-01-01`);
+  const [periodEnd, setPeriodEnd] = useState(() => getYemenBusinessDate());
   const [maintenanceReport, setMaintenanceReport] = useState<any | null>(null);
   const [operationalReport, setOperationalReport] = useState<any | null>(null);
   const validPeriod = periodStart.length === 10 && periodEnd.length === 10 && periodEnd >= periodStart;
@@ -193,7 +200,7 @@ export function ReportsPage() {
       <div class="card"><div class="label">الفواتير</div><div class="value">${data.invoices.length}</div></div>
       <div class="card"><div class="label">أعطال مفتوحة</div><div class="value">${openFaults}</div></div>
       <div class="card"><div class="label">أوامر صيانة مفتوحة</div><div class="value">${openWOs}</div></div>
-    </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج خلال الفترة المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل في الفواتير</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>فجوة ميزان المياه</th><td>${waterBalanceComparable ? formatNumber(waterBalanceGap)+' م³' : 'غير متاحة — بيانات الفترة غير مكتملة'}</td></tr><tr><th>التصنيف</th><td>${waterBalanceComparable ? 'فجوة ميزان المياه وليست NRW نهائياً' : 'غير مكتمل'}</td></tr></tbody></table>
+    </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج خلال الفترة المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل من القراءات</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>فجوة ميزان المياه</th><td>${waterBalanceComparable ? formatNumber(waterBalanceGap)+' م³' : 'غير متاحة — بيانات الفترة غير مكتملة'}</td></tr><tr><th>التصنيف</th><td>${waterBalanceComparable ? 'فجوة ميزان المياه وليست NRW نهائياً' : 'غير مكتمل'}</td></tr></tbody></table>
     <h2>الإيرادات والتحصيل</h2><table><tbody><tr><th>إجمالي الفواتير</th><td>${formatCurrency(totalRevenue)}</td></tr><tr><th>التحصيل المعتمد</th><td>${formatCurrency(collected)}</td></tr><tr><th>المتأخرات</th><td>${formatCurrency(outstanding)}</td></tr></tbody></table>`);
   };
 
