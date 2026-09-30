@@ -25,15 +25,16 @@ export function ReportsPage() {
   const [maintenanceReport, setMaintenanceReport] = useState<any | null>(null);
   const [operationalReport, setOperationalReport] = useState<any | null>(null);
   const validPeriod = periodStart.length === 10 && periodEnd.length === 10 && periodEnd >= periodStart;
-  const toYemenBoundaryUtc = (date: string) => new Date(`${date}T00:00:00+03:00`).toISOString();
-  const periodStartAt = /^\\d{4}-\\d{2}-\\d{2}$/.test(periodStart) ? toYemenBoundaryUtc(periodStart) : periodStart;
-  const periodEndExclusiveAt = /^\\d{4}-\\d{2}-\\d{2}$/.test(periodEndExclusive) ? toYemenBoundaryUtc(periodEndExclusive) : periodEndExclusive;
 
   const periodEndExclusive = (() => {
     if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(periodEnd)) return periodEnd;
     const [year, month, day] = periodEnd.split('-').map(Number);
     return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
   })();
+
+  const toYemenBoundaryUtc = (date: string) => new Date(`${date}T00:00:00+03:00`).toISOString();
+  const periodStartAt = periodStart.length === 10 ? toYemenBoundaryUtc(periodStart) : periodStart;
+  const periodEndExclusiveAt = periodEndExclusive.length === 10 ? toYemenBoundaryUtc(periodEndExclusive) : periodEndExclusive;
   const [data, setData] = useState({
     customers: 0,
     meters: 0,
