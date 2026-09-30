@@ -68,7 +68,15 @@ export default {
     const payload = await aiResponse.json();
     const answer = payload?.candidates?.[0]?.content?.parts?.map((p: any) => p.text || '').join('').trim();
     if (!answer) return json({ error: 'لم ينتج محرك الذكاء الاصطناعي إجابة' }, 502);
-    await ctx.supabase.from('ai_logs').insert({ operation: 'mizan_copilot', model: 'gemini-3.8-flash', input_summary: question.slice(0, 500), output_summary: answer.slice(0, 1000), success: true, user_id: ctx.userClaims.sub, project_id });
+    const { error: aiLogError } = await ctx.supabase.rpc('mizan_log_ai_interaction', {
+      p_project_id: project_id,
+      p_question: question,
+      p_answer: answer,
+      p_model: 'gemini-3.8-flash',
+      p_success: true,
+      p_error_message: null,
+    });
+    if (aiLogError) return json({ error: 'تعذر تسجيل نشاط المساعد الذكي' }, 502);
     return json({ answer, model: 'gemini-3.8-flash', data_context: { anomalies: context.kpis.anomalies, open_faults: context.kpis.open_faults, open_interruptions: context.kpis.open_interruptions } });
   }),
 };
