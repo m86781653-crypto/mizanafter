@@ -157,4 +157,5 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
-
+      - name: Run project-scoped relationship contract
+        run: supabase test db supabase/tests/038_project_scoped_relationship_contract.test.sql
