@@ -45,7 +45,7 @@ export function ReportsPage() {
         supabase.from('payments').select('*').eq('project_id', pid).gte('payment_date', periodStart).lte('payment_date', periodEnd),
         supabase.from('meter_readings').select('*').eq('project_id', pid).gte('reading_date', periodStart).lte('reading_date', periodEnd),
         supabase.from('faults').select('*').eq('project_id', pid).gte('reported_at', periodStart).lte('reported_at', periodEnd),
-        supabase.from('maintenance_work_orders').select('*').eq('project_id', pid).gte('created_at', periodStart),
+        supabase.from('maintenance_work_orders').select('*').eq('project_id', pid),
         supabase.from('wells').select('*').eq('project_id', pid),
         supabase.from('pumps').select('*').eq('project_id', pid),
         supabase.from('assets').select('*').eq('project_id', pid),
@@ -159,19 +159,17 @@ export function ReportsPage() {
     printWindow.document.close();
   };
 
-  const exportPDF = (type: 'full' | 'maintenance-monthly') => {
+  const exportPDF = (type: 'full' | 'maintenance') => {
     const escapeHtml = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-    if (type === 'maintenance-monthly') {
-      const monthLabel = periodStart;
+    if (type === 'maintenance') {
+      const reportLabel = `${periodStart} → ${periodEnd}`;
       const monthWOs = data.workOrders.filter((w: any) => {
-        const created = String(w.created_at || '').slice(0,7);
-        const completed = String(w.completed_date || '').slice(0,7);
-        const closed = String(w.closed_at || '').slice(0,7);
-        return created === periodStart || completed === periodStart || closed === periodStart;
+        const inPeriod = (value: unknown) => { const d = String(value || '').slice(0,10); return d >= periodStart && d <= periodEnd; };
+        return inPeriod(w.created_at) || inPeriod(w.completed_date) || inPeriod(w.closed_at);
       });
       const rows = monthWOs.map((w: any) => `<tr><td>${escapeHtml(w.work_order_number)}</td><td>${escapeHtml(w.type)}</td><td>${escapeHtml(w.priority)}</td><td>${escapeHtml(w.status)}</td><td>${escapeHtml(w.assigned_to || '—')}</td><td>${escapeHtml(formatDate(w.scheduled_date))}</td><td>${escapeHtml(formatDate(w.completed_date))}</td><td>${escapeHtml(formatDate(w.closed_at))}</td></tr>`).join('');
       const m = maintenanceReport || {};
-      printReport(`تقرير الصيانة الشهري - ${monthLabel}`, `<div class="grid">
+      printReport(`تقرير الصيانة - ${reportLabel}`, `<div class="grid">
         <div class="card"><div class="label">أوامر الصيانة المنشأة</div><div class="value">${m.work_orders_created ?? 0}</div></div>
         <div class="card"><div class="label">المكتملة خلال الشهر</div><div class="value">${m.work_orders_completed ?? 0}</div></div>
         <div class="card"><div class="label">المغلقة</div><div class="value">${m.work_orders_closed ?? 0}</div></div>
@@ -180,7 +178,7 @@ export function ReportsPage() {
         <div class="card"><div class="label">تكلفة الصيانة</div><div class="value">${formatCurrency(Number(m.total_maintenance_cost || 0))}</div></div>
         <div class="card"><div class="label">ساعات التوقف المسجلة</div><div class="value">${formatNumber(Number(m.total_downtime_hours || 0))}</div></div>
         <div class="card"><div class="label">متوسط زمن الحل</div><div class="value">${m.average_resolution_hours == null ? '—' : formatNumber(Number(m.average_resolution_hours)) + ' ساعة'}</div></div>
-      </div><h2>تفاصيل دورة الصيانة خلال الشهر</h2><table><thead><tr><th>رقم الأمر</th><th>النوع</th><th>الأولوية</th><th>الحالة</th><th>المسؤول</th><th>الموعد</th><th>اكتمل</th><th>أُغلق</th></tr></thead><tbody>${rows || '<tr><td colspan="8">لا توجد حركة صيانة مسجلة لهذا الشهر.</td></tr>'}</tbody></table><p class="footer">المؤشرات الحسابية في هذا القسم صادرة من قاعدة البيانات وفق فترة شهرية موحدة، وليست تقديرات واجهة.</p>`);
+      </div><h2>تفاصيل دورة الصيانة خلال الفترة</h2><table><thead><tr><th>رقم الأمر</th><th>النوع</th><th>الأولوية</th><th>الحالة</th><th>المسؤول</th><th>الموعد</th><th>اكتمل</th><th>أُغلق</th></tr></thead><tbody>${rows || '<tr><td colspan="8">لا توجد حركة صيانة مسجلة لهذه الفترة.</td></tr>'}</tbody></table><p class="footer">المؤشرات الحسابية في هذا القسم صادرة من قاعدة البيانات وفق الفترة المختارة، وليست تقديرات واجهة.</p>`);
       return;
     }
     printReport('التقرير التشغيلي الشامل', `<div class="grid">
@@ -190,7 +188,7 @@ export function ReportsPage() {
       <div class="card"><div class="label">الفواتير</div><div class="value">${data.invoices.length}</div></div>
       <div class="card"><div class="label">أعطال مفتوحة</div><div class="value">${openFaults}</div></div>
       <div class="card"><div class="label">أوامر صيانة مفتوحة</div><div class="value">${openWOs}</div></div>
-    </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج خلال الفترة المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل في الفواتير</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>الفاقد المحسوب</th><td>غير متاح — يلزم توحيد فترة الإنتاج والاستهلاك</td></tr><tr><th>نسبة الفاقد</th><td>غير متاحة — يلزم توحيد فترة القياس</td></tr></tbody></table>
+    </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج خلال الفترة المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل في الفواتير</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>فجوة ميزان المياه</th><td>${waterBalanceComparable ? formatNumber(waterBalanceGap)+' م³' : 'غير متاحة — بيانات الفترة غير مكتملة'}</td></tr><tr><th>التصنيف</th><td>${waterBalanceComparable ? 'فجوة ميزان المياه وليست NRW نهائياً' : 'غير مكتمل'}</td></tr></tbody></table>
     <h2>الإيرادات والتحصيل</h2><table><tbody><tr><th>إجمالي الفواتير</th><td>${formatCurrency(totalRevenue)}</td></tr><tr><th>التحصيل المعتمد</th><td>${formatCurrency(collected)}</td></tr><tr><th>المتأخرات</th><td>${formatCurrency(outstanding)}</td></tr></tbody></table>`);
   };
 
@@ -201,9 +199,9 @@ export function ReportsPage() {
     switch (type) {
       case 'production':
         filename = 'production_report';
-        rows = [['البئر', 'الإنتاج اليومي (م³)', 'الحالة', 'ساعات التشغيل']];
-        rows.push(['إجمالي الفترة', String(production), 'من قاعدة البيانات', '—']);
-        rows.push(['الاستهلاك المسجل', String(consumption), 'من قاعدة البيانات', '—']);
+        rows = [['المؤشر', 'القيمة', 'المصدر', 'الفترة']];
+        rows.push(['الإنتاج المسجل', String(production), 'قاعدة البيانات', `${periodStart} → ${periodEnd}`]);
+        rows.push(['الاستهلاك المسجل', String(consumption), 'قاعدة البيانات', `${periodStart} → ${periodEnd}`]);
         break;
       case 'nrw':
         filename = 'nrw_report';
@@ -250,7 +248,7 @@ export function ReportsPage() {
         filename = 'performance_report';
         rows = [['المؤشر', 'القيمة']];
         rows.push(['معدل التحصيل (%)', collectionRate.toFixed(1)]);
-        rows.push(['نسبة الفاقد (%)', '—']);
+        rows.push(['فجوة ميزان المياه (م³)', waterBalanceComparable ? String(waterBalanceGap) : '—']);
         rows.push(['اكتمال البيانات (%)', dataCompleteness.toFixed(1)]);
         rows.push(['أعطال مفتوحة', String(openFaults)]);
         rows.push(['أوامر صيانة معلقة', String(openWOs)]);
