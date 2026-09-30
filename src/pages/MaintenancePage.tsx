@@ -137,7 +137,6 @@ export function MaintenancePage() {
     setSaving(true);setFormError(null);
     try{
       if(tab==='faults')await createFault();
-      else if(tab==='outages')await createOutage();
       else if(tab==='workorders')await createWorkOrder();
       else if(tab==='assets')await createAsset();
       else throw new Error('اختر نوع العملية');
