@@ -13,16 +13,28 @@ export function ReportsPage() {
   const { currentProject } = useProject();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [periodStart, setPeriodStart] = useState(() => new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0,10));
-  const [periodEnd, setPeriodEnd] = useState(() => new Date().toISOString().slice(0,10));
+  const getYemenBusinessDate = () => new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Aden',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+
+  const [periodStart, setPeriodStart] = useState(() => `${getYemenBusinessDate().slice(0, 4)}-01-01`);
+  const [periodEnd, setPeriodEnd] = useState(() => getYemenBusinessDate());
   const [maintenanceReport, setMaintenanceReport] = useState<any | null>(null);
   const [operationalReport, setOperationalReport] = useState<any | null>(null);
   const validPeriod = periodStart.length === 10 && periodEnd.length === 10 && periodEnd >= periodStart;
+
   const periodEndExclusive = (() => {
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(periodEnd)) return periodEnd;
+    if (periodEnd.length !== 10) return periodEnd;
     const [year, month, day] = periodEnd.split('-').map(Number);
     return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
   })();
+
+  const toYemenBoundaryUtc = (date: string) => new Date(`${date}T00:00:00+03:00`).toISOString();
+  const periodStartAt = periodStart.length === 10 ? toYemenBoundaryUtc(periodStart) : periodStart;
+  const periodEndExclusiveAt = periodEndExclusive.length === 10 ? toYemenBoundaryUtc(periodEndExclusive) : periodEndExclusive;
   const [data, setData] = useState({
     customers: 0,
     meters: 0,
@@ -46,15 +58,15 @@ export function ReportsPage() {
       const [c, m, inv, pay, r, f, wo, w, p, a, si] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('project_id', pid),
         supabase.from('meters').select('id', { count: 'exact', head: true }).eq('project_id', pid),
-        supabase.from('invoices').select('*').eq('project_id', pid).gte('issue_date', periodStart).lt('issue_date', periodEndExclusive),
-        supabase.from('payments').select('*').eq('project_id', pid).gte('payment_date', periodStart).lt('payment_date', periodEndExclusive),
-        supabase.from('meter_readings').select('*').eq('project_id', pid).gte('reading_date', periodStart).lt('reading_date', periodEndExclusive),
-        supabase.from('faults').select('*').eq('project_id', pid).gte('reported_at', periodStart).lt('reported_at', periodEndExclusive),
+        supabase.from('invoices').select('*').eq('project_id', pid).gte('issue_date', periodStartAt).lt('issue_date', periodEndExclusiveAt),
+        supabase.from('payments').select('*').eq('project_id', pid).gte('payment_date', periodStartAt).lt('payment_date', periodEndExclusiveAt),
+        supabase.from('meter_readings').select('*').eq('project_id', pid).gte('reading_date', periodStartAt).lt('reading_date', periodEndExclusiveAt),
+        supabase.from('faults').select('*').eq('project_id', pid).gte('reported_at', periodStartAt).lt('reported_at', periodEndExclusiveAt),
         supabase.from('maintenance_work_orders').select('*').eq('project_id', pid),
         supabase.from('wells').select('*').eq('project_id', pid),
         supabase.from('pumps').select('*').eq('project_id', pid),
         supabase.from('assets').select('*').eq('project_id', pid),
-        supabase.from('service_interruptions').select('*').eq('project_id', pid).lt('started_at', periodEndExclusive).or(`restored_at.is.null,restored_at.gte.${periodStart}`).order('started_at',{ ascending: false }),
+        supabase.from('service_interruptions').select('*').eq('project_id', pid).lt('started_at', periodEndExclusiveAt).or(`restored_at.is.null,restored_at.gte.${periodStartAt}`).order('started_at',{ ascending: false }),
       ]);
       const firstError = c.error || m.error || inv.error || pay.error || r.error || f.error || wo.error || w.error || p.error || a.error || si.error;
       if (firstError) throw firstError;
@@ -101,7 +113,7 @@ export function ReportsPage() {
     void supabase.rpc('mizan_operational_report', {
       p_project_id: currentProject.id,
       p_period_start: periodStart,
-      p_period_end: periodEnd,
+      p_period_end: periodEndExclusive,
     }).then(({ data: result, error: rpcError }) => {
       if (!active) return;
       if (rpcError) setError(rpcError.message);
@@ -140,14 +152,14 @@ export function ReportsPage() {
   const consumption = Number(report.recorded_consumption_m3 || 0);
   const waterBalanceGap = Number(report.water_balance_gap_m3 || 0);
   const waterBalanceComparable = Boolean(report.water_balance_has_production && report.water_balance_has_consumption);
-  const nrw: number | null = null;
+  const waterGapPercent = waterBalanceComparable && production > 0 ? (waterBalanceGap / production) * 100 : null;
   const collectionRate = totalRevenue > 0 ? (collected / totalRevenue * 100) : 0;
-  const openFaults = data.faults.filter((f: any) => f.status !== 'closed' && f.status !== 'resolved').length;
-  const openWOs = Number(maintenanceReport?.work_orders_open_at_end ?? data.workOrders.filter((w: any) => w.status === 'open' || w.status === 'in_progress').length);
+  const openFaults = Number(report.open_fault_count || 0);
+  const openWOs = Number(maintenanceReport?.work_orders_open_at_end ?? report.open_maintenance_count ?? 0);
   const anomalies = Number(report.reading_anomaly_count || 0);
   const periodReadings = Number(report.reading_count || 0);
-  const dataCompleteness = data.meters > 0 ? Math.min(periodReadings / data.meters * 100, 100) : 0; // coverage proxy, not completeness
-  const openInterruptions = data.interruptions.filter((x: any) => !['restored','closed'].includes(x.status)).length;
+  const dataCoverage = data.meters > 0 ? Math.min(periodReadings / data.meters * 100, 100) : 0; // coverage proxy, not completeness
+  const openInterruptions = Number(report.open_service_interruption_count || 0);
 
   const printReport = (title: string, body: string) => {
     const filename = `${currentProject.name_ar} - ${title}`;
@@ -188,12 +200,12 @@ export function ReportsPage() {
     }
     printReport('التقرير التشغيلي الشامل', `<div class="grid">
       <div class="card"><div class="label">معدل التحصيل</div><div class="value">${formatNumber(collectionRate)}%</div></div>
-      <div class="card"><div class="label">الفاقد NRW</div><div class="value">${nrw === null ? '—' : formatNumber(nrw)+'%'}</div></div>
-      <div class="card"><div class="label">اكتمال البيانات</div><div class="value">${formatNumber(dataCompleteness)}%</div></div>
-      <div class="card"><div class="label">الفواتير</div><div class="value">${data.invoices.length}</div></div>
+      <div class="card"><div class="label">الفجوة المائية</div><div class="value">${waterBalanceComparable ? formatNumber((waterBalanceGap / Math.max(production, 1)) * 100)+'%' : '—'}</div></div>
+      <div class="card"><div class="label">تغطية القراءات</div><div class="value">${formatNumber(dataCoverage)}%</div></div>
+      <div class="card"><div class="label">الفواتير</div><div class="value">${Number(report.invoice_count || 0)}</div></div>
       <div class="card"><div class="label">أعطال مفتوحة</div><div class="value">${openFaults}</div></div>
       <div class="card"><div class="label">أوامر صيانة مفتوحة</div><div class="value">${openWOs}</div></div>
-    </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج خلال الفترة المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل في الفواتير</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>فجوة ميزان المياه</th><td>${waterBalanceComparable ? formatNumber(waterBalanceGap)+' م³' : 'غير متاحة — بيانات الفترة غير مكتملة'}</td></tr><tr><th>التصنيف</th><td>${waterBalanceComparable ? 'فجوة ميزان المياه وليست NRW نهائياً' : 'غير مكتمل'}</td></tr></tbody></table>
+    </div><h2>ميزان المياه</h2><table><tbody><tr><th>الإنتاج خلال الفترة المسجل للآبار</th><td>${formatNumber(production)} م³</td></tr><tr><th>الاستهلاك المسجل من القراءات</th><td>${formatNumber(consumption)} م³</td></tr><tr><th>فجوة ميزان المياه</th><td>${waterBalanceComparable ? formatNumber(waterBalanceGap)+' م³' : 'غير متاحة — بيانات الفترة غير مكتملة'}</td></tr><tr><th>التصنيف</th><td>${waterBalanceComparable ? 'فجوة ميزان المياه وليست NRW نهائياً' : 'غير مكتمل'}</td></tr></tbody></table>
     <h2>الإيرادات والتحصيل</h2><table><tbody><tr><th>إجمالي الفواتير</th><td>${formatCurrency(totalRevenue)}</td></tr><tr><th>التحصيل المعتمد</th><td>${formatCurrency(collected)}</td></tr><tr><th>المتأخرات</th><td>${formatCurrency(outstanding)}</td></tr></tbody></table>`);
   };
 
@@ -223,7 +235,7 @@ export function ReportsPage() {
       case 'customers':
         filename = 'customers_report';
         rows = [['عدد المشتركين', 'عدد العدادات', 'عدد الفواتير', 'عدد القراءات']];
-        rows.push([String(data.customers), String(data.meters), String(data.invoices.length), String(data.readings.length)]);
+        rows.push([String(data.customers), String(data.meters), String(report.invoice_count || 0), String(periodReadings)]);
         break;
       case 'faults':
         filename = 'faults_report';
@@ -246,15 +258,15 @@ export function ReportsPage() {
         break;
       case 'quality':
         filename = 'data_quality_report';
-        rows = [['عدد العدادات', 'عدد القراءات', 'قراءات شاذة', 'اكتمال البيانات (%)']];
-        rows.push([String(data.meters), String(data.readings.length), String(anomalies), dataCompleteness.toFixed(1)]);
+        rows = [['عدد العدادات', 'عدد القراءات', 'قراءات شاذة', 'تغطية القراءات (%)']];
+        rows.push([String(data.meters), String(periodReadings), String(anomalies), dataCoverage.toFixed(1)]);
         break;
       case 'performance':
         filename = 'performance_report';
         rows = [['المؤشر', 'القيمة']];
         rows.push(['معدل التحصيل (%)', collectionRate.toFixed(1)]);
         rows.push(['فجوة ميزان المياه (م³)', waterBalanceComparable ? String(waterBalanceGap) : '—']);
-        rows.push(['اكتمال البيانات (%)', dataCompleteness.toFixed(1)]);
+        rows.push(['تغطية القراءات (%)', dataCoverage.toFixed(1)]);
         rows.push(['أعطال مفتوحة', String(openFaults)]);
         rows.push(['أوامر صيانة معلقة', String(openWOs)]);
         break;
@@ -274,7 +286,7 @@ export function ReportsPage() {
 
   const reports = [
     { id: 'production', title: 'تقرير الإنتاج والاستهلاك', desc: 'إنتاج المياه مقابل الاستهلاك المسجل', icon: Droplets, color: 'primary' },
-    { id: 'nrw', title: 'تقرير الفاقد (NRW)', desc: 'يظهر فقط عند توفر قياسات متزامنة لنفس الفترة', icon: TrendingDown, color: 'warning' },
+    { id: 'nrw', title: 'تقرير الفجوة المائية', desc: 'يظهر فقط عند توفر قياسات متزامنة لنفس الفترة', icon: TrendingDown, color: 'warning' },
     { id: 'revenue', title: 'تقرير الإيرادات والتحصيل', desc: 'الإيرادات، المحصّل، المتأخرات', icon: Receipt, color: 'success' },
     { id: 'customers', title: 'تقرير المشتركين', desc: 'إحصائيات المشتركين والأنواع', icon: Users, color: 'accent' },
     { id: 'faults', title: 'تقرير الأعطال والصيانة', desc: 'الأعطال، أوامر الصيانة، الأوقات', icon: AlertTriangle, color: 'error' },
@@ -300,8 +312,8 @@ export function ReportsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="معدل التحصيل" value={`${formatNumber(collectionRate)}%`} icon={Receipt} color={collectionRate > 60 ? 'success' : 'warning'} />
-        <StatCard title="نسبة الفاقد" value="غير متاح" icon={TrendingDown} color="neutral" />
-        <StatCard title="اكتمال البيانات" value={`${formatNumber(dataCompleteness)}%`} icon={Activity} color={dataCompleteness > 80 ? 'success' : 'warning'} />
+        <StatCard title="نسبة الفجوة المائية" value={waterGapPercent === null ? "غير متاح" : `${formatNumber(waterGapPercent)}%`} icon={TrendingDown} color={waterGapPercent === null ? "neutral" : "warning"} />
+        <StatCard title="تغطية القراءات" value={`${formatNumber(dataCoverage)}%`} icon={Activity} color={dataCoverage > 80 ? 'success' : 'warning'} />
         <StatCard title="قراءات شاذة" value={formatNumber(anomalies)} icon={AlertTriangle} color={anomalies > 0 ? 'error' : 'neutral'} />
         <StatCard title="توقفات مفتوحة" value={formatNumber(openInterruptions)} icon={AlertTriangle} color={openInterruptions > 0 ? 'warning' : 'success'} />
       </div>
@@ -314,7 +326,7 @@ export function ReportsPage() {
         <div className="space-y-4">
           <div>
             <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-neutral-600">الإنتاج اليومي</span>
+              <span className="text-neutral-600">الإنتاج خلال الفترة</span>
               <span className="font-bold text-neutral-800">{formatNumber(production)} م³</span>
             </div>
             <div className="h-6 bg-neutral-100 rounded-lg overflow-hidden">
@@ -325,7 +337,7 @@ export function ReportsPage() {
           </div>
           <div>
             <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-neutral-600">الاستهلاك المسجل في الفواتير خلال الفترة</span>
+              <span className="text-neutral-600">الاستهلاك المسجل من القراءات خلال الفترة</span>
               <span className="font-bold text-neutral-800">{formatNumber(consumption)} م³</span>
             </div>
             <div className="h-6 bg-neutral-100 rounded-lg overflow-hidden">
@@ -336,7 +348,7 @@ export function ReportsPage() {
           </div>
           <div>
             <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-neutral-600">الفاقد (NRW)</span>
+              <span className="text-neutral-600">الفجوة المائية</span>
               <span className="font-bold text-neutral-700">
                 {waterBalanceComparable ? `${formatNumber(waterBalanceGap)} م³` : 'غير متاح — لا توجد قياسات إنتاج واستهلاك متزامنة'}
               </span>
@@ -411,7 +423,7 @@ export function ReportsPage() {
           <div>
             <h3 className="font-bold text-neutral-700 text-sm">ملاحظة حول جودة البيانات</h3>
             <p className="text-xs text-neutral-500 mt-1">
-              جميع المؤشرات محسوبة من البيانات الفعلية في النظام. نسبة اكتمال البيانات: {formatNumber(dataCompleteness)}%.
+              جميع المؤشرات محسوبة من البيانات الفعلية في النظام. نسبة اكتمال البيانات: {formatNumber(dataCoverage)}%.
               المؤشرات قد تكون غير دقيقة إذا كانت بيانات القراءات غير مكتملة. يُنصح بإتمام دورة قراءة العدادات لتحسين دقة المؤشرات.
             </p>
           </div>

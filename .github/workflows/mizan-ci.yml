@@ -42,3 +42,18 @@ jobs:
           }
           console.log('Copilot single-authority contract: PASS');
           NODE
+      - name: Verify UI source-of-truth contracts
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const reports = fs.readFileSync('src/pages/ReportsPage.tsx', 'utf8');
+          const settings = fs.readFileSync('src/pages/SettingsPage.tsx', 'utf8');
+          if (!reports.includes("timeZone: 'Asia/Aden'")) throw new Error('ReportsPage must derive business dates in Asia/Aden');
+          if (reports.includes("useState(() => new Date().toISOString().slice(0,10))")) throw new Error('ReportsPage uses unsafe UTC default date');
+          if (reports.includes("new Date(new Date().getFullYear(), 0, 1).toISOString()")) throw new Error('ReportsPage uses unsafe local-date-to-UTC conversion');
+          if (!reports.includes("periodEndExclusive")) throw new Error('ReportsPage must use exclusive end boundary');
+          if (!settings.includes("mizan_complete_password_change")) throw new Error('SettingsPage must use the governed password completion RPC');
+          if (settings.includes("profiles').update({ must_change_password: false")) throw new Error('SettingsPage must not update password state directly');
+          console.log('UI source-of-truth contracts: PASS');
+          NODE
+

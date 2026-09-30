@@ -91,15 +91,15 @@ export function CustomersPage() {
       } else {
         if (!form.customer_id) throw new Error('اختر المشترك أولاً');
         if ((form.meter_status || 'active') === 'active' && !form.meter_serial_number?.trim()) throw new Error('الرقم التسلسلي للعداد مطلوب للعداد النشط');
-        const { error: insertError } = await supabase.from('meters').insert({
-          project_id: currentProject.id,
-          customer_id: form.customer_id,
-          serial_number: form.meter_serial_number || null,
-          meter_type: form.meter_type || 'mechanical',
-          size_mm: form.meter_size_mm ? Number(form.meter_size_mm) : null,
-          status: form.meter_status || 'active',
+        const { error: rpcError } = await supabase.rpc('mizan_add_meter_to_customer', {
+          p_project_id: currentProject.id,
+          p_customer_id: form.customer_id,
+          p_meter_serial_number: form.meter_serial_number || null,
+          p_meter_type: form.meter_type || 'mechanical',
+          p_meter_size_mm: form.meter_size_mm ? Number(form.meter_size_mm) : null,
+          p_meter_status: form.meter_status || 'active',
         });
-        if (insertError) throw insertError;
+        if (rpcError) throw rpcError;
       }
       closeForm();
       await fetchData();

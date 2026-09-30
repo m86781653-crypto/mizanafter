@@ -40,6 +40,7 @@ export function DashboardPage() {
     lowConfidence: 0,
     openFaultCount: 0,
     openMaintenanceCount: 0,
+    waterBalanceComparable: false,
   });
 
   const fetchData = async (silent = false) => {
@@ -96,6 +97,7 @@ export function DashboardPage() {
         lowConfidence: lowConfidence.count || 0,
         openFaultCount: Number(operationalReport.open_fault_count || 0),
         openMaintenanceCount: Number(operationalReport.open_maintenance_count || 0),
+        waterBalanceComparable: Boolean(operationalReport.water_balance_has_production && operationalReport.water_balance_has_consumption),
       });
     } catch (err: any) {
       setError(err?.message || 'حدث خطأ غير متوقع أثناء تحميل البيانات');
@@ -141,7 +143,8 @@ export function DashboardPage() {
     return <ErrorState message={error} onRetry={fetchData} />;
   }
 
-  const nrw: number | null = stats.waterProduction > 0
+  const waterBalanceComparable = stats.waterBalanceComparable;
+  const waterGapPercent: number | null = waterBalanceComparable && stats.waterProduction > 0
     ? ((stats.waterProduction - stats.waterConsumption) / stats.waterProduction * 100)
     : null;
   const collectionRate = stats.totalRevenue > 0
@@ -175,21 +178,21 @@ export function DashboardPage() {
           value={`${formatNumber(stats.waterProduction)} م³`}
           icon={Droplets}
           color="primary"
-          subtitle="من إجمالي الآبار"
+          subtitle="من دورات الإنتاج المكتملة"
         />
         <StatCard
           title="الاستهلاك المسجل"
           value={`${formatNumber(stats.waterConsumption)} م³`}
           icon={Gauge}
           color="accent"
-          subtitle="من الفواتير"
+          subtitle="من القراءات المعتمدة"
         />
         <StatCard
-          title="الفاقد (NRW)"
-          value={nrw === null ? '—' : `${formatNumber(nrw)}%`}
+          title="الفجوة المائية"
+          value={waterGapPercent === null ? '—' : `${formatNumber(waterGapPercent)}%`}
           icon={TrendingDown}
-          color={nrw === null ? 'success' : nrw > 30 ? 'error' : nrw > 15 ? 'warning' : 'success'}
-          subtitle="غير مدفوع العائد"
+          color={waterGapPercent === null ? 'success' : waterGapPercent > 30 ? 'error' : waterGapPercent > 15 ? 'warning' : 'success'}
+          subtitle="فجوة بين الإنتاج والاستهلاك المسجل"
         />
         <StatCard
           title="المشتركين النشطين"
@@ -391,7 +394,7 @@ export function DashboardPage() {
             <div className="rounded-xl bg-white p-3 border border-neutral-100"><p className="text-xs text-neutral-400">قراءات OCR</p><p className="text-xl font-bold">{formatNumber(stats.ocrReadings)}</p></div>
             <div className="rounded-xl bg-white p-3 border border-neutral-100"><p className="text-xs text-neutral-400">شذوذ مكتشف</p><p className="text-xl font-bold text-error-600">{formatNumber(stats.anomalies)}</p></div>
             <div className="rounded-xl bg-white p-3 border border-neutral-100"><p className="text-xs text-neutral-400">OCR منخفض الثقة</p><p className="text-xl font-bold text-warning-600">{formatNumber(stats.lowConfidence)}</p></div>
-            <div className="rounded-xl bg-white p-3 border border-neutral-100"><p className="text-xs text-neutral-400">فاقد NRW</p><p className="text-xl font-bold">{nrw === null ? '—' : formatNumber(nrw) + '%'}</p></div>
+            <div className="rounded-xl bg-white p-3 border border-neutral-100"><p className="text-xs text-neutral-400">الفجوة المائية</p><p className="text-xl font-bold">{waterGapPercent === null ? '—' : formatNumber(waterGapPercent) + '%'}</p></div>
             <div className="rounded-xl bg-white p-3 border border-neutral-100"><p className="text-xs text-neutral-400">أعطال مفتوحة</p><p className="text-xl font-bold">{formatNumber(openFaults.length)}</p></div>
           </div>
           <div className="mt-4 rounded-xl bg-white border border-neutral-100 p-4">
@@ -399,9 +402,9 @@ export function DashboardPage() {
             <ul className="text-sm text-neutral-600 space-y-1">
               {stats.anomalies > 0 && <li>• مراجعة القراءات الشاذة قبل اعتمادها في الفوترة.</li>}
               {stats.lowConfidence > 0 && <li>• التحقق من صور العدادات ذات الثقة المنخفضة.</li>}
-              {nrw !== null && nrw > 30 && <li>• فتح تحليل فاقد تشغيلي/شبكي لأن NRW تجاوز 30%.</li>}
+              {waterGapPercent !== null && waterGapPercent > 30 && <li>• فتح تحليل فاقد تشغيلي/شبكي لأن الفجوة المائية تجاوزت 30%.</li>}
               {openFaults.some(f => f.severity === 'critical') && <li>• إعطاء أولوية للأعطال الحرجة المفتوحة.</li>}
-              {stats.anomalies === 0 && stats.lowConfidence === 0 && (nrw === null || nrw <= 30) && !openFaults.some(f => f.severity === 'critical') && <li>• لا توجد إشارة حرجة تلقائياً من البيانات الحالية؛ استمر في دورة القياس والتحقق.</li>}
+              {stats.anomalies === 0 && stats.lowConfidence === 0 && (waterGapPercent === null || waterGapPercent <= 30) && !openFaults.some(f => f.severity === 'critical') && <li>• لا توجد إشارة حرجة تلقائياً من البيانات الحالية؛ استمر في دورة القياس والتحقق.</li>}
             </ul>
             <p className="text-xs text-neutral-400 mt-3">التوصيات تفسيرية ولا تنفذ أي تغيير تلقائياً. مساعد ميزان يعمل ضمن صلاحيات المشروع ويعتمد على البيانات المصرح بها.</p>
           </div>
@@ -420,8 +423,8 @@ export function DashboardPage() {
             <p className={`text-2xl font-bold ${collectionRate > 60 ? 'text-success-300' : 'text-warning-300'}`}>{formatNumber(collectionRate)}%</p>
           </div>
           <div>
-            <p className="text-primary-300 text-xs">نسبة الفاقد</p>
-            <p className={`text-2xl font-bold ${nrw === null ? 'text-success-300' : nrw < 15 ? 'text-success-300' : nrw < 30 ? 'text-warning-300' : 'text-error-300'}`}>{nrw === null ? '—' : `${formatNumber(nrw)}%`}</p>
+            <p className="text-primary-300 text-xs">نسبة الفجوة المائية</p>
+            <p className={`text-2xl font-bold ${waterGapPercent === null ? 'text-success-300' : waterGapPercent < 15 ? 'text-success-300' : waterGapPercent < 30 ? 'text-warning-300' : 'text-error-300'}`}>{waterGapPercent === null ? '—' : `${formatNumber(waterGapPercent)}%`}</p>
           </div>
           <div>
             <p className="text-primary-300 text-xs">أعطال حرجة</p>
