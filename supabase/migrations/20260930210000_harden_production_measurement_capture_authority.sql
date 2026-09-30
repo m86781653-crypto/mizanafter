@@ -1,6 +1,6 @@
 drop function if exists public.mizan_capture_water_production_reading(uuid,numeric,timestamptz,text,text,numeric,numeric,numeric,text);
 
-create function public.mizan_capture_water_production_reading(
+create or replace function public.mizan_capture_water_production_reading(
  p_production_meter_id uuid,p_reading_value numeric,p_captured_at timestamptz default now(),p_capture_phase text default 'check',
  p_image_url text default null,p_gps_lat numeric default null,p_gps_lng numeric default null,p_gps_accuracy numeric default null,
  p_notes text default null,p_detected_serial_number text default null,p_ai_confidence numeric default null,p_ai_model text default null)
