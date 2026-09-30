@@ -160,8 +160,8 @@ jobs:
         run: supabase test db supabase/tests/039_password_state_authority_contract.test.sql
       - name: Run governed existing-customer meter contract
         run: supabase test db supabase/tests/040_existing_customer_meter_contract.test.sql
+      - name: Run invoker report schema usage contract
+        run: supabase test db supabase/tests/041_invoker_report_schema_usage_contract.test.sql
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
-      - name: Run invoker report schema usage contract
-        run: supabase test db supabase/tests/041_invoker_report_schema_usage_contract.test.sql
