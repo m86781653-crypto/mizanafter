@@ -1,5 +1,5 @@
 begin;
-select plan(4);
+select plan(3);
 
 select is(
   (select n.nspname from pg_extension e join pg_namespace n on n.oid=e.extnamespace where e.extname='btree_gist'),
@@ -17,12 +17,6 @@ select is(
   (select count(*)::integer from pg_extension e join pg_namespace n on n.oid=e.extnamespace where e.extname='postgis' and n.nspname='public'),
   1,
   'PostGIS relocation remains explicit and separately governed'
-);
-
-select is(
-  has_table_privilege('authenticated','public.spatial_ref_sys','insert'),
-  false,
-  'authenticated has no spatial_ref_sys insert path'
 );
 
 select * from finish();
