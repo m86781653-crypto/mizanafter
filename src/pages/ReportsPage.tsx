@@ -312,8 +312,8 @@ export function ReportsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="معدل التحصيل" value={`${formatNumber(collectionRate)}%`} icon={Receipt} color={collectionRate > 60 ? 'success' : 'warning'} />
-        <StatCard title="نسبة الفاقد" value="غير متاح" icon={TrendingDown} color="neutral" />
-        <StatCard title="اكتمال البيانات" value={`${formatNumber(dataCompleteness)}%`} icon={Activity} color={dataCompleteness > 80 ? 'success' : 'warning'} />
+        <StatCard title="نسبة الفجوة المائية" value={waterGapPercent === null ? "غير متاح" : `${formatNumber(waterGapPercent)}%`} icon={TrendingDown} color={waterGapPercent === null ? "neutral" : "warning"} />
+        <StatCard title="تغطية القراءات" value={`${formatNumber(dataCoverage)}%`} icon={Activity} color={dataCoverage > 80 ? 'success' : 'warning'} />
         <StatCard title="قراءات شاذة" value={formatNumber(anomalies)} icon={AlertTriangle} color={anomalies > 0 ? 'error' : 'neutral'} />
         <StatCard title="توقفات مفتوحة" value={formatNumber(openInterruptions)} icon={AlertTriangle} color={openInterruptions > 0 ? 'warning' : 'success'} />
       </div>
@@ -326,7 +326,7 @@ export function ReportsPage() {
         <div className="space-y-4">
           <div>
             <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-neutral-600">الإنتاج اليومي</span>
+              <span className="text-neutral-600">الإنتاج خلال الفترة</span>
               <span className="font-bold text-neutral-800">{formatNumber(production)} م³</span>
             </div>
             <div className="h-6 bg-neutral-100 rounded-lg overflow-hidden">
@@ -348,7 +348,7 @@ export function ReportsPage() {
           </div>
           <div>
             <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-neutral-600">الفاقد (NRW)</span>
+              <span className="text-neutral-600">الفجوة المائية</span>
               <span className="font-bold text-neutral-700">
                 {waterBalanceComparable ? `${formatNumber(waterBalanceGap)} م³` : 'غير متاح — لا توجد قياسات إنتاج واستهلاك متزامنة'}
               </span>
