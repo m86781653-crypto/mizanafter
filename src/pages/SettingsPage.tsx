@@ -57,19 +57,9 @@ export function SettingsPage() {
 
     setPwdLoading(true);
     try {
-      const passwordAttributes = {
-        password: newPassword,
-        current_password: currentPassword,
-      } as Parameters<typeof supabase.auth.updateUser>[0];
-
-      const { error: updateError } = await supabase.auth.updateUser(passwordAttributes);
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
       if (updateError) {
-        const message = updateError.message.toLowerCase();
-        if (message.includes('current password')) {
-          setPwdError('كلمة المرور الحالية غير صحيحة.');
-        } else {
-          setPwdError(updateError.message);
-        }
+        setPwdError(updateError.message);
         return;
       }
 
