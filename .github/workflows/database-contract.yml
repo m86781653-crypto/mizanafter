@@ -159,3 +159,5 @@ jobs:
         run: supabase stop --no-backup
       - name: Run project-scoped relationship contract
         run: supabase test db supabase/tests/038_project_scoped_relationship_contract.test.sql
+      - name: Run password state authority contract
+        run: supabase test db supabase/tests/039_password_state_authority_contract.test.sql
