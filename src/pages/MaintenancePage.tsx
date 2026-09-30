@@ -39,6 +39,13 @@ export function MaintenancePage() {
   const [assets,setAssets] = useState<Asset[]>([]);
   const [wells,setWells] = useState<Well[]>([]);
   const [pumps,setPumps] = useState<Pump[]>([]);
+  const [productionMeters,setProductionMeters] = useState<any[]>([]);
+  const [evidenceInterruption,setEvidenceInterruption] = useState<Interruption|null>(null);
+  const [evidencePhase,setEvidencePhase] = useState<'stop'|'restart'>('stop');
+  const [evidencePhoto,setEvidencePhoto] = useState<{file:File;previewUrl:string}|null>(null);
+  const [evidenceReading,setEvidenceReading] = useState('');
+  const [evidenceProcessing,setEvidenceProcessing] = useState(false);
+  const [evidenceSaving,setEvidenceSaving] = useState(false);
   const [show,setShow] = useState(false);
   const [form,setForm] = useState<Record<string,string>>({});
   const [saving,setSaving] = useState(false);
