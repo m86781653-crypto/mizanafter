@@ -13,8 +13,9 @@ export function ReportsPage() {
   const { currentProject } = useProject();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [reportMonth, setReportMonth] = useState(() => new Date().toISOString().slice(0,7));
-  const [maintenanceMonthly, setMaintenanceMonthly] = useState<any | null>(null);
+  const [periodStart, setPeriodStart] = useState(() => new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0,10));
+  const [periodEnd, setPeriodEnd] = useState(() => new Date().toISOString().slice(0,10));
+  const [maintenanceReport, setMaintenanceReport] = useState<any | null>(null);
   const [operationalReport, setOperationalReport] = useState<any | null>(null);
   const [data, setData] = useState({
     customers: 0,
@@ -74,24 +75,23 @@ export function ReportsPage() {
   useEffect(() => { fetchData(false); }, [fetchData]);
 
   useEffect(() => {
-    if (!currentProject || !reportMonth) return;
+    if (!currentProject || !periodStart || !periodEnd) return;
     let active = true;
-    void supabase.rpc('mizan_monthly_maintenance_report', { p_project_id: currentProject.id, p_month: `${reportMonth}-01` })
-      .then(({ data: result, error: rpcError }) => {
-        if (!active) return;
-        if (rpcError) setError(rpcError.message);
-        else setMaintenanceMonthly(result as any);
-      });
+    void supabase.rpc('mizan_maintenance_report', {
+      p_project_id: currentProject.id,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+    }).then(({ data: result, error: rpcError }) => {
+      if (!active) return;
+      if (rpcError) setError(rpcError.message);
+      else setMaintenanceReport(result as any);
+    });
     return () => { active = false; };
-  }, [currentProject, reportMonth]);
+  }, [currentProject, periodStart, periodEnd]);
 
   useEffect(() => {
-    if (!currentProject || !reportMonth) return;
+    if (!currentProject || !periodStart || !periodEnd) return;
     let active = true;
-    const start = new Date(reportMonth + '-01T00:00:00');
-    const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
-    const periodStart = start.getFullYear() + '-' + String(start.getMonth() + 1).padStart(2, '0') + '-01';
-    const periodEnd = end.getFullYear() + '-' + String(end.getMonth() + 1).padStart(2, '0') + '-01';
     void supabase.rpc('mizan_operational_report', {
       p_project_id: currentProject.id,
       p_period_start: periodStart,
@@ -102,7 +102,7 @@ export function ReportsPage() {
       else setOperationalReport(result as any);
     });
     return () => { active = false; };
-  }, [currentProject, reportMonth]);
+  }, [currentProject, periodStart, periodEnd]);
 
   useEffect(() => {
     if (!currentProject) return;
@@ -161,15 +161,15 @@ export function ReportsPage() {
   const exportPDF = (type: 'full' | 'maintenance-monthly') => {
     const escapeHtml = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     if (type === 'maintenance-monthly') {
-      const monthLabel = reportMonth;
+      const monthLabel = periodStart;
       const monthWOs = data.workOrders.filter((w: any) => {
         const created = String(w.created_at || '').slice(0,7);
         const completed = String(w.completed_date || '').slice(0,7);
         const closed = String(w.closed_at || '').slice(0,7);
-        return created === reportMonth || completed === reportMonth || closed === reportMonth;
+        return created === periodStart || completed === periodStart || closed === periodStart;
       });
       const rows = monthWOs.map((w: any) => `<tr><td>${escapeHtml(w.work_order_number)}</td><td>${escapeHtml(w.type)}</td><td>${escapeHtml(w.priority)}</td><td>${escapeHtml(w.status)}</td><td>${escapeHtml(w.assigned_to || '—')}</td><td>${escapeHtml(formatDate(w.scheduled_date))}</td><td>${escapeHtml(formatDate(w.completed_date))}</td><td>${escapeHtml(formatDate(w.closed_at))}</td></tr>`).join('');
-      const m = maintenanceMonthly || {};
+      const m = maintenanceReport || {};
       printReport(`تقرير الصيانة الشهري - ${monthLabel}`, `<div class="grid">
         <div class="card"><div class="label">أوامر الصيانة المنشأة</div><div class="value">${m.work_orders_created ?? 0}</div></div>
         <div class="card"><div class="label">المكتملة خلال الشهر</div><div class="value">${m.work_orders_completed ?? 0}</div></div>
@@ -290,8 +290,9 @@ export function ReportsPage() {
 
       <div className="flex flex-wrap items-center gap-2 print:hidden">
         <button onClick={() => exportPDF('full')} className="btn-primary flex items-center gap-2"><Printer size={16} /> طباعة / حفظ PDF</button>
-        <input aria-label="شهر تقرير الصيانة" type="month" className="input-field w-auto" value={reportMonth} onChange={e=>setReportMonth(e.target.value)} />
-        <button onClick={() => exportPDF('maintenance-monthly')} disabled={!maintenanceMonthly} className="btn-secondary flex items-center gap-2"><FileText size={16} /> تقرير الصيانة الشهري PDF</button>
+        <input aria-label="بداية الفترة" type="date" className="input-field w-auto" value={periodStart} onChange={e=>setPeriodStart(e.target.value)} />
+        <input aria-label="نهاية الفترة" type="date" className="input-field w-auto" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)} />
+        <button onClick={() => exportPDF('full')} className="btn-secondary flex items-center gap-2"><FileText size={16} /> PDF للفترة</button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
