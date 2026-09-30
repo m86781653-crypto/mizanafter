@@ -40,7 +40,7 @@ export default {
       ctx.supabase.from('faults').select('fault_number,severity,status,fault_type,description').eq('project_id', project_id).not('status', 'in', '(closed,resolved)').limit(20),
       ctx.supabase.from('service_interruptions').select('interruption_number,severity,status,interruption_type,started_at,affected_subscribers,estimated_water_loss_m3,description').eq('project_id', project_id).not('status', 'in', '(restored,closed)').limit(20),
       ctx.supabase.from('meter_readings').select('reading_value,consumption,ai_extracted_value,ai_confidence,anomaly_flag,status,reading_date').eq('project_id', project_id).order('reading_date', { ascending: false }).limit(1000),
-      ctx.supabase.from('wells').select('code,name_ar,daily_output_m3,status').eq('project_id', project_id),
+      ctx.supabase.from('wells').select('code,name_ar,status').eq('project_id', project_id),
       ctx.supabase.rpc('mizan_operational_report', { p_project_id: project_id, p_period_start: periodStart, p_period_end: periodEndExclusive }),
     ]);
 
