@@ -1,110 +1,137 @@
 # MIZAN AI — Production Delivery Contract
 
-## Central tenant
+## 1. Scope
 
-The single active main tenant is **هيئة مياه الريف (Rural Water Authority)**.
+MIZAN AI is a production platform for governance, measurement, operation and sustainability of rural water services. It is not an ERP system.
 
-The central tenant is a governance/oversight boundary. It can read its child projects through the database authorization layer but does not directly write child operational records.
+The authoritative production Supabase project is `dofteozulbjwnzofcfmo` (MIZAN AI Production).
 
-## Child tenants
+## 2. Tenant model
 
-Each water project is provisioned as exactly one sub_tenant under the central tenant and receives one project bound to that tenant.
+- Platform Owner / Platform Administrator
+- Central governance tenant: هيئة مياه الريف بمحافظة تعز
+- Child tenant: one rural water project per tenant
 
-Provisioning creates exactly three operational identities:
+All operational data is project-scoped. RLS, RPC authorization, Storage policies, reports, search and audit boundaries must preserve tenant isolation.
 
-1. tenant_manager — مدير المشروع
-2. meter_reader — مسؤول قراءة العدادات
-3. collection_officer — مسؤول التحصيل
+## 3. Canonical operational roles
 
-The provisioning service generates credentials server-side using cryptographic randomness. Passwords are not stored in MIZAN tables; Supabase Auth stores the password hash. The initial password is returned only in the provisioning response so the central authority can hand it to the project through a secure channel. Each account is marked must_change_password=true.
+Each child project is provisioned with exactly four operational identities:
 
-## Governance
+1. `project_manager` — مدير المشروع
+2. `meter_reader` — قارئ العدادات
+3. `collection_officer` — المحصل
+4. `operations_maintenance` — مسؤول التشغيل والصيانة
 
-- Central tenant: oversight and child-project creation.
-- Child tenant: operational ownership of its project.
-- Database RLS remains authoritative.
-- Central tenant may inspect child project records through mizan_can_access_project.
-- Child tenant users cannot cross project/tenant boundaries.
-- Central tenant does not directly mutate child operational records through normal project RLS.
-- Sensitive provisioning is server-side only and the provisioning Edge Function requires JWT authentication.
-- Reference repository is read-only and untouched.
+The platform administrator is a technical platform role, not a project operator.
 
-## Faults and service interruptions
+Credentials are never stored in MIZAN application tables. User onboarding uses Supabase Auth and a short-lived onboarding token; initial passwords are not exposed by application APIs.
 
-public.faults remains the fault register.
+## 4. Segregation of duties
 
-public.service_interruptions adds production-grade service-stop tracking:
+- Meter readers capture meter evidence; they do not approve financial records.
+- Collection officers record payments; approval is controlled separately.
+- Operations/maintenance executes field maintenance and interruption evidence.
+- Project managers control project configuration and governed approvals.
+- Central governance manages project users through scoped database RPCs.
+- Direct browser writes to governed operational tables are denied where an authoritative RPC exists.
 
-- interruption type
-- severity
-- lifecycle status
-- start/restoration/closure timestamps
-- affected subscribers
-- estimated water loss
-- cause and resolution
-- reporter/verifier
-- evidence location
-- project scope
+## 5. Meter identity and evidence
 
-The table has RLS, least-privilege grants, indexes, audit logging and automatic updated_at.
+Subscriber meters retain two distinct identities:
 
-## Reports and analytics
+- system operational meter number
+- physical meter serial number
 
-The project reports page uses live project-scoped data and includes:
+The physical serial is the field identity used with camera/OCR evidence. A meter reading must remain linked to the correct physical meter.
 
-- production/consumption
-- water-loss indicator
-- revenue/collection
-- customer/meter coverage
-- data quality and anomalies
-- faults/maintenance
-- service interruptions
-- assets
-- operational performance
-- CSV exports
+Production-water meters follow the same distinction. Production evidence requires:
 
-## Intelligence Engine
+- project/meter-scoped storage path
+- photograph
+- OCR-derived reading
+- OCR confidence
+- physical serial identity
+- automatic server capture timestamp
+- optional GPS evidence
 
-For project managers, the dashboard exposes:
+## 6. Water production
 
-OCR → Anomaly Detection → Analytics → AI Assistant → Decision Support
+Water production is measured independently from subscriber consumption.
 
-- OCR metrics are derived from meter-reading AI extraction fields.
-- Anomaly counts use stored anomaly_flag values.
-- Analytics use project-scoped production, consumption, billing and collection data.
-- mizan-copilot is a server-side, read-only AI assistant.
-- The assistant is authorized per project before reading data.
-- AI receives a bounded project data context and cannot execute mutations.
-- AI recommendations are explicitly advisory.
-- AI activity is written to ai_logs.
+The production authority is based on:
 
-## Production boundary
+`pump_operation_cycles.production_m3`
 
-The working branch is:
+derived from start/stop production-meter readings.
 
-integration/reference-mirror-sync-complete-v2
+Production data is not substituted with static `wells.daily_output_m3` values when calculating period production.
 
-The delivery PR is:
+## 7. Faults and interruptions
 
-#24
+A maintenance fault and an actual service/production interruption are separate records.
 
-The reference repository remains:
+When a fault causes an actual interruption:
 
-n36192655-cloud/mirror-sync-complete
+- report timestamp is preserved
+- actual start time is preserved
+- an explanation is required when the observed start differs materially from report time
+- the interruption is linked to the originating fault
 
-and is not modified.
+At interruption stop and restart, production-meter evidence can be captured through the governed interruption-evidence RPC. The evidence path is bound to the project, production meter and interruption.
 
-Supabase production project:
+Potential affected production is an estimate based on an available reference production rate and outage duration. It is not labelled as actual water loss.
 
-dofteozulbjwnzofcfmo
+## 8. Reporting contract
 
-## Remaining release blockers
+The selected report period is a single start/end date range.
 
-Before handing the system to the client:
+Database reporting functions use an exclusive end boundary internally. The UI converts the user's inclusive end date to the next calendar day without timezone-dependent date arithmetic.
 
-1. Bootstrap the first central tenant_manager account through the controlled bootstrap path.
-2. Verify GEMINI_API_KEY exists and run one authenticated copilot request.
-3. Enable leaked-password protection in Supabase Auth settings.
-4. Resolve/accept the existing PostGIS spatial_ref_sys and st_estimatedextent advisor findings through a deliberate security review; do not blindly alter PostGIS system objects.
-5. Run end-to-end tests with one central user and three child-project users.
-6. Verify deployment/build status independently of the current Vercel rate-limit failure.
+Production, consumption, billing, collection, readings, faults, maintenance and interruptions must use the same selected period semantics.
+
+Operational reporting is the authority for executive KPIs. The water-balance view is security-invoker and uses governed production cycles and valid recorded consumption statuses.
+
+## 9. Analytics and intelligence
+
+MIZAN distinguishes:
+
+- measured production
+- recorded consumption
+- water-balance gap
+- potential affected production
+- theoretical coverage equivalent
+
+A water-balance gap is not automatically called final NRW/water loss.
+
+Copilot and dashboards must use the same governed reporting semantics as the operational reports and must not reintroduce legacy production or payment status calculations.
+
+## 10. Security boundary
+
+- No application path uses Supabase `service_role`.
+- SECURITY DEFINER functions require authentication/authorization and `search_path=''`.
+- Tenant/project isolation is enforced in the database, not only in the UI.
+- Storage paths are project-scoped and evidence-specific.
+- Legacy direct operational RPCs are retired when replaced by governed lifecycle RPCs.
+
+## 11. Release verification
+
+Before client handoff:
+
+1. Repository migration chain must be reconciled with production migration history/schema.
+2. Central governance project loading must use the current authenticated database path.
+3. Every active project must have the operational roles required by its contract.
+4. Production measurement must pass a complete camera → OCR → evidence → cycle → production flow.
+5. Reports must pass boundary tests for the first and last selected dates.
+6. Password recovery must be verified against the actual production origin and Supabase redirect configuration.
+7. Security and performance advisors must be reviewed after schema changes.
+8. Authenticated E2E tests must cover central governance, project users, camera/GPS, storage, billing/collection, reporting and password recovery.
+9. Merge and production deployment are prohibited until all release blockers are independently verified.
+
+## 12. Current development branch
+
+The current implementation branch is:
+
+`feature/production-operational-governance-final`
+
+Its review PR is intentionally separate from `main`. Production deployment must not be treated as updated until the branch is merged and a new production deployment is verified.
