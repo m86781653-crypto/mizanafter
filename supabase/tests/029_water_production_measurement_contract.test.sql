@@ -17,7 +17,7 @@ begin
   if has_table_privilege('authenticated','public.water_production_readings','INSERT') then raise exception 'PRODUCTION_READING_DIRECT_INSERT_EXPOSED'; end if;
   if has_table_privilege('authenticated','public.pump_operation_cycles','INSERT') then raise exception 'PRODUCTION_CYCLE_DIRECT_INSERT_EXPOSED'; end if;
   if has_table_privilege('authenticated','public.water_production_meters','INSERT') then raise exception 'PRODUCTION_METER_DIRECT_INSERT_EXPOSED'; end if;
-  if to_regprocedure('public.mizan_capture_water_production_reading(uuid,numeric,timestamptz,text,text,numeric,numeric,numeric,text)') is null then raise exception 'PRODUCTION_CAPTURE_RPC_MISSING'; end if;
+  if to_regprocedure('public.mizan_capture_water_production_reading(uuid,numeric,timestamptz,text,text,numeric,numeric,numeric,text,text,numeric,text)') is null then raise exception 'PRODUCTION_CAPTURE_RPC_MISSING'; end if;
   if to_regprocedure('public.mizan_start_pump_operation_cycle(uuid,uuid,timestamptz,text)') is null then raise exception 'PRODUCTION_START_RPC_MISSING'; end if;
   if to_regprocedure('public.mizan_stop_pump_operation_cycle(uuid,uuid,timestamptz,text)') is null then raise exception 'PRODUCTION_STOP_RPC_MISSING'; end if;
   if to_regprocedure('public.mizan_register_water_production_meter(uuid,uuid,uuid,text,text,numeric,date,text)') is null then raise exception 'PRODUCTION_METER_SETUP_RPC_MISSING'; end if;
