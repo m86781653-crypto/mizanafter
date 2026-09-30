@@ -2,12 +2,7 @@ import { withSupabase } from 'npm:@supabase/server';
 
 export default {
   fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
-    if (!ctx.userClaims?.sub) {
-      return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
-    }
-    return Response.json({
-      error: 'SERVICE_ROLE_ADMIN_DISABLED',
-      message: 'إدارة حسابات المستخدمين الحساسة تتم عبر RLS وRPCs المقيّدة بالمستخدم، ولا يستخدم النظام service_role.',
-    }, { status: 410 });
+    if (!ctx.userClaims?.sub) return Response.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
+    return Response.json({ error: 'SERVICE_ROLE_ADMIN_DISABLED' }, { status: 410 });
   }),
 };
