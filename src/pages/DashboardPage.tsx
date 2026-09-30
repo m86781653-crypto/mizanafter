@@ -40,6 +40,7 @@ export function DashboardPage() {
     lowConfidence: 0,
     openFaultCount: 0,
     openMaintenanceCount: 0,
+    waterBalanceComparable: false,
   });
 
   const fetchData = async (silent = false) => {
@@ -96,7 +97,7 @@ export function DashboardPage() {
         lowConfidence: lowConfidence.count || 0,
         openFaultCount: Number(operationalReport.open_fault_count || 0),
         openMaintenanceCount: Number(operationalReport.open_maintenance_count || 0),
-        ...( { waterBalanceComparable: Boolean(operationalReport.water_balance_has_production && operationalReport.water_balance_has_consumption) } as any),
+        waterBalanceComparable: Boolean(operationalReport.water_balance_has_production && operationalReport.water_balance_has_consumption),
       });
     } catch (err: any) {
       setError(err?.message || 'حدث خطأ غير متوقع أثناء تحميل البيانات');
@@ -142,7 +143,7 @@ export function DashboardPage() {
     return <ErrorState message={error} onRetry={fetchData} />;
   }
 
-  const waterBalanceComparable = Boolean((stats as any).waterBalanceComparable);
+  const waterBalanceComparable = stats.waterBalanceComparable;
   const waterGapPercent: number | null = waterBalanceComparable && stats.waterProduction > 0
     ? ((stats.waterProduction - stats.waterConsumption) / stats.waterProduction * 100)
     : null;
