@@ -1,0 +1,11 @@
+begin;
+select plan(8);
+select has_function('public','mizan_operational_report','mizan_operational_report exists');
+select function_returns('public','mizan_operational_report',ARRAY['uuid','date','date'],'jsonb','report returns jsonb');
+select function_is_security_definer('public','mizan_operational_report',false,'report is security invoker');
+select function_privs_are('public','mizan_operational_report',ARRAY['uuid','date','date'],'anon',ARRAY[]::text[],'anon cannot execute report');
+select function_privs_are('public','mizan_operational_report',ARRAY['uuid','date','date'],'authenticated',ARRAY['EXECUTE'],'authenticated can execute report');
+select has_column_privilege('authenticated','public.customers','SELECT'),'authenticated can read customers for report';
+select has_column_privilege('authenticated','public.invoices','SELECT'),'authenticated can read invoices for report';
+select has_column_privilege('authenticated','public.pump_operation_cycles','SELECT'),'authenticated can read production cycles for report';
+select * from finish();
