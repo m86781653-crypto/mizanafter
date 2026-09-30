@@ -152,12 +152,13 @@ export function ReportsPage() {
   const consumption = Number(report.recorded_consumption_m3 || 0);
   const waterBalanceGap = Number(report.water_balance_gap_m3 || 0);
   const waterBalanceComparable = Boolean(report.water_balance_has_production && report.water_balance_has_consumption);
+  const waterGapPercent = waterBalanceComparable && production > 0 ? (waterBalanceGap / production) * 100 : null;
   const collectionRate = totalRevenue > 0 ? (collected / totalRevenue * 100) : 0;
   const openFaults = Number(report.open_fault_count || 0);
   const openWOs = Number(maintenanceReport?.work_orders_open_at_end ?? report.open_maintenance_count ?? 0);
   const anomalies = Number(report.reading_anomaly_count || 0);
   const periodReadings = Number(report.reading_count || 0);
-  const dataCompleteness = data.meters > 0 ? Math.min(periodReadings / data.meters * 100, 100) : 0; // coverage proxy, not completeness
+  const dataCoverage = data.meters > 0 ? Math.min(periodReadings / data.meters * 100, 100) : 0; // coverage proxy, not completeness
   const openInterruptions = Number(report.open_service_interruption_count || 0);
 
   const printReport = (title: string, body: string) => {
@@ -200,7 +201,7 @@ export function ReportsPage() {
     printReport('التقرير التشغيلي الشامل', `<div class="grid">
       <div class="card"><div class="label">معدل التحصيل</div><div class="value">${formatNumber(collectionRate)}%</div></div>
       <div class="card"><div class="label">الفجوة المائية</div><div class="value">${waterBalanceComparable ? formatNumber((waterBalanceGap / Math.max(production, 1)) * 100)+'%' : '—'}</div></div>
-      <div class="card"><div class="label">تغطية القراءات</div><div class="value">${formatNumber(dataCompleteness)}%</div></div>
+      <div class="card"><div class="label">تغطية القراءات</div><div class="value">${formatNumber(dataCoverage)}%</div></div>
       <div class="card"><div class="label">الفواتير</div><div class="value">${Number(report.invoice_count || 0)}</div></div>
       <div class="card"><div class="label">أعطال مفتوحة</div><div class="value">${openFaults}</div></div>
       <div class="card"><div class="label">أوامر صيانة مفتوحة</div><div class="value">${openWOs}</div></div>
@@ -234,7 +235,7 @@ export function ReportsPage() {
       case 'customers':
         filename = 'customers_report';
         rows = [['عدد المشتركين', 'عدد العدادات', 'عدد الفواتير', 'عدد القراءات']];
-        rows.push([String(data.customers), String(data.meters), String(data.invoices.length), String(data.readings.length)]);
+        rows.push([String(data.customers), String(data.meters), String(report.invoice_count || 0), String(periodReadings)]);
         break;
       case 'faults':
         filename = 'faults_report';
@@ -257,15 +258,15 @@ export function ReportsPage() {
         break;
       case 'quality':
         filename = 'data_quality_report';
-        rows = [['عدد العدادات', 'عدد القراءات', 'قراءات شاذة', 'اكتمال البيانات (%)']];
-        rows.push([String(data.meters), String(data.readings.length), String(anomalies), dataCompleteness.toFixed(1)]);
+        rows = [['عدد العدادات', 'عدد القراءات', 'قراءات شاذة', 'تغطية القراءات (%)']];
+        rows.push([String(data.meters), String(periodReadings), String(anomalies), dataCoverage.toFixed(1)]);
         break;
       case 'performance':
         filename = 'performance_report';
         rows = [['المؤشر', 'القيمة']];
         rows.push(['معدل التحصيل (%)', collectionRate.toFixed(1)]);
         rows.push(['فجوة ميزان المياه (م³)', waterBalanceComparable ? String(waterBalanceGap) : '—']);
-        rows.push(['اكتمال البيانات (%)', dataCompleteness.toFixed(1)]);
+        rows.push(['تغطية القراءات (%)', dataCompleteness.toFixed(1)]);
         rows.push(['أعطال مفتوحة', String(openFaults)]);
         rows.push(['أوامر صيانة معلقة', String(openWOs)]);
         break;
@@ -285,7 +286,7 @@ export function ReportsPage() {
 
   const reports = [
     { id: 'production', title: 'تقرير الإنتاج والاستهلاك', desc: 'إنتاج المياه مقابل الاستهلاك المسجل', icon: Droplets, color: 'primary' },
-    { id: 'nrw', title: 'تقرير الفاقد (NRW)', desc: 'يظهر فقط عند توفر قياسات متزامنة لنفس الفترة', icon: TrendingDown, color: 'warning' },
+    { id: 'nrw', title: 'تقرير الفجوة المائية', desc: 'يظهر فقط عند توفر قياسات متزامنة لنفس الفترة', icon: TrendingDown, color: 'warning' },
     { id: 'revenue', title: 'تقرير الإيرادات والتحصيل', desc: 'الإيرادات، المحصّل، المتأخرات', icon: Receipt, color: 'success' },
     { id: 'customers', title: 'تقرير المشتركين', desc: 'إحصائيات المشتركين والأنواع', icon: Users, color: 'accent' },
     { id: 'faults', title: 'تقرير الأعطال والصيانة', desc: 'الأعطال، أوامر الصيانة، الأوقات', icon: AlertTriangle, color: 'error' },
@@ -336,7 +337,7 @@ export function ReportsPage() {
           </div>
           <div>
             <div className="flex justify-between text-sm mb-1.5">
-              <span className="text-neutral-600">الاستهلاك المسجل في الفواتير خلال الفترة</span>
+              <span className="text-neutral-600">الاستهلاك المسجل من القراءات خلال الفترة</span>
               <span className="font-bold text-neutral-800">{formatNumber(consumption)} م³</span>
             </div>
             <div className="h-6 bg-neutral-100 rounded-lg overflow-hidden">
