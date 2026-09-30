@@ -19,10 +19,9 @@ export function ReportsPage() {
   const [operationalReport, setOperationalReport] = useState<any | null>(null);
   const validPeriod = periodStart.length === 10 && periodEnd.length === 10 && periodEnd >= periodStart;
   const periodEndExclusive = (() => {
-    if (!periodEnd || periodEnd.length !== 10) return periodEnd;
-    const d = new Date(`${periodEnd}T00:00:00`);
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(periodEnd)) return periodEnd;
+    const [year, month, day] = periodEnd.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
   })();
   const [data, setData] = useState({
     customers: 0,
@@ -87,7 +86,7 @@ export function ReportsPage() {
     void supabase.rpc('mizan_maintenance_report', {
       p_project_id: currentProject.id,
       p_period_start: periodStart,
-      p_period_end: periodEnd,
+      p_period_end: periodEndExclusive,
     }).then(({ data: result, error: rpcError }) => {
       if (!active) return;
       if (rpcError) setError(rpcError.message);
