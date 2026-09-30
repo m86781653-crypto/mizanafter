@@ -137,6 +137,10 @@ jobs:
 
       - name: Run final maintenance lifecycle contract
         run: supabase test db supabase/tests/032_maintenance_lifecycle_final_contract.test.sql
+
+      - name: Run extension schema security contract
+        run: supabase test db supabase/tests/033_extension_schema_security_contract.test.sql
+
       - name: Run governed operational reporting contract
         run: supabase test db supabase/tests/034_governed_operational_reporting_contract.test.sql
 
