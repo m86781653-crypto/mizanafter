@@ -24,3 +24,4 @@ select ok((select count(*) from pg_class c where c.relname in (
 ))=11,'composite parent uniqueness indexes exist');
 select * from finish();
 rollback;
+-- Regression contract remains four assertions; CI must execute it on this branch head.
