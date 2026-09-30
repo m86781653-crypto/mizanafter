@@ -42,6 +42,8 @@ export function WaterProductionPage() {
   const [selectedMeterId, setSelectedMeterId] = useState('');
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [reading, setReading] = useState('');
+  const [detectedSerial, setDetectedSerial] = useState<string | null>(null);
+  const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
   const [phase, setPhase] = useState<'start' | 'stop'>('start');
   const [activeCycle, setActiveCycle] = useState<ProductionCycle | null>(null);
   const [saving, setSaving] = useState(false);
@@ -108,6 +110,8 @@ export function WaterProductionPage() {
   const capture = async (file: File, previewUrl: string) => {
     setPhoto({ file, previewUrl });
     setReading('');
+    setDetectedSerial(null);
+    setOcrConfidence(null);
     setError(null);
     setOcrProcessing(true);
     try {
@@ -120,6 +124,8 @@ export function WaterProductionPage() {
         throw new Error('تعذر استخراج قراءة موثوقة من الصورة. أعد التصوير مع ظهور أرقام العداد كاملة.');
       }
       setReading(String(result.readingValue));
+      setDetectedSerial(result.detectedMeterSerialNumber || selectedMeter?.serial_number || null);
+      setOcrConfidence(result.readingConfidence);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'تعذر تحليل صورة عداد الإنتاج.');
     } finally {
@@ -174,6 +180,9 @@ export function WaterProductionPage() {
         p_gps_lng: gps.lng,
         p_gps_accuracy: gps.accuracy,
         p_notes: null,
+        p_detected_serial_number: detectedSerial,
+        p_ai_confidence: ocrConfidence,
+        p_ai_model: 'local-tesseract',
       });
       if (captureError) throw captureError;
 
@@ -198,6 +207,8 @@ export function WaterProductionPage() {
 
       setPhoto(null);
       setReading('');
+      setDetectedSerial(null);
+      setOcrConfidence(null);
       await load();
     } catch (e) {
       if (imagePath) await supabase.storage.from('meter-readings').remove([imagePath]);
