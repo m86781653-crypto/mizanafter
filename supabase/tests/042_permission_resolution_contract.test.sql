@@ -1,5 +1,5 @@
 begin;
-select plan(8);
+select plan(9);
 
 -- Self-contained fixtures for clean-room execution. Production rows are never referenced.
 insert into auth.users(id,aud,role,email,email_confirmed_at,created_at,updated_at)
@@ -26,6 +26,7 @@ select is(private.mizan_has_permission('__permission_that_does_not_exist__'),fal
 
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000102',true);
 select is(private.mizan_user_role(),'collection_officer','collection officer identity resolves');
+select is(private.mizan_has_permission('collection.record'),true,'collection officer keeps collection record permission');
 select is(private.mizan_has_permission('collection.approve'),false,'collection officer cannot claim collection approval');
 
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000103',true);
