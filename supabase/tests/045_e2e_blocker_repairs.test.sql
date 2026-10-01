@@ -1,4 +1,4 @@
-select plan(21);
+select plan(23);
 
 select ok(
   not exists (
@@ -124,6 +124,26 @@ select ok(
       and coalesce(with_check,'') ilike '%private.mizan_can_write_project%'
   ),
   'reached wells INSERT policy uses current write authorization kernel'
+);
+
+select ok(
+  not exists (
+    select 1 from pg_policies
+    where schemaname='public' and tablename='pumps'
+      and policyname='ins_pumps'
+      and coalesce(with_check,'') ilike '%is_super_admin%'
+  ),
+  'reached pumps INSERT policy no longer depends on revoked legacy helper'
+);
+
+select ok(
+  exists (
+    select 1 from pg_policies
+    where schemaname='public' and tablename='pumps'
+      and policyname='ins_pumps'
+      and coalesce(with_check,'') ilike '%private.mizan_can_write_project%'
+  ),
+  'reached pumps INSERT policy uses current write authorization kernel'
 );
 
 select ok(
