@@ -1,4 +1,4 @@
-select plan(13);
+select plan(15);
 
 select ok(
   not exists (
@@ -44,6 +44,26 @@ select ok(
       and coalesce(qual,'') ilike '%private.mizan_can_access_project%'
   ),
   'reached wells SELECT policy uses current project authorization kernel'
+);
+
+select ok(
+  not exists (
+    select 1 from pg_policies
+    where schemaname='public' and tablename='pumps'
+      and policyname='sel_pumps'
+      and coalesce(qual,'') ilike '%get_user_project_id%'
+  ),
+  'reached pumps SELECT policy no longer depends on revoked legacy helper'
+);
+
+select ok(
+  exists (
+    select 1 from pg_policies
+    where schemaname='public' and tablename='pumps'
+      and policyname='sel_pumps'
+      and coalesce(qual,'') ilike '%private.mizan_can_access_project%'
+  ),
+  'reached pumps SELECT policy uses current project authorization kernel'
 );
 
 select ok(
