@@ -120,3 +120,10 @@ drop policy if exists sel_pumps on public.pumps;
 create policy sel_pumps on public.pumps
 for select to authenticated
 using (private.mizan_is_platform_admin() or private.mizan_can_access_project(project_id));
+
+-- F) Reached by isolated E2E after pumps: tanks SELECT still used the
+-- revoked legacy get_user_project_id() helper.
+drop policy if exists sel_tanks on public.tanks;
+create policy sel_tanks on public.tanks
+for select to authenticated
+using (private.mizan_is_platform_admin() or private.mizan_can_access_project(project_id));
