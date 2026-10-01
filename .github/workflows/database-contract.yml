@@ -162,6 +162,9 @@ jobs:
         run: supabase test db supabase/tests/040_existing_customer_meter_contract.test.sql
       - name: Run invoker report schema usage contract
         run: supabase test db supabase/tests/041_invoker_report_schema_usage_contract.test.sql
+      - name: Run permission resolution contract
+        run: supabase test db supabase/tests/042_permission_resolution_contract.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
