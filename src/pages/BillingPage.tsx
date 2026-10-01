@@ -44,8 +44,8 @@ export function BillingPage() {
     setLoading(true);setError(null);
     try{
       const [inv,pay,tar,tenant] = await Promise.all([
-        supabase.from('invoices').select('*, customers(name_ar,customer_number,phone)').eq('project_id',currentProject.id).order('issue_date',{ascending:false}),
-        supabase.from('payments').select('*, customers(name_ar,customer_number), invoices(invoice_number,grand_total,balance)').eq('project_id',currentProject.id).order('payment_date',{ascending:false}),
+        supabase.from('invoices').select('*, customers!fk_invoices_project_customer(name_ar,customer_number,phone)').eq('project_id',currentProject.id).order('issue_date',{ascending:false}),
+        supabase.from('payments').select('*, customers!fk_payments_project_customer(name_ar,customer_number), invoices!fk_payments_project_invoice(invoice_number,grand_total,balance)').eq('project_id',currentProject.id).order('payment_date',{ascending:false}),
         supabase.from('tariffs').select('*').eq('project_id',currentProject.id).order('effective_from',{ascending:false}),
         supabase.from('tenants').select('name_ar').eq('id',currentProject.tenant_id).maybeSingle(),
       ]);

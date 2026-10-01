@@ -32,7 +32,7 @@ export function CustomersPage() {
     try {
       const [c, m] = await Promise.all([
         supabase.from('customers').select('*').eq('project_id', pid).order('customer_number'),
-        supabase.from('meters').select('*, customers(name_ar, customer_number)').eq('project_id', pid).order('meter_number'),
+        supabase.from('meters').select('*, customers!fk_meters_project_customer(name_ar, customer_number)').eq('project_id', pid).order('meter_number'),
       ]);
       if (c.error) throw c.error;
       if (m.error) throw m.error;

@@ -56,4 +56,34 @@ jobs:
           if (settings.includes("profiles').update({ must_change_password: false")) throw new Error('SettingsPage must not update password state directly');
           console.log('UI source-of-truth contracts: PASS');
           NODE
+      - name: Verify PostgREST relationship hints
+        # Regression: PostgREST must never infer between duplicate project-scoped and legacy FK paths.
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const expectations = [
+            ['src/pages/MaintenancePage.tsx', 'faults!fk_work_orders_project_fault('],
+            ['src/pages/BillingPage.tsx', 'customers!fk_invoices_project_customer('],
+            ['src/pages/BillingPage.tsx', 'customers!fk_payments_project_customer(',],
+            ['src/pages/BillingPage.tsx', 'invoices!fk_payments_project_invoice('],
+            ['src/pages/CustomersPage.tsx', 'customers!fk_meters_project_customer('],
+            ['src/pages/ReadingsPage.tsx', 'customers!fk_meters_project_customer!inner('],
+          ];
+          for (const [file, marker] of expectations) {
+            const content = fs.readFileSync(file, 'utf8');
+            if (!content.includes(marker)) throw new Error(`Missing explicit relationship hint: ${file} -> ${marker}`);
+          }
+          const forbidden = [
+            ['src/pages/MaintenancePage.tsx', "select('*, faults(fault_number,severity,description)')"],
+            ['src/pages/BillingPage.tsx', "select('*, customers(name_ar,customer_number,phone)')"],
+            ['src/pages/BillingPage.tsx', "select('*, customers(name_ar,customer_number), invoices(invoice_number,grand_total,balance)')"],
+            ['src/pages/CustomersPage.tsx', "select('*, customers(name_ar, customer_number)')"],
+            ['src/pages/ReadingsPage.tsx', "select('*, customers!inner(*)')"],
+          ];
+          for (const [file, legacy] of forbidden) {
+            const content = fs.readFileSync(file, 'utf8');
+            if (content.includes(legacy)) throw new Error('Legacy ambiguous relationship remains: ' + file);
+          }
+          console.log('PostgREST relationship hints: PASS');
+          NODE
 

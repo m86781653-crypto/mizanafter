@@ -83,7 +83,7 @@ export function ReadingsPage() {
 
     try {
       const [meterResult, readingResult, tenantResult] = await Promise.all([
-        supabase.from('meters').select('*, customers!inner(*)').eq('project_id', pid).eq('status', 'active').order('meter_number'),
+        supabase.from('meters').select('*, customers!fk_meters_project_customer!inner(*)').eq('project_id', pid).eq('status', 'active').order('meter_number'),
         supabase.from('meter_readings').select('*').eq('project_id', pid).order('reading_date', { ascending: false }).limit(100),
         supabase.from('tenants').select('name_ar').eq('id', currentProject.tenant_id).maybeSingle(),
       ]);
