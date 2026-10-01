@@ -1,4 +1,4 @@
-select plan(11);
+select plan(13);
 
 select ok(
   not exists (
@@ -24,6 +24,26 @@ select ok(
       and coalesce(qual,'') ilike '%central_governance%'
   ),
   'projects SELECT policy uses current kernel and central governance scope'
+);
+
+select ok(
+  not exists (
+    select 1 from pg_policies
+    where schemaname='public' and tablename='wells'
+      and policyname='sel_wells'
+      and coalesce(qual,'') ilike '%get_user_project_id%'
+  ),
+  'reached wells SELECT policy no longer depends on revoked legacy helper'
+);
+
+select ok(
+  exists (
+    select 1 from pg_policies
+    where schemaname='public' and tablename='wells'
+      and policyname='sel_wells'
+      and coalesce(qual,'') ilike '%private.mizan_can_access_project%'
+  ),
+  'reached wells SELECT policy uses current project authorization kernel'
 );
 
 select ok(
