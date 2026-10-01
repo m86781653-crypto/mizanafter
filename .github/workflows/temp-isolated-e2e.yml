@@ -1,0 +1,99 @@
+name: TEMP isolated E2E cycle test
+on:
+  push:
+    branches:
+      - e2e/isolated-cycle-20261002
+permissions:
+  contents: read
+concurrency:
+  group: temp-isolated-e2e
+  cancel-in-progress: true
+jobs:
+  isolated-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout test branch
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v2
+        with:
+          version: 2.54.1
+      - name: Install app dependencies
+        run: npm install --no-audit --no-fund
+      - name: Verify local toolchain
+        run: |
+          node --version
+          npm --version
+          supabase --version
+          psql --version
+      - name: Start clean local Supabase stack
+        run: supabase start -x studio,imgproxy,analytics,vector,pg_meta,edge_runtime,pooler,inbucket
+      - name: Capture local connection settings (no service_role used)
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status
+          supabase status -o env > /tmp/supabase.env
+          source /tmp/supabase.env
+          test -n "${DB_URL:-}" || { echo "DB_URL missing"; exit 1; }
+          STATUS_TEXT="$(supabase status)"
+          SUPABASE_LOCAL_URL="$(printf '%s\n' "$STATUS_TEXT" | sed -n 's/^[[:space:]]*API URL:[[:space:]]*//Ip')"
+          SUPABASE_LOCAL_ANON_KEY="${ANON_KEY:-}"
+          if [ -z "$SUPABASE_LOCAL_URL" ]; then SUPABASE_LOCAL_URL="http://127.0.0.1:54321"; fi
+          if [ -z "$SUPABASE_LOCAL_ANON_KEY" ]; then
+            SUPABASE_LOCAL_ANON_KEY="$(printf '%s\n' "$STATUS_TEXT" | sed -n 's/^[[:space:]]*anon key:[[:space:]]*//Ip')"
+          fi
+          test -n "$SUPABASE_LOCAL_ANON_KEY" || { echo "Local anon key could not be resolved"; exit 1; }
+          {
+            echo "SUPABASE_LOCAL_URL=$SUPABASE_LOCAL_URL"
+            echo "SUPABASE_LOCAL_ANON_KEY=$SUPABASE_LOCAL_ANON_KEY"
+            echo "DATABASE_URL=$DB_URL"
+          } >> "$GITHUB_ENV"
+      - name: Start MIZAN locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          nohup env VITE_SUPABASE_URL="$SUPABASE_LOCAL_URL" VITE_SUPABASE_ANON_KEY="$SUPABASE_LOCAL_ANON_KEY" npm run dev -- --host 127.0.0.1 --port 4173 >/tmp/mizan-vite.log 2>&1 &
+          echo $! >/tmp/mizan-vite.pid
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/mizan-vite.log
+          exit 1
+      - name: Install temporary browser harness
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium
+      - name: Execute real two-cycle E2E
+        env:
+          APP_URL: http://127.0.0.1:4173
+          SUPABASE_URL: ${{ env.SUPABASE_LOCAL_URL }}
+          SUPABASE_ANON_KEY: ${{ env.SUPABASE_LOCAL_ANON_KEY }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: node e2e/cycle-e2e.mjs
+      - name: Print E2E evidence log
+        if: always()
+        run: |
+          echo "===== E2E REPORT ====="
+          if [ -f e2e-output/e2e-report.md ]; then cat e2e-output/e2e-report.md; else echo "No report produced"; fi
+          echo "===== VITE LOG ====="
+          if [ -f /tmp/mizan-vite.log ]; then tail -n 120 /tmp/mizan-vite.log; fi
+      - name: Upload E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mizan-isolated-e2e-evidence
+          path: |
+            e2e-output/e2e-report.md
+            /tmp/mizan-vite.log
+          if-no-files-found: ignore
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
