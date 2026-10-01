@@ -56,4 +56,29 @@ jobs:
           if (settings.includes("profiles').update({ must_change_password: false")) throw new Error('SettingsPage must not update password state directly');
           console.log('UI source-of-truth contracts: PASS');
           NODE
+      - name: Verify PostgREST relationship hints
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const expectations = [
+            ['src/pages/MaintenancePage.tsx', 'faults!fk_work_orders_project_fault('],
+            ['src/pages/BillingPage.tsx', 'customers!fk_invoices_project_customer('],
+            ['src/pages/BillingPage.tsx', 'customers!fk_payments_project_customer(',],
+            ['src/pages/BillingPage.tsx', 'invoices!fk_payments_project_invoice('],
+            ['src/pages/CustomersPage.tsx', 'customers!fk_meters_project_customer('],
+            ['src/pages/ReadingsPage.tsx', 'customers!fk_meters_project_customer!inner('],
+          ];
+          for (const [file, marker] of expectations) {
+            const content = fs.readFileSync(file, 'utf8');
+            if (!content.includes(marker)) throw new Error(`Missing explicit relationship hint: ${file} -> ${marker}`);
+          }
+          for (const file of ['src/pages/MaintenancePage.tsx','src/pages/BillingPage.tsx','src/pages/CustomersPage.tsx','src/pages/ReadingsPage.tsx']) {
+            const content = fs.readFileSync(file, 'utf8');
+            if (/\.select\(['"][^'"]+\b(customers|faults|invoices)\([^)]/.test(content) &&
+                !content.includes('!fk_')) {
+              throw new Error(`Potential unqualified embedded relationship remains in ${file}`);
+            }
+          }
+          console.log('PostgREST relationship hints: PASS');
+          NODE
 
