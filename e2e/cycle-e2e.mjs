@@ -66,6 +66,23 @@ async function safeQuery(client, table, columns, filters = {}) {
   }
 }
 
+async function createSignedInClient(email, password) {
+  const anon = createClient(URL, ANON, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  const login = await anon.auth.signInWithPassword({ email, password });
+  if (login.error || !login.data.session?.user) {
+    throw new Error('signin ' + email + ': ' + (login.error?.message || 'no session'));
+  }
+  return {
+    id: login.data.session.user.id,
+    client: createClient(URL, ANON, {
+      global: { headers: { Authorization: 'Bearer ' + login.data.session.access_token } },
+      auth: { persistSession: false, autoRefreshToken: false }
+    })
+  };
+}
+
 async function newUser(email, password) {
   const anon = createClient(URL, ANON, {
     auth: { persistSession: false, autoRefreshToken: false }
@@ -247,8 +264,9 @@ async function main() {
 
   // --- Seed only downstream identities after testing the actual onboarding path ---
   const identities = {};
+  const onboardedPm = await createSignedInClient('pm-onboard@e2e.invalid', 'E2Euser!2026');
+  identities.pm = onboardedPm;
   const identityDefs = [
-    ['pm', 'e2e-pm@e2e.invalid', 'project_manager'],
     ['reader', 'e2e-reader@e2e.invalid', 'meter_reader'],
     ['collector', 'e2e-collector@e2e.invalid', 'collection_officer'],
     ['ops', 'e2e-ops@e2e.invalid', 'operations_maintenance']
