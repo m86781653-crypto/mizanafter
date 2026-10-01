@@ -164,6 +164,9 @@ jobs:
         run: supabase test db supabase/tests/041_invoker_report_schema_usage_contract.test.sql
       - name: Run permission resolution contract
         run: supabase test db supabase/tests/042_permission_resolution_contract.test.sql
+
+      - name: Run profile update policy recursion contract
+        run: supabase test db supabase/tests/043_profile_update_policy_recursion.test.sql
       - name: Run governed payment recording lock contract
         run: supabase test db supabase/tests/044_payment_recording_lock_contract.test.sql
 
