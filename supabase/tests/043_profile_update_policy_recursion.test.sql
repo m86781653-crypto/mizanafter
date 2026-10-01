@@ -1,14 +1,11 @@
 begin;
 select plan(6);
 
-insert into public.tenants(id,name_ar,tenant_type,status,parent_tenant_id)
-values('00000000-0000-4000-8000-000000000204','Profile Policy Contract Tenant','sub_tenant','active','b9295364-d688-4e20-b2a3-433f08bfdcaa');
-
 insert into auth.users(id,aud,role,email,email_confirmed_at,created_at,updated_at)
 values('00000000-0000-4000-8000-000000000104','authenticated','authenticated','mizan-profile-policy@test.invalid',now(),now(),now());
 
 insert into public.profiles(id,email,full_name,role,tenant_id,must_change_password)
-values('00000000-0000-4000-8000-000000000104','mizan-profile-policy@test.invalid','Profile Policy Contract','meter_reader','00000000-0000-4000-8000-000000000204',true);
+values('00000000-0000-4000-8000-000000000104','mizan-profile-policy@test.invalid','Profile Policy Contract','meter_reader',(select id from public.tenants where tenant_type='main_tenant' and status='active' limit 1),true);
 
 set local role authenticated;
 select set_config('request.jwt.claim.role','authenticated',true);
