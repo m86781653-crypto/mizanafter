@@ -1,0 +1,104 @@
+name: isolated-e2e-diagnostics
+
+on:
+  push:
+    branches:
+      - e2e/isolated-cycle-20261002
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v2
+        with:
+          version: 2.54.1
+
+      - name: Start clean local Supabase
+        run: supabase db start
+
+      - name: Inspect blockers A/B/C
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PGPASSWORD=postgres
+          DB_URL='postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+
+          echo '=== A: PROJECTS POLICY / get_user_project_id ==='
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -P pager=off -c "
+            select schemaname, tablename, policyname, cmd, qual, with_check
+            from pg_policies
+            where schemaname='public' and tablename='projects'
+            order by policyname;
+          "
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -P pager=off -c "
+            select n.nspname as schema_name,
+                   p.oid::regprocedure as function_signature,
+                   has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_execute,
+                   pg_get_functiondef(p.oid) as definition
+            from pg_proc p
+            join pg_namespace n on n.oid=p.pronamespace
+            where p.proname='get_user_project_id';
+          "
+
+          echo '=== B: ONBOARDING CLAIM / AUTH PROFILE TRIGGERS ==='
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -P pager=off -c "
+            select n.nspname as schema_name,
+                   p.oid::regprocedure as function_signature,
+                   has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_execute,
+                   pg_get_functiondef(p.oid) as definition
+            from pg_proc p
+            join pg_namespace n on n.oid=p.pronamespace
+            where p.proname like '%claim%subtenant%'
+               or p.proname like '%onboarding%'
+               or p.proname like '%profile%user%';
+          "
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -P pager=off -c "
+            select n.nspname as table_schema,
+                   c.relname as table_name,
+                   t.tgname as trigger_name,
+                   pg_get_triggerdef(t.oid) as trigger_definition,
+                   pn.nspname as trigger_function_schema,
+                   p.proname as trigger_function_name,
+                   p.oid::regprocedure as trigger_function_signature
+            from pg_trigger t
+            join pg_class c on c.oid=t.tgrelid
+            join pg_namespace n on n.oid=c.relnamespace
+            join pg_proc p on p.oid=t.tgfoid
+            join pg_namespace pn on pn.oid=p.pronamespace
+            where not t.tgisinternal
+              and (c.relname in ('profiles','users') or p.proname ilike '%profile%' or p.proname ilike '%onboard%')
+            order by 1,2,3;
+          "
+
+          echo '=== C: PROFILE ROLE CONSTRAINTS / ROLE CATALOG ==='
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -P pager=off -c "
+            select conname, pg_get_constraintdef(oid) as constraint_definition
+            from pg_constraint
+            where conrelid='public.profiles'::regclass
+              and contype='c'
+            order by conname;
+          "
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -P pager=off -c "
+            select role_code, name_ar, is_legacy
+            from public.mizan_role_catalog
+            where role_code in ('project_manager','meter_reader','collection_officer','operations_maintenance','central_governance')
+            order by role_code;
+          "
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -P pager=off -c "
+            select conname, pg_get_constraintdef(oid) as constraint_definition
+            from pg_constraint
+            where conrelid='private.subtenant_user_slots'::regclass
+            order by conname;
+          "
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
