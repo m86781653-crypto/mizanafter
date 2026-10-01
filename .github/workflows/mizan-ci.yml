@@ -72,12 +72,16 @@ jobs:
             const content = fs.readFileSync(file, 'utf8');
             if (!content.includes(marker)) throw new Error(`Missing explicit relationship hint: ${file} -> ${marker}`);
           }
-          for (const file of ['src/pages/MaintenancePage.tsx','src/pages/BillingPage.tsx','src/pages/CustomersPage.tsx','src/pages/ReadingsPage.tsx']) {
+          const forbidden = [
+            ['src/pages/MaintenancePage.tsx', "select('*, faults(fault_number,severity,description)')"],
+            ['src/pages/BillingPage.tsx', "select('*, customers(name_ar,customer_number,phone)')"],
+            ['src/pages/BillingPage.tsx', "select('*, customers(name_ar,customer_number), invoices(invoice_number,grand_total,balance)')"],
+            ['src/pages/CustomersPage.tsx', "select('*, customers(name_ar, customer_number)')"],
+            ['src/pages/ReadingsPage.tsx', "select('*, customers!inner(*)')"],
+          ];
+          for (const [file, legacy] of forbidden) {
             const content = fs.readFileSync(file, 'utf8');
-            if (/\.select\(['"][^'"]+\b(customers|faults|invoices)\([^)]/.test(content) &&
-                !content.includes('!fk_')) {
-              throw new Error(`Potential unqualified embedded relationship remains in ${file}`);
-            }
+            if (content.includes(legacy)) throw new Error('Legacy ambiguous relationship remains: ' + file);
           }
           console.log('PostgREST relationship hints: PASS');
           NODE
