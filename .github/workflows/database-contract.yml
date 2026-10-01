@@ -168,3 +168,5 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+      - name: Run profile update policy recursion contract
+        run: supabase test db supabase/tests/043_profile_update_policy_recursion.test.sql
