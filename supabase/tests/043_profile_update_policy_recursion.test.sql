@@ -1,5 +1,5 @@
 begin;
-select plan(7);
+select plan(8);
 
 insert into auth.users(id,aud,role,email,email_confirmed_at,created_at,updated_at)
 values('00000000-0000-4000-8000-000000000104','authenticated','authenticated','mizan-profile-policy@test.invalid',now(),now(),now());
@@ -78,6 +78,27 @@ begin
 end $$;
 
 select ok(true, 'direct password-state mutation is denied by profile policy');
+
+do $
+declare
+  v_denied boolean := false;
+begin
+  begin
+    update public.profiles
+       set role='collection_officer'
+     where id=(select auth.uid());
+  exception when others then
+    v_denied := (sqlstate = '42501');
+    if not v_denied then
+      raise;
+    end if;
+  end;
+  if not v_denied then
+    raise exception 'DIRECT_ROLE_UPDATE_UNEXPECTEDLY_ALLOWED';
+  end if;
+end $;
+
+select ok(true, 'direct role mutation is denied by profile policy');
 
 select public.mizan_complete_password_change();
 
