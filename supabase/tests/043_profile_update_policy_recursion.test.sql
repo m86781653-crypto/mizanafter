@@ -67,9 +67,19 @@ select ok(
 );
 
 select ok(
-  has_function_privilege('authenticated','public.mizan_complete_password_change()','EXECUTE')
-  and not has_function_privilege('anon','public.mizan_complete_password_change()','EXECUTE'),
-  'password completion RPC remains authenticated-only'
+  (select exists (
+    select 1
+    from aclexplode((select proacl from pg_proc where oid='public.mizan_complete_password_change()'::regprocedure)) a
+    join pg_roles r on r.oid=a.grantee
+    where r.rolname='authenticated' and a.privilege_type='EXECUTE'
+  ))
+  and not exists (
+    select 1
+    from aclexplode((select proacl from pg_proc where oid='public.mizan_complete_password_change()'::regprocedure)) a
+    left join pg_roles r on r.oid=a.grantee
+    where a.privilege_type='EXECUTE' and (a.grantee=0 or r.rolname='anon')
+  ),
+  'password completion RPC grants EXECUTE to authenticated and not to PUBLIC/anon'
 );
 
 select ok(
