@@ -321,52 +321,47 @@ async function main() {
   }).select().single();
   if (tankInsert.error) throw new Error('tank insert: ' + tankInsert.error.message);
 
-  const tariffInsert = await pm.from('tariffs').insert({
-    project_id: projectId,
-    name_ar: 'تعرفة E2E',
-    customer_type: 'residential',
-    fixed_fee: 5,
-    effective_from: '2026-09-01',
-    is_active: true
-  }).select().single();
-  if (tariffInsert.error) throw new Error('tariff insert: ' + tariffInsert.error.message);
+  const tariffResult = await rpc(pm, 'mizan_create_tariff_with_tiers', {
+    p_project_id: projectId,
+    p_name_ar: 'تعرفة E2E',
+    p_customer_type: 'residential',
+    p_fixed_fee: 5,
+    p_base_liters_per_person_per_day: 50,
+    p_base_price_per_m3: 0,
+    p_reference_period_days: 30,
+    p_tiers: [{ from_m3: 0, to_m3: null, price_per_m3: 2 }]
+  }, 'CREATE GOVERNED E2E TARIFF');
+  const tariffId = tariffResult?.tariff?.id;
+  if (!tariffId) throw new Error('governed tariff RPC returned no tariff id');
 
-  const tierInsert = await pm.from('tariff_tiers').insert({
-    tariff_id: tariffInsert.data.id,
-    from_m3: 0,
-    to_m3: null,
-    price_per_m3: 2
-  }).select().single();
-  if (tierInsert.error) throw new Error('tier insert: ' + tierInsert.error.message);
-
-  const customerInsert = await pm.from('customers').insert({
-    project_id: projectId,
-    customer_number: 'E2E-CUST-001',
-    name_ar: 'مشترك الاختبار',
-    status: 'active',
-    customer_type: 'residential',
-    connection_date: '2026-09-01'
-  }).select().single();
-  if (customerInsert.error) throw new Error('customer insert: ' + customerInsert.error.message);
-
-  const meterInsert = await pm.from('meters').insert({
-    project_id: projectId,
-    customer_id: customerInsert.data.id,
-    meter_number: 'E2E-MTR-001',
-    serial_number: 'PHY-E2E-001',
-    status: 'active',
-    installation_date: '2026-09-01',
-    last_reading: 0
-  }).select().single();
-  if (meterInsert.error) throw new Error('meter insert: ' + meterInsert.error.message);
+  const customerMeterResult = await rpc(pm, 'mizan_create_customer_with_meter', {
+    p_project_id: projectId,
+    p_customer_name: 'مشترك الاختبار',
+    p_phone: null,
+    p_address: 'E2E local',
+    p_customer_type: 'residential',
+    p_customer_status: 'active',
+    p_household_members: 4,
+    p_connection_date: null,
+    p_notes: 'E2E',
+    p_meter_serial_number: 'PHY-E2E-001',
+    p_meter_type: 'mechanical',
+    p_meter_size_mm: 20,
+    p_meter_status: 'active'
+  }, 'CREATE GOVERNED E2E CUSTOMER + METER');
+  const customerId = customerMeterResult?.customer?.id;
+  const meterId = customerMeterResult?.meter?.id;
+  if (!customerId || !meterId) throw new Error('governed customer/meter RPC returned no ids');
+  const customerInsert = { data: customerMeterResult.customer };
+  const meterInsert = { data: customerMeterResult.meter };
 
   log('INFRA/COMMERCIAL SETUP', {
     wellId: wellInsert.data.id,
     pumpId: pumpInsert.data.id,
     tankId: tankInsert.data.id,
-    tariffId: tariffInsert.data.id,
-    customerId: customerInsert.data.id,
-    meterId: meterInsert.data.id
+    tariffId,
+    customerId,
+    meterId
   });
 
   const productionMeter = await rpc(
@@ -447,11 +442,11 @@ async function main() {
 
   // --- Cycle 1 subscriber reading -> invoice -> payment ---
   const reading1 = await rpc(reader, 'mrx_capture_meter_reading', {
-    p_meter_id: meterInsert.data.id,
+    p_meter_id: meterId,
     p_reading_value: 10,
     p_reading_date: '2026-09-30T18:30:00+03:00',
     p_reading_method: 'photo',
-    p_image_url: projectId + '/meter-readings/' + meterInsert.data.id + '/c1.jpg',
+    p_image_url: projectId + '/meter-readings/' + meterId + '/c1.jpg',
     p_gps_lat: 13,
     p_gps_lng: 44,
     p_gps_accuracy: 10,
@@ -621,7 +616,7 @@ async function main() {
     p_reading_value: 16,
     p_reading_date: '2026-10-01T18:30:00+03:00',
     p_reading_method: 'photo',
-    p_image_url: projectId + '/meter-readings/' + meterInsert.data.id + '/c2.jpg',
+    p_image_url: projectId + '/meter-readings/' + meterId + '/c2.jpg',
     p_gps_lat: 13,
     p_gps_lng: 44,
     p_gps_accuracy: 10,
