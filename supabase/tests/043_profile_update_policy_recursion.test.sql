@@ -1,8 +1,8 @@
 begin;
 select plan(6);
 
-insert into public.tenants(id,name_ar,tenant_type,status)
-values('00000000-0000-4000-8000-000000000204','Profile Policy Contract Tenant','main_tenant','active');
+insert into public.tenants(id,name_ar,tenant_type,status,parent_tenant_id)
+values('00000000-0000-4000-8000-000000000204','Profile Policy Contract Tenant','sub_tenant','active','b9295364-d688-4e20-b2a3-433f08bfdcaa');
 
 insert into auth.users(id,aud,role,email,email_confirmed_at,created_at,updated_at)
 values('00000000-0000-4000-8000-000000000104','authenticated','authenticated','mizan-profile-policy@test.invalid',now(),now(),now());
