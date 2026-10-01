@@ -1,0 +1,26 @@
+name: E2E blocker repair proof
+on:
+  push:
+    branches:
+      - e2e/isolated-cycle-20261002
+permissions:
+  contents: read
+concurrency:
+  group: e2e-blocker-proof
+  cancel-in-progress: true
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.54.1
+      - name: Start clean local Supabase
+        run: supabase db start
+      - name: Run blocker repair proof
+        run: supabase test db supabase/tests/045_e2e_blocker_repairs.test.sql
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
