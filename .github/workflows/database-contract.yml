@@ -165,3 +165,5 @@ jobs:
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
+      - name: Run permission resolution contract
+        run: supabase test db supabase/tests/042_permission_resolution_contract.test.sql
