@@ -57,6 +57,7 @@ jobs:
           console.log('UI source-of-truth contracts: PASS');
           NODE
       - name: Verify PostgREST relationship hints
+        # Regression: PostgREST must never infer between duplicate project-scoped and legacy FK paths.
         run: |
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
