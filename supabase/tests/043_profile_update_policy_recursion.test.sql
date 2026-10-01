@@ -1,5 +1,5 @@
 begin;
-select plan(8);
+select plan(9);
 
 select ok(
   exists (
@@ -86,6 +86,14 @@ select ok(
   (select pg_get_functiondef('public.mizan_complete_password_change()'::regprocedure))
   ~ 'private\.mizan_clear_must_change_password',
   'password completion RPC delegates to governed helper'
+);
+
+select ok(
+  has_function_privilege('authenticated','private.mizan_user_project_id()','EXECUTE')
+  and has_function_privilege('authenticated','private.mizan_user_must_change_password()','EXECUTE')
+  and not has_function_privilege('anon','private.mizan_user_project_id()','EXECUTE')
+  and not has_function_privilege('anon','private.mizan_user_must_change_password()','EXECUTE'),
+  'profile-state helpers are authenticated-only'
 );
 
 select * from finish();
