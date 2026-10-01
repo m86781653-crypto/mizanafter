@@ -1,4 +1,4 @@
-select plan(23);
+select plan(25);
 
 select ok(
   not exists (
@@ -144,6 +144,26 @@ select ok(
       and coalesce(with_check,'') ilike '%private.mizan_can_write_project%'
   ),
   'reached pumps INSERT policy uses current write authorization kernel'
+);
+
+select ok(
+  not exists (
+    select 1 from pg_policies
+    where schemaname='public' and tablename='tanks'
+      and policyname='ins_tanks'
+      and coalesce(with_check,'') ilike '%is_super_admin%'
+  ),
+  'reached tanks INSERT policy no longer depends on retired super-admin helper'
+);
+
+select ok(
+  exists (
+    select 1 from pg_policies
+    where schemaname='public' and tablename='tanks'
+      and policyname='ins_tanks'
+      and coalesce(with_check,'') ilike '%private.mizan_can_write_project%'
+  ),
+  'reached tanks INSERT policy uses current project write authorization kernel'
 );
 
 select ok(
