@@ -1,5 +1,5 @@
 begin;
-select plan(9);
+select plan(11);
 
 set local role authenticated;
 select set_config('request.jwt.claim.role','authenticated',true);
@@ -8,6 +8,8 @@ select set_config('request.jwt.claim.sub','d0ac672c-f1b4-4660-9f1f-deef096d4482'
 select is(private.mizan_user_role(),'meter_reader','meter reader identity resolves');
 select is(private.mizan_has_permission('meter.capture'),true,'meter reader keeps meter capture permission');
 select is(private.mizan_has_permission('customer.manage'),false,'meter reader cannot claim customer management');
+select is(private.mizan_has_permission('governance.tenant.manage'),false,'meter reader cannot claim governance tenant management');
+select is(private.mizan_has_permission('__permission_that_does_not_exist__'),false,'unknown permission code is denied');
 select is(private.mizan_can_write_project('2bee5204-050e-4fa6-8a85-36bbac986579','meters','insert'),false,'meter reader cannot write meters');
 
 select set_config('request.jwt.claim.sub','e990c605-4cfc-4ac0-825d-76a277817fb4',true);
