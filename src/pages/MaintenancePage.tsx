@@ -64,7 +64,7 @@ export function MaintenancePage() {
     const [f,i,w,a,wl,p,pm] = await Promise.all([
       supabase.from('faults').select('*').eq('project_id',pid).order('reported_at',{ascending:false}),
       supabase.from('service_interruptions').select('*').eq('project_id',pid).order('started_at',{ascending:false}),
-      supabase.from('maintenance_work_orders').select('*, faults(fault_number,severity,description)').eq('project_id',pid).order('created_at',{ascending:false}),
+      supabase.from('maintenance_work_orders').select('*, faults!fk_work_orders_project_fault(fault_number,severity,description)').eq('project_id',pid).order('created_at',{ascending:false}),
       supabase.from('assets').select('*').eq('project_id',pid).order('asset_code'),
       supabase.from('wells').select('*').eq('project_id',pid).order('code'),
       supabase.from('pumps').select('*').eq('project_id',pid).order('code'),
