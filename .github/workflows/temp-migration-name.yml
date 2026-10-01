@@ -1,0 +1,23 @@
+name: TEMP migration filename generator
+on:
+  push:
+    branches:
+      - e2e/isolated-cycle-20261002
+permissions:
+  contents: read
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.54.1
+      - name: Generate migration names only
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/migrations
+          cd /tmp/migrations
+          supabase migration new e2e_blocker_repairs
+          supabase migration new e2e_blocker_proof
+          ls -1
