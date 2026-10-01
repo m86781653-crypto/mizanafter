@@ -45,3 +45,6 @@ revoke all on function private.mizan_user_project_id() from public,anon,authenti
 revoke all on function private.mizan_user_must_change_password() from public,anon,authenticated;
 grant execute on function private.mizan_user_project_id() to authenticated;
 grant execute on function private.mizan_user_must_change_password() to authenticated;
+
+revoke all on function private.mizan_clear_must_change_password(uuid) from public,anon;
+grant execute on function private.mizan_clear_must_change_password(uuid) to authenticated;
