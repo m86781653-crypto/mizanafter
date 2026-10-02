@@ -479,7 +479,7 @@ async function main() {
 
   const invoice1 = await getOne(reader, 'invoices',
     'id,grand_total,previous_balance,current_reading,consumption_m3,amount_paid,balance,status,billing_period_start,billing_period_end,invoice_number,source_reading_id',
-    { source_reading_id: reading1 }
+    { source_reading_id: reading1.id }
   );
   if (!invoice1) throw new Error('CYCLE 1 invoice not found by source_reading_id');
   log('CYCLE 1 READING -> INVOICE', { readingId: reading1, invoice: invoice1 });
@@ -649,7 +649,7 @@ async function main() {
 
   const invoice2 = await getOne(reader, 'invoices',
     'id,grand_total,previous_balance,current_reading,consumption_m3,amount_paid,balance,status,billing_period_start,billing_period_end,invoice_number,source_reading_id',
-    { source_reading_id: reading2 }
+    { source_reading_id: reading2.id }
   );
   if (!invoice2) throw new Error('CYCLE 2 invoice not found by source_reading_id');
 
