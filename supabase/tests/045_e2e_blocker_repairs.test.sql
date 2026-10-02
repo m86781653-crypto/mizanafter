@@ -29,6 +29,26 @@ select ok(
 select ok(
   not exists (
     select 1 from pg_policies
+    where schemaname='public' and tablename='meters'
+      and policyname='sel_meters'
+      and coalesce(qual,'') ilike '%get_user_project_id%'
+  ),
+  'reached meters SELECT policy no longer depends on revoked legacy helper'
+);
+
+select ok(
+  exists (
+    select 1 from pg_policies
+    where schemaname='public' and tablename='meters'
+      and policyname='sel_meters'
+      and coalesce(qual,'') ilike '%private.mizan_can_access_project%'
+  ),
+  'reached meters SELECT policy uses current project authorization kernel'
+);
+
+select ok(
+  not exists (
+    select 1 from pg_policies
     where schemaname='public' and tablename='wells'
       and policyname='sel_wells'
       and coalesce(qual,'') ilike '%get_user_project_id%'
