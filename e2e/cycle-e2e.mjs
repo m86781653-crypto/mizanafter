@@ -165,6 +165,7 @@ async function main() {
   const cycle1Date = yemenDate(0);
   const cycle2Date = yemenDate(1);
   const cycle2EndDate = yemenDate(2);
+  const physicalMeterSerial = 'PHY-E2E-001';
 
   // --- Bootstrap only what migrations require for an isolated test ---
   const mainTenantId = 'b9295364-d688-4e20-b2a3-433f08bfdcaa';
@@ -473,7 +474,7 @@ async function main() {
     p_ai_model: 'e2e-synthetic-ocr',
     p_notes: 'E2E cycle 1',
     p_client_capture_id: crypto.randomUUID(),
-    p_detected_meter_number: 'E2E-MTR-001'
+    p_detected_meter_number: physicalMeterSerial
   }, 'CYCLE 1 SUBSCRIBER READING');
 
   const invoice1 = await getOne(reader, 'invoices',
@@ -643,7 +644,7 @@ async function main() {
     p_ai_model: 'e2e-synthetic-ocr',
     p_notes: 'E2E cycle 2',
     p_client_capture_id: crypto.randomUUID(),
-    p_detected_meter_number: 'E2E-MTR-001'
+    p_detected_meter_number: physicalMeterSerial
   }, 'CYCLE 2 SUBSCRIBER READING');
 
   const invoice2 = await getOne(reader, 'invoices',
