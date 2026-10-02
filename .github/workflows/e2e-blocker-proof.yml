@@ -18,7 +18,7 @@ jobs:
         with:
           version: 2.54.1
       - name: Start clean local Supabase
-        run: supabase db start
+        run: supabase start -x studio,imgproxy,analytics,vector,pg_meta,edge_runtime,pooler,inbucket
       - name: Run blocker repair proof
         run: supabase test db supabase/tests/045_e2e_blocker_repairs.test.sql
       - name: Stop local Supabase
