@@ -342,7 +342,6 @@ async function main() {
     p_customer_type: 'residential',
     p_customer_status: 'active',
     p_household_members: 4,
-    p_connection_date: null,
     p_notes: 'E2E',
     p_meter_serial_number: 'PHY-E2E-001',
     p_meter_type: 'mechanical',
