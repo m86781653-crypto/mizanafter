@@ -30,6 +30,19 @@ function sqlJson(q) {
   return out ? JSON.parse(out) : null;
 }
 
+function yemenDate(offsetDays = 0) {
+  const d = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Aden',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(d);
+  const values = Object.fromEntries(parts.filter(p => p.type !== 'literal').map(p => [p.type, p.value]));
+  return values.year + '-' + values.month + '-' + values.day;
+}
+
+
 async function rpc(client, fn, args, label) {
   const result = await client.rpc(fn, args);
   if (result.error) {
@@ -146,6 +159,12 @@ async function main() {
     production_used: false,
     service_role_used: false
   });
+
+  // Test dates follow the system's Yemen business date so automatic connection/install dates
+  // are valid inputs instead of hard-coded historical dates.
+  const cycle1Date = yemenDate(0);
+  const cycle2Date = yemenDate(1);
+  const cycle2EndDate = yemenDate(2);
 
   // --- Bootstrap only what migrations require for an isolated test ---
   const mainTenantId = 'b9295364-d688-4e20-b2a3-433f08bfdcaa';
@@ -388,7 +407,7 @@ async function main() {
   const p1Start = await rpc(ops, 'mizan_capture_water_production_reading', {
     p_production_meter_id: prodMeterId,
     p_reading_value: 100,
-    p_captured_at: '2026-09-30T18:00:00+03:00',
+    p_captured_at: `\\${cycle1Date}T18:00:00+03:00`,
     p_capture_phase: 'start',
     p_image_url: projectId + '/production/' + prodMeterId + '/c1-start.jpg',
     p_gps_lat: 13,
@@ -403,14 +422,14 @@ async function main() {
   const cycle1 = await rpc(ops, 'mizan_start_pump_operation_cycle', {
     p_production_meter_id: prodMeterId,
     p_reading_id: p1Start,
-    p_started_at: '2026-09-30T18:00:00+03:00',
+    p_started_at: `\\${cycle1Date}T18:00:00+03:00`,
     p_notes: 'E2E cycle 1'
   }, 'CYCLE 1 PUMP START');
 
   const p1Stop = await rpc(ops, 'mizan_capture_water_production_reading', {
     p_production_meter_id: prodMeterId,
     p_reading_value: 160,
-    p_captured_at: '2026-09-30T20:00:00+03:00',
+    p_captured_at: `\\${cycle1Date}T20:00:00+03:00`,
     p_capture_phase: 'stop',
     p_image_url: projectId + '/production/' + prodMeterId + '/c1-stop.jpg',
     p_gps_lat: 13,
@@ -425,7 +444,7 @@ async function main() {
   const production1 = await rpc(ops, 'mizan_stop_pump_operation_cycle', {
     p_cycle_id: cycle1,
     p_reading_id: p1Stop,
-    p_stopped_at: '2026-09-30T20:00:00+03:00',
+    p_stopped_at: `\\${cycle1Date}T20:00:00+03:00`,
     p_notes: 'E2E cycle 1'
   }, 'CYCLE 1 PUMP STOP');
   const cycle1After = await getOne(pm, 'pump_operation_cycles', 'id,status,started_at,stopped_at,production_m3', { id: cycle1 });
@@ -443,7 +462,7 @@ async function main() {
   const reading1 = await rpc(reader, 'mrx_capture_meter_reading', {
     p_meter_id: meterId,
     p_reading_value: 10,
-    p_reading_date: '2026-09-30T18:30:00+03:00',
+    p_reading_date: `\\${cycle1Date}T18:30:00+03:00`,
     p_reading_method: 'photo',
     p_image_url: projectId + '/meter-readings/' + meterId + '/c1.jpg',
     p_gps_lat: 13,
@@ -518,7 +537,7 @@ async function main() {
   const assigned = await rpc(pm, 'mizan_assign_work_order', {
     p_work_order_id: workOrderBefore.id,
     p_assigned_to: 'E2E Technician',
-    p_scheduled_date: '2026-09-30'
+    p_scheduled_date: cycle1Date
   }, 'CYCLE 1 WORK ORDER ASSIGN');
 
   const executed = await rpc(ops, 'mizan_record_work_order_execution', {
@@ -550,8 +569,8 @@ async function main() {
   // --- Central reflection after cycle 1 ---
   const centralReport1 = await rpc(central.client, 'mizan_operational_report', {
     p_project_id: projectId,
-    p_period_start: '2026-09-30',
-    p_period_end: '2026-10-01'
+    p_period_start: cycle1Date,
+    p_period_end: cycle2Date
   }, 'CENTRAL REPORT AFTER CYCLE 1');
 
   const centralProject1 = await safeQuery(central.client, 'projects', 'id,name_ar,tenant_id,status', { id: projectId });
@@ -568,7 +587,7 @@ async function main() {
   const p2Start = await rpc(ops, 'mizan_capture_water_production_reading', {
     p_production_meter_id: prodMeterId,
     p_reading_value: 160,
-    p_captured_at: '2026-10-01T18:00:00+03:00',
+    p_captured_at: `\\${cycle2Date}T18:00:00+03:00`,
     p_capture_phase: 'start',
     p_image_url: projectId + '/production/' + prodMeterId + '/c2-start.jpg',
     p_gps_lat: 13,
@@ -583,14 +602,14 @@ async function main() {
   const cycle2 = await rpc(ops, 'mizan_start_pump_operation_cycle', {
     p_production_meter_id: prodMeterId,
     p_reading_id: p2Start,
-    p_started_at: '2026-10-01T18:00:00+03:00',
+    p_started_at: `\\${cycle2Date}T18:00:00+03:00`,
     p_notes: 'E2E cycle 2'
   }, 'CYCLE 2 PUMP START');
 
   const p2Stop = await rpc(ops, 'mizan_capture_water_production_reading', {
     p_production_meter_id: prodMeterId,
     p_reading_value: 190,
-    p_captured_at: '2026-10-01T20:00:00+03:00',
+    p_captured_at: `\\${cycle2Date}T20:00:00+03:00`,
     p_capture_phase: 'stop',
     p_image_url: projectId + '/production/' + prodMeterId + '/c2-stop.jpg',
     p_gps_lat: 13,
@@ -605,7 +624,7 @@ async function main() {
   const production2 = await rpc(ops, 'mizan_stop_pump_operation_cycle', {
     p_cycle_id: cycle2,
     p_reading_id: p2Stop,
-    p_stopped_at: '2026-10-01T20:00:00+03:00',
+    p_stopped_at: `\\${cycle2Date}T20:00:00+03:00`,
     p_notes: 'E2E cycle 2'
   }, 'CYCLE 2 PUMP STOP');
   const cycle2After = await getOne(pm, 'pump_operation_cycles', 'id,status,started_at,stopped_at,production_m3', { id: cycle2 });
@@ -613,7 +632,7 @@ async function main() {
   const reading2 = await rpc(reader, 'mrx_capture_meter_reading', {
     p_meter_id: meterInsert.data.id,
     p_reading_value: 16,
-    p_reading_date: '2026-10-01T18:30:00+03:00',
+    p_reading_date: `\\${cycle2Date}T18:30:00+03:00`,
     p_reading_method: 'photo',
     p_image_url: projectId + '/meter-readings/' + meterId + '/c2.jpg',
     p_gps_lat: 13,
@@ -656,8 +675,8 @@ async function main() {
 
   const centralReport2 = await rpc(central.client, 'mizan_operational_report', {
     p_project_id: projectId,
-    p_period_start: '2026-10-01',
-    p_period_end: '2026-10-02'
+    p_period_start: cycle2Date,
+    p_period_end: cycle2EndDate
   }, 'CENTRAL REPORT AFTER CYCLE 2');
 
   log('CENTRAL REFLECTION CYCLE 2', {
@@ -678,8 +697,8 @@ async function main() {
     const reportsNav = uiPage.getByRole('button', { name: 'التقارير والتحليلات' });
     await reportsNav.click();
     await uiPage.waitForTimeout(1200);
-    await uiPage.getByLabel('بداية الفترة').fill('2026-10-01');
-    await uiPage.getByLabel('نهاية الفترة').fill('2026-10-01');
+    await uiPage.getByLabel('بداية الفترة').fill(cycle2Date);
+    await uiPage.getByLabel('نهاية الفترة').fill(cycle2Date);
     await uiPage.getByRole('button', { name: 'تطبيق الفترة' }).click();
     await uiPage.waitForTimeout(1200);
     centralUiText = await uiPage.locator('body').innerText();
