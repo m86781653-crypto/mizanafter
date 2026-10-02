@@ -336,6 +336,24 @@ on conflict (id) do nothing;
 set local role authenticated;
 set local "request.jwt.claim.sub" = '44444444-4444-4444-8444-444444444444';
 
+select diag(coalesce((
+  select string_agg(
+    format('%s.%s => %s', tablename, policyname, coalesce(qual,'') || ' ' || coalesce(with_check,'')),
+    E'\\n'
+  )
+  from pg_policies
+  where schemaname='public'
+    and tablename in (
+      'customers','meters','invoices','payments','meter_readings',
+      'pump_operation_cycles','faults','maintenance_work_orders',
+      'service_interruptions'
+    )
+    and (
+      coalesce(qual,'') ilike '%get_user_project_id%'
+      or coalesce(with_check,'') ilike '%get_user_project_id%'
+    )
+), 'No report-path RLS policy references get_user_project_id'));
+
 select lives_ok(
   $test$select public.mizan_operational_report(
       '33333333-3333-4333-8333-333333333333'::uuid,
