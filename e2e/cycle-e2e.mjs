@@ -407,7 +407,7 @@ async function main() {
   const p1Start = await rpc(ops, 'mizan_capture_water_production_reading', {
     p_production_meter_id: prodMeterId,
     p_reading_value: 100,
-    p_captured_at: `\\${cycle1Date}T18:00:00+03:00`,
+    p_captured_at: `${cycle1Date}T18:00:00+03:00`,
     p_capture_phase: 'start',
     p_image_url: projectId + '/production/' + prodMeterId + '/c1-start.jpg',
     p_gps_lat: 13,
@@ -422,14 +422,14 @@ async function main() {
   const cycle1 = await rpc(ops, 'mizan_start_pump_operation_cycle', {
     p_production_meter_id: prodMeterId,
     p_reading_id: p1Start,
-    p_started_at: `\\${cycle1Date}T18:00:00+03:00`,
+    p_started_at: `${cycle1Date}T18:00:00+03:00`,
     p_notes: 'E2E cycle 1'
   }, 'CYCLE 1 PUMP START');
 
   const p1Stop = await rpc(ops, 'mizan_capture_water_production_reading', {
     p_production_meter_id: prodMeterId,
     p_reading_value: 160,
-    p_captured_at: `\\${cycle1Date}T20:00:00+03:00`,
+    p_captured_at: `${cycle1Date}T20:00:00+03:00`,
     p_capture_phase: 'stop',
     p_image_url: projectId + '/production/' + prodMeterId + '/c1-stop.jpg',
     p_gps_lat: 13,
@@ -444,7 +444,7 @@ async function main() {
   const production1 = await rpc(ops, 'mizan_stop_pump_operation_cycle', {
     p_cycle_id: cycle1,
     p_reading_id: p1Stop,
-    p_stopped_at: `\\${cycle1Date}T20:00:00+03:00`,
+    p_stopped_at: `${cycle1Date}T20:00:00+03:00`,
     p_notes: 'E2E cycle 1'
   }, 'CYCLE 1 PUMP STOP');
   const cycle1After = await getOne(pm, 'pump_operation_cycles', 'id,status,started_at,stopped_at,production_m3', { id: cycle1 });
@@ -462,7 +462,7 @@ async function main() {
   const reading1 = await rpc(reader, 'mrx_capture_meter_reading', {
     p_meter_id: meterId,
     p_reading_value: 10,
-    p_reading_date: `\\${cycle1Date}T18:30:00+03:00`,
+    p_reading_date: `${cycle1Date}T18:30:00+03:00`,
     p_reading_method: 'photo',
     p_image_url: projectId + '/meter-readings/' + meterId + '/c1.jpg',
     p_gps_lat: 13,
@@ -587,7 +587,7 @@ async function main() {
   const p2Start = await rpc(ops, 'mizan_capture_water_production_reading', {
     p_production_meter_id: prodMeterId,
     p_reading_value: 160,
-    p_captured_at: `\\${cycle2Date}T18:00:00+03:00`,
+    p_captured_at: `${cycle2Date}T18:00:00+03:00`,
     p_capture_phase: 'start',
     p_image_url: projectId + '/production/' + prodMeterId + '/c2-start.jpg',
     p_gps_lat: 13,
@@ -602,14 +602,14 @@ async function main() {
   const cycle2 = await rpc(ops, 'mizan_start_pump_operation_cycle', {
     p_production_meter_id: prodMeterId,
     p_reading_id: p2Start,
-    p_started_at: `\\${cycle2Date}T18:00:00+03:00`,
+    p_started_at: `${cycle2Date}T18:00:00+03:00`,
     p_notes: 'E2E cycle 2'
   }, 'CYCLE 2 PUMP START');
 
   const p2Stop = await rpc(ops, 'mizan_capture_water_production_reading', {
     p_production_meter_id: prodMeterId,
     p_reading_value: 190,
-    p_captured_at: `\\${cycle2Date}T20:00:00+03:00`,
+    p_captured_at: `${cycle2Date}T20:00:00+03:00`,
     p_capture_phase: 'stop',
     p_image_url: projectId + '/production/' + prodMeterId + '/c2-stop.jpg',
     p_gps_lat: 13,
@@ -624,7 +624,7 @@ async function main() {
   const production2 = await rpc(ops, 'mizan_stop_pump_operation_cycle', {
     p_cycle_id: cycle2,
     p_reading_id: p2Stop,
-    p_stopped_at: `\\${cycle2Date}T20:00:00+03:00`,
+    p_stopped_at: `${cycle2Date}T20:00:00+03:00`,
     p_notes: 'E2E cycle 2'
   }, 'CYCLE 2 PUMP STOP');
   const cycle2After = await getOne(pm, 'pump_operation_cycles', 'id,status,started_at,stopped_at,production_m3', { id: cycle2 });
@@ -632,7 +632,7 @@ async function main() {
   const reading2 = await rpc(reader, 'mrx_capture_meter_reading', {
     p_meter_id: meterInsert.data.id,
     p_reading_value: 16,
-    p_reading_date: `\\${cycle2Date}T18:30:00+03:00`,
+    p_reading_date: `${cycle2Date}T18:30:00+03:00`,
     p_reading_method: 'photo',
     p_image_url: projectId + '/meter-readings/' + meterId + '/c2.jpg',
     p_gps_lat: 13,
