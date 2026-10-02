@@ -1,8 +1,6 @@
 name: TEMP isolated E2E cycle test
 on:
-  push:
-    branches:
-      - e2e/isolated-cycle-20261002
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
