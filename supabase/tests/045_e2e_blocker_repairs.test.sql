@@ -337,11 +337,11 @@ set local role authenticated;
 set local "request.jwt.claim.sub" = '44444444-4444-4444-8444-444444444444';
 
 select lives_ok(
-  $select public.mizan_operational_report(
+  $test$select public.mizan_operational_report(
       '33333333-3333-4333-8333-333333333333'::uuid,
       date '2026-10-01',
       date '2026-10-03'
-    )$,
+    )$test$,
   'affected authenticated operational-report path executes without get_user_project_id permission error'
 );
 
