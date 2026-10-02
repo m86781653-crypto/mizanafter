@@ -1,4 +1,4 @@
-select plan(25);
+select plan(27);
 
 select ok(
   not exists (
