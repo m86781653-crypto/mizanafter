@@ -47,7 +47,7 @@ Exactly four operational roles:
 ## 3. Segregation of duties
 
 | Activity | Project Manager | Meter Reader | Collector | Operations & Maintenance | Central Authority |
-|---|---|---|---|---|
+|---|---|---|---|---|---|
 | Manage project master data | Yes, controlled | No | No | No | Yes, oversight/setup |
 | Capture meter reading | No routine capture | Yes | No | No | No |
 | Correct/exception reading | Review/approve exception | Submit evidence | No | No | Oversight |
@@ -59,8 +59,8 @@ Exactly four operational roles:
 | Execute maintenance | No, unless separately authorized | No | No | Yes, within assigned work | Oversight |
 | View reports | Yes | Limited operational | Limited financial/collection | Maintenance/work-order scope | Portfolio-wide |
 | View audit trail | Project scope | Own/relevant events | Own/relevant events | Own/relevant maintenance events | Portfolio-wide |
-| Provision subtenant users | No | No | No | Yes |
-| Change another user's role | No | No | No | No; controlled central/admin workflow |
+| Provision subtenant users | No | No | No | No | Yes |
+| Change another user's role | No | No | No | No | No; controlled central/admin workflow |
 
 ## 4. Central visibility model
 
@@ -95,7 +95,7 @@ Pages/functions should cover:
 - Maintenance/faults
 - Reports and loss analysis
 - Costs/sustainability
-- User status for the three assigned users, without granting arbitrary role administration
+- User status for the four assigned operational users, without granting arbitrary role administration
 - Settings
 
 The Project Manager must not be able to create additional operational users outside the approved four-role model.
