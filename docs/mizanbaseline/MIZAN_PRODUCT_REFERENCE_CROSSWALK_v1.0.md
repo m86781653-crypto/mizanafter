@@ -60,11 +60,18 @@ The extracted DOCX does **not** show these as independent top-level sections. So
 | Markdown section | Possible DOCX location | Status |
 |---|---|---|
 | 16. مكتبة مواصفات سير العمل | DOCX section 16 | Corresponding section found |
-| 17. قاموس المتطلبات المرجعية | DOCX section 14 and related requirements passages | Partial conceptual overlap; exact mapping unresolved |
-| 18. بوابات الجودة والإطلاق | DOCX section 15 and related readiness/acceptance passages | Partial conceptual overlap; exact mapping unresolved |
-| 19. إدارة المرجع والتغيير | DOCX sections 14–15 and reference-governance passages, if present | Mapping unresolved; do not claim equivalence |
+| 17. قاموس المتطلبات المرجعية | DOCX section 14, `المتطلبات المرجعية القابلة للتحقق` | Partial conceptual overlap; Markdown adds explicit requirement IDs and a categorized P0/P1/P2 catalog not found in the extracted DOCX text |
+| 18. بوابات الجودة والإطلاق | DOCX section 15, `المواصفة النهائية للمنتج وحزمة بدء العمل` | Partial conceptual overlap; Markdown enumerates eight named gates, while the DOCX extraction contains readiness/acceptance principles but not the same eight-gate structure |
+| 19. إدارة المرجع والتغيير | DOCX sections 14–15 contain related rules such as not inventing features and requiring evidence, but no same-named top-level section was found | Additional standalone structure in Markdown; exact coverage and authority require review |
 
-The DOCX text extraction has page headers, line-wrap artifacts, and OCR-like distortions. The mapping must therefore be verified against the original DOCX content and formatting before parity can be closed.
+### Material differences to resolve
+
+1. The Markdown explicitly enumerates **P0-01–P0-22**, **P1-01–P1-15**, and a P2 policy. These exact requirement IDs were not found in the extracted DOCX text. They may be useful engineering elaborations, but must not be represented as verbatim or fully synchronized content from the DOCX without owner approval.
+2. The Markdown introduces eight named quality/release gates. The DOCX includes readiness criteria and a “100% completion” gate concept, but the extracted text does not show the same eight-gate list as a standalone section. Confirm whether the eight gates are approved elaboration or an unintended scope/requirement expansion.
+3. The Markdown separates reference-change governance into a standalone section 19. The DOCX contains related “do not invent” and implementation-agent rules, but the same section title and full rule set were not found in the extracted text.
+4. The DOCX extraction includes page headers, line-wrap artifacts, and OCR-like distortions. Absence from extracted text is a review signal, not definitive proof that a phrase is absent from the visual source. Inspect the original DOCX pages before final classification.
+
+Until these differences are resolved, treat the Markdown as a detailed engineering reference with possible elaborations—not as a verified exact mirror of the Product Reference DOCX.
 
 ## Current conclusion
 
