@@ -8,7 +8,7 @@
 Define how MIZAN documentation is interpreted when documents disagree. This index does not replace the product owner's official reference files, and it does not claim that files absent from this repository have been reviewed.
 
 ## Authority and precedence
-1. **Latest explicit owner decision recorded in the Decision Log.** A decision supersedes an earlier decision only when the newer entry explicitly identifies what it supersedes. The four-role decision dated 2026-10-15 is recorded in this repository at `docs/mizanbaseline/decisions/2026-10-15-four-operational-roles.md`.
+1. **Official owner Decision Log, when available, together with explicit newer owner decisions.** A decision supersedes an earlier decision only when the newer entry explicitly identifies what it supersedes. The official file `MIZAN_Decision_Log_v0.1.docx` was not present in the repository inventory reviewed for this change. The decision dated 2026-10-15 is separately recorded for traceability at `docs/mizanbaseline/decisions/2026-10-15-four-operational-roles.md`; that record is not represented as a synchronized copy of the missing official Decision Log.
 2. **`MIZAN_Master_Reference_v0.1.docx`** — intended product behavior and product boundaries.
 3. **`MIZAN_Current_System_Baseline_v0.1.docx`** — dated evidence of the system's observed state, not proof of current state without re-verification.
 4. **`docs/mizanbaseline/MIZAN_Master_Product_Reference_v1.0.md`** — detailed engineering acceptance reference, subordinate to the owner decision and official master reference.
