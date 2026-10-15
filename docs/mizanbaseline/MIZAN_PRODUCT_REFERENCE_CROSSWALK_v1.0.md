@@ -46,9 +46,22 @@ Review each paired section in full and compare:
 
 For each difference, classify it as formatting/extraction noise, harmless editorial change, clarification, substantive requirement difference, or unresolved conflict. Substantive differences must be resolved by the product owner and recorded in the Decision Log before one format is declared a synchronized mirror.
 
+## Additional structural map: sections 16–19
+
+The DOCX's extracted text also exposes four later numbered sections that are outside the 15-foundation table of contents. They correspond to the Markdown's detailed execution and governance sections as follows:
+
+| # | DOCX section (as extracted) | Markdown section | Structural result |
+|---|---|---|---|
+| 16 | مكتبة مواصفات سير العمل | `16. مكتبة مواصفات سير العمل` | Corresponding section found |
+| 17 | قاموس المتطلبات المرجعية | `17. قاموس المتطلبات المرجعية` | Corresponding section found |
+| 18 | بوابات الجودة والإطلاق | `18. بوابات الجودة والإطلاق` | Corresponding section found |
+| 19 | إدارة المرجع والتغيير | `19. إدارة المرجع والتغيير` | Corresponding section found |
+
+This extends the structural map to all 19 top-level numbered sections visible across the detailed product reference. The DOCX text extraction has page headers, line-wrap artifacts, and OCR-like distortions; subsection numbering must not be confused with top-level numbering.
+
 ## Current conclusion
 
-- **Structural correspondence:** observed for all 15 major sections.
+- **Structural correspondence:** observed for all 15 foundations and the four additional numbered sections (1–19).
 - **Exact textual parity:** not established.
 - **Semantic parity:** not yet established.
 - **Authority:** the owner-designated DOCX remains the source file; the Markdown must not silently supersede it solely because it is easier for agents to read.
