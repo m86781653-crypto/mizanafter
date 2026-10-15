@@ -46,22 +46,30 @@ Review each paired section in full and compare:
 
 For each difference, classify it as formatting/extraction noise, harmless editorial change, clarification, substantive requirement difference, or unresolved conflict. Substantive differences must be resolved by the product owner and recorded in the Decision Log before one format is declared a synchronized mirror.
 
-## Additional structural map: sections 16–19
+## Additional structure and unmatched headings
 
-The DOCX's extracted text also exposes four later numbered sections that are outside the 15-foundation table of contents. They correspond to the Markdown's detailed execution and governance sections as follows:
+The DOCX text extraction exposes section 16, `مكتبة مواصفات سير العمل`, which corresponds to Markdown section 16.
 
-| # | DOCX section (as extracted) | Markdown section | Structural result |
-|---|---|---|---|
-| 16 | مكتبة مواصفات سير العمل | `16. مكتبة مواصفات سير العمل` | Corresponding section found |
-| 17 | قاموس المتطلبات المرجعية | `17. قاموس المتطلبات المرجعية` | Corresponding section found |
-| 18 | بوابات الجودة والإطلاق | `18. بوابات الجودة والإطلاق` | Corresponding section found |
-| 19 | إدارة المرجع والتغيير | `19. إدارة المرجع والتغيير` | Corresponding section found |
+The Markdown also has standalone top-level sections 17–19:
+- `17. قاموس المتطلبات المرجعية`
+- `18. بوابات الجودة والإطلاق`
+- `19. إدارة المرجع والتغيير`
 
-This extends the structural map to all 19 top-level numbered sections visible across the detailed product reference. The DOCX text extraction has page headers, line-wrap artifacts, and OCR-like distortions; subsection numbering must not be confused with top-level numbering.
+The extracted DOCX does **not** show these as independent top-level sections. Some related material appears to be embedded in DOCX sections 14–16 (for example, the requirements model, launch/readiness criteria, and reference-change rules), but a direct subsection-by-subsection content mapping has not yet been established. This is a real structural difference, not something to mark as a confirmed one-to-one section match.
+
+| Markdown section | Possible DOCX location | Status |
+|---|---|---|
+| 16. مكتبة مواصفات سير العمل | DOCX section 16 | Corresponding section found |
+| 17. قاموس المتطلبات المرجعية | DOCX section 14 and related requirements passages | Partial conceptual overlap; exact mapping unresolved |
+| 18. بوابات الجودة والإطلاق | DOCX section 15 and related readiness/acceptance passages | Partial conceptual overlap; exact mapping unresolved |
+| 19. إدارة المرجع والتغيير | DOCX sections 14–15 and reference-governance passages, if present | Mapping unresolved; do not claim equivalence |
+
+The DOCX text extraction has page headers, line-wrap artifacts, and OCR-like distortions. The mapping must therefore be verified against the original DOCX content and formatting before parity can be closed.
 
 ## Current conclusion
 
-- **Structural correspondence:** observed for all 15 foundations and the four additional numbered sections (1–19).
+- **Structural correspondence:** observed for the 15 foundation sections and section 16.
+- **Structural difference:** Markdown sections 17–19 are standalone top-level headings not observed as standalone headings in the DOCX extraction.
 - **Exact textual parity:** not established.
 - **Semantic parity:** not yet established.
 - **Authority:** the owner-designated DOCX remains the source file; the Markdown must not silently supersede it solely because it is easier for agents to read.
