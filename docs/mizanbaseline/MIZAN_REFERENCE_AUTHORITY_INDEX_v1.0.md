@@ -26,14 +26,19 @@ Each child water-project tenant must be provisioned with these four operational 
 The Platform Administrator is a technical platform role, not a fifth project-operational role. Central Governance is a separate oversight scope, not an additional child-project operational role.
 
 ## Required reference files and mirror status
-The owner-designated official files are:
+The owner-designated official source files are:
 - `MIZAN_Master_Reference_v0.1.docx`
 - `MIZAN_Current_System_Baseline_v0.1.docx`
 - `MIZAN_Decision_Log_v0.1.docx`
 
-They were not present in the repository inventory reviewed for this change. Their current contents and parity with repository Markdown files have therefore **not** been verified. Do not claim a mirror is synchronized until the actual source files are added or otherwise made available and compared.
+The original DOCX binaries are maintained in the owner's ChatGPT Library and were not present in the repository inventory reviewed for this change. To make their content available to repository-based agents, extracted-text mirrors have now been added:
+- `docs/mizanbaseline/official-reference-extracts/MIZAN_Master_Reference_v0.1.extract.md`
+- `docs/mizanbaseline/official-reference-extracts/MIZAN_Current_System_Baseline_v0.1.extract.md`
+- `docs/mizanbaseline/official-reference-extracts/MIZAN_Decision_Log_v0.1.extract.md`
 
-The repository's `MIZAN_Master_Product_Reference_v1.0.docx` and its Markdown counterpart must also be content-compared before they are treated as equivalent.
+These are explicitly labeled text extractions, not original DOCX files or byte-identical copies; Word layout and table formatting may not be fully preserved. The original Library documents remain the authoritative source files. The extracted mirrors should be rechecked against the originals after any source revision, and no claim of exact formatting/content parity should be made without comparison.
+
+The repository's `docs/mizanbaseline/MIZAN_Master_Product_Reference_v1.0.docx` and its Markdown counterpart must also be content-compared before they are treated as equivalent.
 
 ## Conflict handling
 - Do not resolve a substantive product conflict by silently choosing whichever document is easiest to edit.
