@@ -26,7 +26,7 @@ Central responsibilities:
 - Register the project and its baseline information.
 - Register funding source, donor/financing information and approved financing amount.
 - Register baseline infrastructure/assets that are known at setup.
-- Provision exactly three operational roles for each sub-tenant.
+- Provision exactly four operational roles for each sub-tenant.
 - Monitor performance, exceptions, service continuity, collections, maintenance, data quality and audit events.
 - Review exceptions and control breaches.
 - Produce portfolio-level reports.
@@ -38,28 +38,29 @@ Central users must not:
 - Alter operational evidence without an auditable correction workflow.
 
 ### Each sub-tenant
-Exactly three operational roles:
-1. Project Manager — operational management and control.
-2. Meter Reader — field meter capture and reading evidence.
-3. Collector — collection recording and collection evidence.
+Exactly four operational roles:
+1. `project_manager` — Project Manager; operational management and control.
+2. `meter_reader` — Meter Reader; field meter capture and reading evidence.
+3. `collection_officer` — Collector; collection recording and collection evidence.
+4. `operations_maintenance` — Operations & Maintenance; field maintenance execution, asset/service-status updates, and interruption evidence within assigned scope.
 
 ## 3. Segregation of duties
 
-| Activity | Project Manager | Meter Reader | Collector | Central Authority |
-|---|---|---|---|---|
-| Manage project master data | Yes, controlled | No | No | Yes, oversight/setup |
-| Capture meter reading | No routine capture | Yes | No | No |
-| Correct/exception reading | Review/approve exception | Submit evidence | No | Oversight |
-| Register customer | Controlled | No | No | Oversight |
-| Record payment/collection | Review | No | Yes | Oversight |
-| Approve collection | Yes, subject to separation from own transaction | No | No | Oversight |
-| Report fault | Yes | Yes | No | Oversight |
-| Create/assign maintenance work | Yes | No | No | Oversight |
-| Execute maintenance | No, unless separately authorized | No | No | No dedicated role in the three-user model |
-| View reports | Yes | Limited operational | Limited financial/collection | Portfolio-wide |
-| View audit trail | Project scope | Own/relevant events | Own/relevant events | Portfolio-wide |
-| Provision subtenant users | No | No | No | Yes |
-| Change another user's role | No | No | No | No; controlled central/admin workflow |
+| Activity | Project Manager (`project_manager`) | Meter Reader (`meter_reader`) | Collector (`collection_officer`) | Operations & Maintenance (`operations_maintenance`) | Central Authority |
+|---|---|---|---|---|---|
+| Manage project master data | Yes, controlled | No | No | No | Yes, oversight/setup |
+| Capture meter reading | No routine capture | Yes | No | No | No |
+| Correct/exception reading | Review/approve exception | Submit evidence | No | No | Oversight |
+| Register customer | Controlled | No | No | No | Oversight |
+| Record payment/collection | Review | No | Yes | No | Oversight |
+| Approve collection | Yes, subject to separation from own transaction | No | No | No | Oversight |
+| Report fault | Yes | Yes | No | Yes | Oversight |
+| Create/assign maintenance work | Yes | No | No | No | Oversight |
+| Execute maintenance | No, unless separately authorized | No | No | Yes, within assigned work | Oversight |
+| View reports | Yes | Limited operational | Limited financial/collection | Maintenance/work-order scope | Portfolio-wide |
+| View audit trail | Project scope | Own/relevant events | Own/relevant events | Own/relevant maintenance events | Portfolio-wide |
+| Provision subtenant users | No | No | No | No | Yes |
+| Change another user's role | No | No | No | No | No; controlled central/admin workflow |
 
 ## 4. Central visibility model
 
@@ -94,10 +95,10 @@ Pages/functions should cover:
 - Maintenance/faults
 - Reports and loss analysis
 - Costs/sustainability
-- User status for the three assigned users, without granting arbitrary role administration
+- User status for the four assigned operational users, without granting arbitrary role administration
 - Settings
 
-The Project Manager must not be able to create additional operational users outside the approved three-role model.
+The Project Manager must not be able to create additional operational users outside the approved four-role model.
 
 ### Meter Reader
 Only field/reading functions plus the minimum context required to perform them:
@@ -153,7 +154,7 @@ Must not capture meter readings, approve their own transactions, change tariffs,
 
 The authorization source of truth will be the database permission model plus tenant/project scope. React page visibility must be derived from the same permission model and must never grant authority that the database does not grant.
 
-The target role model should separate the central governance role from the subtenant Project Manager role. The exact role code is to be chosen only after checking all existing role constraints/migrations and then migrated consistently.
+The target role model should separate the central governance role from the subtenant Project Manager role. The central governance role must be distinct from the child-project Project Manager role. All four operational role codes must be checked against existing constraints/migrations and aligned consistently before implementation.
 
 ## 9. Evidence and governance references
 
@@ -175,7 +176,7 @@ F. Add automated authorization contract tests for:
    - tenant isolation
    - maker-checker
    - no self-approval
-   - three-user provisioning invariant
+   - four-role provisioning invariant
    - central read-only operational boundary
    - audit completeness.
 G. Only after A-F pass, finalize production page design and release.
