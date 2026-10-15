@@ -27,9 +27,9 @@ The first three official source DOCX files were not present in the repository in
 
 The repository contains both `docs/mizanbaseline/MIZAN_Master_Product_Reference_v1.0.docx` and `docs/mizanbaseline/MIZAN_Master_Product_Reference_v1.0.md`.
 
-A section-level structural crosswalk has now been added at `docs/mizanbaseline/MIZAN_PRODUCT_REFERENCE_CROSSWALK_v1.0.md`. It maps all 15 major sections visible in the DOCX table of contents to corresponding Markdown sections. This establishes broad structural correspondence only.
+A section-level crosswalk has been added at `docs/mizanbaseline/MIZAN_PRODUCT_REFERENCE_CROSSWALK_v1.0.md`. It maps the 15 foundation sections and section 16's workflow library. It also records that Markdown sections 17–19 are standalone sections not observed as standalone headings in the DOCX extraction.
 
-A preliminary extracted-text comparison found substantial shared terminology and subject matter, but it did **not** establish exact textual or semantic parity. The DOCX extraction includes page headers, line wraps, and possible table/layout artifacts. The crosswalk records the remaining semantic checks and conflict-resolution method. Neither file should be declared an exact synchronized mirror based on filename, section count, or version label alone.
+A preliminary extracted-text comparison found substantial shared terminology and subject matter, but it did **not** establish exact textual or semantic parity. In particular, Markdown adds explicit P0/P1 requirement IDs and a named eight-gate release model that were not found in the extracted DOCX text. These may be engineering elaborations, but must be reviewed and authorized rather than treated as verbatim source content. The DOCX extraction includes page headers, line wraps, and possible table/layout artifacts; absence from extraction is not definitive proof of absence from the visual source. Neither file should be declared an exact synchronized mirror based on filename, section count, or version label alone.
 
 ## 4. Verified in this audit
 
@@ -42,7 +42,7 @@ A preliminary extracted-text comparison found substantial shared terminology and
 ## 5. Still open — do not overstate completion
 
 1. Compare each extracted-text mirror with its source DOCX, including tables and critical wording; regenerate if any extraction omission is found.
-2. Complete the section-by-section semantic review specified in `docs/mizanbaseline/MIZAN_PRODUCT_REFERENCE_CROSSWALK_v1.0.md`; resolve substantive differences explicitly.
+2. Resolve the material differences documented in `docs/mizanbaseline/MIZAN_PRODUCT_REFERENCE_CROSSWALK_v1.0.md`, especially the explicit P0/P1 IDs and eight-gate model in Markdown, and verify them against the original DOCX visually.
 3. Transcribe D-012 into the owner-maintained Decision Log DOCX or issue a formally versioned successor, then regenerate its extract.
 4. Decide and document the long-term synchronization mechanism for owner Library source files and repository mirrors.
 5. Review the complete pull-request diff and branch checks before considering merge.
