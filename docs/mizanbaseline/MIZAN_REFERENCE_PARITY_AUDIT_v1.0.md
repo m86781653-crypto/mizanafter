@@ -19,8 +19,8 @@ The first three official source DOCX files were not present in the repository in
 ## 2. Reference hierarchy and role decision
 
 - The reference authority index defines the distinction between target product behavior, dated current-state evidence, execution rules, and code/database/deployment evidence.
-- The four-role decision dated 2026-10-15 is separately recorded at `docs/mizanbaseline/decisions/2026-10-15-four-operational-roles.md`.
-- That standalone record is a traceability record; it is not a claim that the missing official Decision Log DOCX has been edited or synchronized.
+- The four-role decision dated 2026-10-15 is recorded as repository addendum D-012 at `docs/mizanbaseline/official-reference-extracts/MIZAN_Decision_Log_Addendum_2026-10-15.md`, with a traceability record at `docs/mizanbaseline/decisions/2026-10-15-four-operational-roles.md`.
+- The original owner-maintained Decision Log DOCX has not been edited. D-012 is a clearly labeled repository addendum, not a claim that the Library source has been synchronized; it must be transcribed into that source or a formally versioned successor.
 - The four child-project operational roles are `project_manager`, `meter_reader`, `collection_officer`, and `operations_maintenance`. Platform Administrator and Central Governance are not additional child-project operational roles.
 
 ## 3. Product Reference DOCX/Markdown parity
@@ -43,9 +43,10 @@ A preliminary extracted-text comparison found substantial shared terminology and
 
 1. Compare each extracted-text mirror with its source DOCX, including tables and critical wording; regenerate if any extraction omission is found.
 2. Complete the section-by-section semantic review specified in `docs/mizanbaseline/MIZAN_PRODUCT_REFERENCE_CROSSWALK_v1.0.md`; resolve substantive differences explicitly.
-3. Decide and document the long-term synchronization mechanism for owner Library source files and repository mirrors.
-4. Review the complete pull-request diff and branch checks before considering merge.
-5. Do not infer that current application behavior, authorization, database state, or production deployment conforms merely because documentation agrees.
+3. Transcribe D-012 into the owner-maintained Decision Log DOCX or issue a formally versioned successor, then regenerate its extract.
+4. Decide and document the long-term synchronization mechanism for owner Library source files and repository mirrors.
+5. Review the complete pull-request diff and branch checks before considering merge.
+6. Do not infer that current application behavior, authorization, database state, or production deployment conforms merely because documentation agrees.
 
 ## 6. Change boundary
 
