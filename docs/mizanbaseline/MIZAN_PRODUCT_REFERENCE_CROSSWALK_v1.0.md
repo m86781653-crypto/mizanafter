@@ -80,6 +80,64 @@ The extracted DOCX does **not** show these as independent top-level sections. So
 
 The Markdown structure therefore merges or redistributes several DOCX stages and does not present DOCX stage 1 as a distinct named gate. This may be an intentional simplification, but it must be documented as such if the Markdown is to be maintained as an engineering derivative.
 
+### Requirement-level semantic crosswalk (candidate mapping)
+
+This table maps the Markdown's existing requirement IDs to concepts found in the extracted DOCX. It does not create new requirements or certify equivalence. “Direct concept” means a matching concept is visible in the extraction; “Partial/combined” means the concept appears but is grouped differently or needs a visual source check.
+
+#### P0 requirements
+
+| Markdown ID | DOCX conceptual anchor | Candidate status |
+|---|---|---|
+| P0-01 | Sections 8 and 12: isolation, access boundaries, security starts at data | Direct concept |
+| P0-02 | Sections 8, 12 and 14: authorization, security and negative testing | Direct concept |
+| P0-03 | Sections 4 and 6: project/site/time context and minimum data context | Direct concept |
+| P0-04 | Sections 2, 4, 6 and 12: evidence linked to events, results and source | Direct concept |
+| P0-05 | Sections 6 and 7: source of truth, extracted data, derived results, AI not automatic truth | Direct concept |
+| P0-06 | Sections 6, 7 and 14: validation, measurement identity and test evidence | Partial/combined |
+| P0-07 | Sections 2, 5 and 12: current state changes during continuous operation, not only at period close | Direct concept |
+| P0-08 | Sections 5 and 12: current state distinguished from historical record | Direct concept |
+| P0-09 | Sections 2, 5 and 14: operational-period closure fixes historical results | Direct concept |
+| P0-10 | Sections 5 and 14: continuity and transition to the next period | Direct concept |
+| P0-11 | Sections 4 and 9: offline capture, local preservation and continuity under connectivity loss | Direct concept |
+| P0-12 | Sections 4 and 9: synchronization, conflict handling and safe retry | Direct concept |
+| P0-13 | Sections 4, 6 and 13: service/usage → entitlement → payment → balance | Direct concept |
+| P0-14 | Sections 8 and 12: ownership, context, timestamp and historical effect for important changes | Direct concept |
+| P0-15 | Sections 8 and 14: data governance, least data, secrets and security | Partial/combined; verify exact control coverage |
+| P0-16 | Section 12: sensitive changes require a safe, reversible migration | Direct concept |
+| P0-17 | Sections 8 and 14: backup, restore and evidence before release | Direct concept |
+| P0-18 | Sections 4, 5 and 12: failures must preserve data/context and cannot count as complete success | Direct concept |
+| P0-19 | Section 14: negative authorization tests and proof of isolation | Direct concept |
+| P0-20 | Sections 2, 4, 14 and 15: end-to-end operating cycle, period closure and next-period effects | Direct concept |
+| P0-21 | Sections 7 and 8: AI risk controls, human review and stop/revert mechanism | Direct concept |
+| P0-22 | Sections 6, 7 and 11: critical values tied to source, context, method and evidence | Direct concept |
+
+#### P1 requirements
+
+| Markdown ID | DOCX conceptual anchor | Candidate status |
+|---|---|---|
+| P1-01 | Sections 6, 13 and 14: baseline/current context and tracking the actual system before implementation | Partial/combined; verify the exact “existing vs new project” formulation |
+| P1-02 | Sections 6 and 10: asset capacity, condition and operational context | Partial/combined; confirm design/operational/actual capacity distinctions |
+| P1-03 | Section 11: important numbers need definition, period, context, source and calculation method | Direct concept |
+| P1-04 | Sections 4, 7 and 11: detect abnormal conditions, explain significance and support action | Direct concept |
+| P1-05 | Sections 4, 11 and 13: operating, period, maintenance and collection reporting | Direct concept |
+| P1-06 | Sections 4 and 11: multi-project aggregate view with authorized drill-down to source | Direct concept |
+| P1-07 | Section 9: Arabic field usability, short workflows and reduced typing | Direct concept |
+| P1-08 | Section 9: WCAG 2.2 as the accessibility basis | Direct concept |
+| P1-09 | Sections 3, 9 and 14: Yemen field constraints, limited connectivity/devices and performance | Direct concept |
+| P1-10 | Sections 9 and 10: availability, sync success, failure, recovery time, freshness and cost monitoring | Direct concept |
+| P1-11 | Section 7: AI assistant grounded in authorized organizational data and context, distinguishing fact/inference/recommendation | Direct concept |
+| P1-12 | Sections 7 and 8: AI quality evaluation, review outcomes and risk management | Partial/combined; verify whether correction-rate measurement is explicitly required |
+| P1-13 | Sections 9 and 14, stage 4: recovery, continuity and incident response | Direct concept |
+| P1-14 | Section 8: data ownership, retention, export and continuity when changing provider | Direct concept |
+| P1-15 | Section 8: accountable owner, context, time and historical effect for important decisions/changes | Direct concept |
+
+#### Interpretation rules
+
+1. These rows map **concepts**, not identical wording. The DOCX extraction has layout/OCR artifacts, so all partial mappings and any decision that affects scope must be checked against the original DOCX visually.
+2. The IDs P0-01–P0-22 and P1-01–P1-15 are labels used by the Markdown; the extracted DOCX presents priority categories but does not expose these same IDs.
+3. Do not infer that a mapped concept is already implemented in the application or database.
+4. The product owner must resolve whether the Markdown's explicit IDs and any extra specificity are approved engineering elaborations, or must be revised to match the owner source more closely.
+
 ### Material differences to resolve
 
 1. The Markdown explicitly enumerates **P0-01–P0-22**, **P1-01–P1-15**, and a P2 policy. The DOCX does contain P0/P1/P2 priority categories (the extraction reverses some letter/number order), but the individual requirement IDs and the full enumerated catalog were not found in the extracted text. Treat the numbered catalog as a structured elaboration requiring a semantic crosswalk, not as verbatim synchronized content.
