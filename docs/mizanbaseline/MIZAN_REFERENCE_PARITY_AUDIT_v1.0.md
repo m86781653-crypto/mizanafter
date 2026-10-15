@@ -27,7 +27,9 @@ The first three official source DOCX files were not present in the repository in
 
 The repository contains both `docs/mizanbaseline/MIZAN_Master_Product_Reference_v1.0.docx` and `docs/mizanbaseline/MIZAN_Master_Product_Reference_v1.0.md`.
 
-A preliminary extracted-text comparison found substantial shared terminology and subject matter, but it did **not** establish exact textual or semantic parity. The documents have different structures and the DOCX extraction includes page/table artifacts. Therefore, neither file should be declared an exact synchronized mirror based on filename or version label alone. A section-by-section semantic crosswalk remains required.
+A section-level structural crosswalk has now been added at `docs/mizanbaseline/MIZAN_PRODUCT_REFERENCE_CROSSWALK_v1.0.md`. It maps all 15 major sections visible in the DOCX table of contents to corresponding Markdown sections. This establishes broad structural correspondence only.
+
+A preliminary extracted-text comparison found substantial shared terminology and subject matter, but it did **not** establish exact textual or semantic parity. The DOCX extraction includes page headers, line wraps, and possible table/layout artifacts. The crosswalk records the remaining semantic checks and conflict-resolution method. Neither file should be declared an exact synchronized mirror based on filename, section count, or version label alone.
 
 ## 4. Verified in this audit
 
@@ -40,7 +42,7 @@ A preliminary extracted-text comparison found substantial shared terminology and
 ## 5. Still open — do not overstate completion
 
 1. Compare each extracted-text mirror with its source DOCX, including tables and critical wording; regenerate if any extraction omission is found.
-2. Complete a section-by-section semantic crosswalk between Product Reference DOCX and Markdown; resolve substantive differences explicitly.
+2. Complete the section-by-section semantic review specified in `docs/mizanbaseline/MIZAN_PRODUCT_REFERENCE_CROSSWALK_v1.0.md`; resolve substantive differences explicitly.
 3. Decide and document the long-term synchronization mechanism for owner Library source files and repository mirrors.
 4. Review the complete pull-request diff and branch checks before considering merge.
 5. Do not infer that current application behavior, authorization, database state, or production deployment conforms merely because documentation agrees.
