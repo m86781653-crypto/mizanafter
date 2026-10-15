@@ -60,14 +60,14 @@ The extracted DOCX does **not** show these as independent top-level sections. So
 | Markdown section | Possible DOCX location | Status |
 |---|---|---|
 | 16. مكتبة مواصفات سير العمل | DOCX section 16 | Corresponding section found |
-| 17. قاموس المتطلبات المرجعية | DOCX section 14, `المتطلبات المرجعية القابلة للتحقق` | Partial conceptual overlap; Markdown adds explicit requirement IDs and a categorized P0/P1/P2 catalog not found in the extracted DOCX text |
-| 18. بوابات الجودة والإطلاق | DOCX section 15, `المواصفة النهائية للمنتج وحزمة بدء العمل` | Partial conceptual overlap; Markdown enumerates eight named gates, while the DOCX extraction contains readiness/acceptance principles but not the same eight-gate structure |
+| 17. قاموس المتطلبات المرجعية | DOCX section 14, `المتطلبات المرجعية القابلة للتحقق` | Partial conceptual overlap; Markdown adds explicit requirement IDs and expands the P0/P1/P2 priority categories into a numbered catalog; the DOCX does contain priority categories, but individual IDs are not visible in the extraction |
+| 18. بوابات الجودة والإطلاق | DOCX section 15, `المواصفة النهائية للمنتج وحزمة بدء العمل` | Partial conceptual overlap; Markdown enumerates eight named gates (0–7), while the DOCX describes a nine-step execution method (0–8) plus a 100% completion gate; the concepts broadly overlap but are grouped and numbered differently |
 | 19. إدارة المرجع والتغيير | DOCX sections 14–15 contain related rules such as not inventing features and requiring evidence, but no same-named top-level section was found | Additional standalone structure in Markdown; exact coverage and authority require review |
 
 ### Material differences to resolve
 
-1. The Markdown explicitly enumerates **P0-01–P0-22**, **P1-01–P1-15**, and a P2 policy. These exact requirement IDs were not found in the extracted DOCX text. They may be useful engineering elaborations, but must not be represented as verbatim or fully synchronized content from the DOCX without owner approval.
-2. The Markdown introduces eight named quality/release gates. The DOCX includes readiness criteria and a “100% completion” gate concept, but the extracted text does not show the same eight-gate list as a standalone section. Confirm whether the eight gates are approved elaboration or an unintended scope/requirement expansion.
+1. The Markdown explicitly enumerates **P0-01–P0-22**, **P1-01–P1-15**, and a P2 policy. The DOCX does contain P0/P1/P2 priority categories (the extraction reverses some letter/number order), but the individual requirement IDs and the full enumerated catalog were not found in the extracted text. Treat the numbered catalog as a structured elaboration requiring a semantic crosswalk, not as verbatim synchronized content.
+2. The Markdown introduces eight named quality/release gates (0–7). The DOCX describes a nine-step execution method (0–8) and a “100% completion” gate. The concepts broadly overlap, but their grouping, numbering, and labels differ; map each stage and confirm whether this is an intentional restructuring or an unintended requirement change.
 3. The Markdown separates reference-change governance into a standalone section 19. The DOCX contains related “do not invent” and implementation-agent rules, but the same section title and full rule set were not found in the extracted text.
 4. The DOCX extraction includes page headers, line-wrap artifacts, and OCR-like distortions. Absence from extracted text is a review signal, not definitive proof that a phrase is absent from the visual source. Inspect the original DOCX pages before final classification.
 
