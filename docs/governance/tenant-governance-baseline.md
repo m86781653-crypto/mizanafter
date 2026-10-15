@@ -39,14 +39,14 @@ Central users must not:
 
 ### Each sub-tenant
 Exactly four operational roles:
-1. Project Manager — operational management and control.
-2. Meter Reader — field meter capture and reading evidence.
-3. Collector — collection recording and collection evidence.
-4. Operations & Maintenance — field maintenance execution, asset/service-status updates, and interruption evidence within assigned scope.
+1. `project_manager` — Project Manager; operational management and control.
+2. `meter_reader` — Meter Reader; field meter capture and reading evidence.
+3. `collection_officer` — Collector; collection recording and collection evidence.
+4. `operations_maintenance` — Operations & Maintenance; field maintenance execution, asset/service-status updates, and interruption evidence within assigned scope.
 
 ## 3. Segregation of duties
 
-| Activity | Project Manager | Meter Reader | Collector | Operations & Maintenance | Central Authority |
+| Activity | Project Manager (`project_manager`) | Meter Reader (`meter_reader`) | Collector (`collection_officer`) | Operations & Maintenance (`operations_maintenance`) | Central Authority |
 |---|---|---|---|---|---|
 | Manage project master data | Yes, controlled | No | No | No | Yes, oversight/setup |
 | Capture meter reading | No routine capture | Yes | No | No | No |
