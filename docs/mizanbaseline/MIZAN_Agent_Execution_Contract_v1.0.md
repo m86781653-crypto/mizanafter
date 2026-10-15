@@ -6,6 +6,14 @@ This document is the execution contract for the coding/building agent. It is sub
 
 The product reference describes business behavior and acceptance outcomes. It intentionally does NOT prescribe current repository names, database tables, functions, pages, files, routes, APIs, libraries, or a specific architecture. The agent MUST discover the existing implementation before changing it.
 
+## 0.1 Reference authority and conflict resolution
+
+Before implementation, read `docs/mizanbaseline/MIZAN_REFERENCE_AUTHORITY_INDEX_v1.0.md` and the available authoritative references. Follow the precedence defined there. The latest explicit owner decision controls only where it clearly supersedes an earlier decision; the current code and production state are evidence to inspect, not substitutes for the target product definition.
+
+The owner-approved decision dated 2026-10-15 requires exactly four operational roles per child water-project tenant: `project_manager`, `meter_reader`, `collection_officer`, and `operations_maintenance`. The platform administrator and central governance scope are not child-project operational roles.
+
+If a referenced official document is absent, do not claim to have reviewed it or assume its content. Record the gap. When sources conflict and the precedence rules do not resolve the conflict, pause the affected implementation and request an explicit owner decision. Documentation alignment alone does not authorize changes to application code, schema, production data, or deployment.
+
 ## 1. Mission
 
 Turn the current MIZAN implementation into a production-grade water-operations and intelligence platform that faithfully realizes the product reference.
