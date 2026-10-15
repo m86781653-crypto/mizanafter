@@ -64,6 +64,22 @@ The extracted DOCX does **not** show these as independent top-level sections. So
 | 18. بوابات الجودة والإطلاق | DOCX section 15, `المواصفة النهائية للمنتج وحزمة بدء العمل` | Partial conceptual overlap; Markdown enumerates eight named gates (0–7), while the DOCX describes a nine-step execution method (0–8) plus a 100% completion gate; the concepts broadly overlap but are grouped and numbered differently |
 | 19. إدارة المرجع والتغيير | DOCX sections 14–15 contain related rules such as not inventing features and requiring evidence, but no same-named top-level section was found | Additional standalone structure in Markdown; exact coverage and authority require review |
 
+### Execution-stage crosswalk: DOCX section 15 vs Markdown section 18
+
+| DOCX method stage | Markdown gate | Assessment |
+|---|---|---|
+| 0 — Discovery | Gate 0 — Discovery | Direct conceptual match |
+| 1 — Alignment: classify every reference requirement as matching/partial/missing/contradictory/unprovable | No distinct named gate; requirement reconciliation is partly represented in the broader reference workflow | Potentially under-specified as a release gate; verify intended coverage |
+| 2 — P0 repair | Gate 1 — Data safety and Gate 2 — Security/isolation, plus the P0 catalog | Split/reorganized; not a one-to-one match |
+| 3 — Prove the complete operating cycle | Gate 3 — Complete cycle | Direct conceptual match |
+| 4 — Security and governance | Gate 2 — Security/isolation | Broad match; confirm backup, secrets, audit, and incident-response coverage |
+| 5 — Field/offline | Gate 4 — Field/offline | Direct conceptual match |
+| 6 — AI | Gate 5 — AI | Direct conceptual match |
+| 7 — Performance/sustainability | Gate 6 — Quality/performance | Broad match; confirm explicit sustainability/recovery scope |
+| 8 — Release | Gate 7 — Release | Direct conceptual match |
+
+The Markdown structure therefore merges or redistributes several DOCX stages and does not present DOCX stage 1 as a distinct named gate. This may be an intentional simplification, but it must be documented as such if the Markdown is to be maintained as an engineering derivative.
+
 ### Material differences to resolve
 
 1. The Markdown explicitly enumerates **P0-01–P0-22**, **P1-01–P1-15**, and a P2 policy. The DOCX does contain P0/P1/P2 priority categories (the extraction reverses some letter/number order), but the individual requirement IDs and the full enumerated catalog were not found in the extracted text. Treat the numbered catalog as a structured elaboration requiring a semantic crosswalk, not as verbatim synchronized content.
