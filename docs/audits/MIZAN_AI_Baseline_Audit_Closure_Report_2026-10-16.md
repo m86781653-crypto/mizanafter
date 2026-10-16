@@ -310,3 +310,15 @@ The repository's `docs/MIZAN-PRODUCTION-DELIVERY-CONTRACT.md` identifies `featur
 ### 10.5 Scope boundary
 
 These follow-up checks were read-only. They did not change application code, production database state, grants, migration history, or deployment configuration. Findings remain open until the relevant change is reviewed and verified in the appropriate environment.
+
+
+### 10.6. Pull-request history resolves part of the branch ambiguity
+
+Follow-up metadata inspection found:
+- PR #64, `feat: finalize production operational governance and period reporting`, is **merged** into `main` (2026-09-30 16:04 UTC).
+- PR #65, `feat: close production operational governance gaps`, is **merged** into `main` (2026-09-30 19:43 UTC).
+- PR #65's description says merge was intentionally deferred until migration parity, security, E2E, and production verification were clean, but GitHub metadata confirms the PR was subsequently merged.
+
+This means the delivery-contract sentence saying the review PR is still separate from `main` is stale or was not updated after the merge. The feature branch being 96 commits behind is therefore not, by itself, evidence that the PR changes are absent from `main`; those PRs are merged. The remaining release-control question is whether the merged changes satisfy their stated deferred verification conditions and whether the customer-facing production deployment points to the approved `main` SHA.
+
+**Next action:** update the delivery contract's branch/status section only after confirming the intended active development branch and current release target. Review merged PR checks and production evidence; do not reopen or merge the stale branch just to make its tip match `main`.
