@@ -322,3 +322,15 @@ Follow-up metadata inspection found:
 This means the delivery-contract sentence saying the review PR is still separate from `main` is stale or was not updated after the merge. The feature branch being 96 commits behind is therefore not, by itself, evidence that the PR changes are absent from `main`; those PRs are merged. The remaining release-control question is whether the merged changes satisfy their stated deferred verification conditions and whether the customer-facing production deployment points to the approved `main` SHA.
 
 **Next action:** update the delivery contract's branch/status section only after confirming the intended active development branch and current release target. Review merged PR checks and production evidence; do not reopen or merge the stale branch just to make its tip match `main`.
+
+
+### 10.7. Deployment status checks are not the same as production-domain verification
+
+GitHub commit status metadata showed:
+- On PR #65's merge commit `6d94de235b905a132c9d629d0b5aaa8651580360`, the `Vercel – mizanafterv1` status was **success**.
+- The `Vercel – mizanafter` and `Vercel – mizanafter-gojh` statuses were **failure**; PR discussion records Vercel's `api-deployments-free-per-day` rate-limit error for deployment attempts.
+- The later audit-document commit also showed a successful `Vercel – mizanafterv1` status, while the two other project statuses failed.
+
+The connected Vercel tools did not expose the relevant projects/team or resolve the deployment by the status target identifier, so the live production domain, deployment target, and deployed application SHA remain **unverified**. A successful commit status alone is not proof that the domain used by water-project users serves that build.
+
+**Next action:** an authorized owner must verify the production project, domain assignments, Git repository linkage, production branch, and exact deployment commit in Vercel. Confirm whether the rate-limited legacy projects are obsolete or still route live traffic before changing or deleting any project.
