@@ -69,3 +69,6 @@ The combined GitHub status for documentation commit `478879c4fd0f2404f7b80a7b455
 
 For the subsequent documentation commit `7ce35d76a98f3723cd46d8c0caa110fce8339859`, the combined status snapshot is `Vercel – mizanafter` = failure, `Vercel – mizanafter-gojh` = failure, and `Vercel – mizanafterv1` = pending at the time checked. This newer snapshot supersedes the earlier success observation for `mizanafterv1` on the previous commit; it is not a stable final deployment result. Vercel detail access remains blocked by HTTP 403 for the relevant scopes, so causes and source identities are still unknown.
 
+## CI contract coverage checkpoint — 2026-10-17
+
+The current `.github/workflows/database-contract.yml` was read directly. It contains 34 explicit SQL test invocations and does not invoke `supabase/tests/029_governed_tariff_creation_contract.test.sql`, which exists in the repository and declares 12 assertions. The workflow does invoke the distinct `029_water_production_measurement_contract.test.sql`. `package-lock.json` exists; `package.json` has no `test` script. This is a confirmed CI coverage omission, not proof that the tariff function is vulnerable or failing. No workflow changes were made; remediation requires adding the missing test to CI and verifying a successful clean-chain run.
