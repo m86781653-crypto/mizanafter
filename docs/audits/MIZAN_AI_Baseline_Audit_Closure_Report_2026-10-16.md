@@ -347,3 +347,18 @@ These are **repository-level mitigations only**. Because the production migratio
 A separate review of `20260930210000_harden_production_measurement_capture_authority.sql` found that the capture RPC accepts and validates detected serial number, OCR confidence, and AI model metadata, but its INSERT into `public.water_production_readings` does not include those fields. The OCR provenance persistence finding therefore remains open in the current repository code, not merely unverified in production.
 
 The existing production-readiness decision remains **NOT APPROVED** until the code-level issue is corrected and tested, and the production-only findings are independently verified against live state.
+
+
+### 10.9. Dedicated reference-governance closure register created
+
+A separate register is now available at `docs/mizanbaseline/MIZAN_REFERENCE_GOVERNANCE_CLOSURE_REGISTER_v1.0.md`. It records the current hierarchy, source inventory, known parity differences, closure work packages RG-01 through RG-06, and acceptance evidence. It does not claim that reference parity is closed.
+
+### 10.10. Canonical execution prompt identity remains unverified
+
+The repository contains `docs/mizanbaseline/MIZAN_Agent_Execution_Contract_v1.0.md`, and a matching Library copy was found. However, the exact canonical artifact named `MIZAN AI — MASTER EXECUTION PROMPT v2.0` was not located in the repository paths and Library searches reviewed during this pass. The agent execution contract must not be silently declared identical to, or a replacement for, the owner's v2.0 prompt.
+
+**Required action:** locate and identify the canonical v2.0 prompt, or document an explicit owner-approved supersession. Until then, the closure register marks RG-01 BLOCKED / NOT VERIFIED. This is a reference-governance gap, not permission to invent replacement instructions.
+
+### 10.11. Current reference-governance decision
+
+The authority index, product crosswalk, parity audit, extracts, and four-role addendum provide a useful documented baseline, but formal synchronization remains open. The register separates the original owner sources from repository derivatives and current-state evidence. No product, application, database, production-data, grant, migration-ledger, or deployment changes were performed to address this documentation gap.
