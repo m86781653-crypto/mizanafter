@@ -132,3 +132,45 @@ Do not resolve these by automatically preferring the newer-looking Markdown, nor
 **Reference governance: OPEN.** The hierarchy is documented and the repository contains useful extracts and a crosswalk, but synchronization, semantic parity, D-012 source update, and canonical execution-prompt identity remain unresolved.
 
 **Next action:** close RG-01 through RG-05 before treating the reference set as formally synchronized. Technical audit work may continue only against the hierarchy above, with any requirement ambiguity explicitly marked and without speculative implementation changes.
+
+
+## 8. Additional source-package inventory verification — 2026-10-17
+
+The owner's Library was inspected beyond the individual DOCX records. Two ZIP packages were materialized and their contents listed without modifying the source files:
+
+### 8.1 Corrected reference/audit package
+
+`MIZAN_CORRECTED_REFERENCE_AND_AUDIT_SET.zip` contains:
+- `01_MIZAN_Master_Reference_v0.1.docx`
+- `02_MIZAN_Current_System_Baseline_v0.1.docx`
+- `03_MIZAN_Decision_Log_v0.1.docx`
+- `04_FINAL_AUDIT_VALIDATION_AND_CLOSURE_REPORT.md`
+
+This confirms the intended packaging distinction: **three reference DOCX files; the audit report is a separate fourth artifact**, not a fourth official product reference.
+
+The prefixed DOCX files were compared byte-for-byte to their unprefixed Library counterparts using SHA-256:
+- Master Reference v0.1: `8056d5a8704291a9819426e77611a1b6de7255225893398b3a21b866888889e9`
+- Current System Baseline v0.1: `990671c0c4d5aff6f778d5d1cb35353a5406f186a80f12f2fb9c4777e472e6f7`
+- Decision Log v0.1: `175f7428c3f9d42c63ad9bc62f22f4869f0c92c7b655b6149be61e6423d8cbee`
+
+For each pair, the filename differs but the bytes and SHA-256 match. This resolves duplicate naming for those source copies; it does not close the repository-mirror or D-012 synchronization gaps.
+
+### 8.2 Agent package inventory
+
+`MIZAN_AGENT_PACKAGE_v1.0.zip` contains:
+- `MIZAN_Master_Product_Reference_v1.0.md`
+- `MIZAN_Master_Product_Reference_v1.0.docx`
+- `MIZAN_Agent_Execution_Contract_v1.0.md`
+- `START_HERE.md`
+
+It does **not** contain a file named `MIZAN AI — MASTER EXECUTION PROMPT v2.0`. The package confirms that the Agent Execution Contract is a separate artifact. It must not be silently renamed, relabeled, or represented as the missing v2.0 prompt.
+
+The Library also contains multiple same-named Product Reference v1.0 DOCX copies with different auto-generated suffixes. The three inspected DOCX copies are byte-identical (SHA-256 `d8584274086345f1305bef6acdaf929d9da52e6a369b73952ae16b7322a35cc8`). Use the canonical unsuffixed filename for reference, while recording this hash as the verified identity of the inspected copies.
+
+### 8.3 What this verifies — and what it does not
+
+**Verified:** the three official reference files are identifiable; the corrected source package separates them from the audit report; duplicate copies of the three references and Product Reference v1.0 examined in this pass are byte-identical; the Agent Execution Contract is separate from the three-file source set.
+
+**Still open:** the exact owner-approved v2.0 Master Execution Prompt has not been found in the inspected Library inventory, package contents, or repository paths reviewed. This does not prove that no copy exists anywhere; it means the canonical artifact's identity and contents remain unverified. RG-01 stays BLOCKED until it is located or explicitly superseded by an owner decision.
+
+No original Library files were edited. No application, database, production-data, grant, migration-ledger, or deployment changes were made.
