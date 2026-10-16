@@ -61,4 +61,7 @@ The following documentation-only checks have since been completed and recorded i
 - The completed owner-approved MIZAN AI — MASTER EXECUTION PROMPT v2.0 remains not located/verified. The similarly named Library outline is not a completed execution specification, and the Agent Execution Contract v1.0 is a distinct artifact.
 
 These findings establish specific verified documentation facts only. They do not establish application, database, authorization, or production-deployment conformance. No application code, production database, production data, grants, migration history, or deployment state was changed during this checkpoint.
+## Deployment-check visibility note — 2026-10-17
+
+The combined GitHub status for documentation commit `478879c4fd0f2404f7b80a7b455948d05e4e88c4` reports three Vercel contexts: `Vercel – mizanafter` = failure, `Vercel – mizanafter-gojh` = failure, and `Vercel – mizanafterv1` = success. The status links point to deployments under Vercel scopes `nezarmofeedalsalami-9484s-projects` and `mofeed1`. Attempts to retrieve deployment details/listings were denied with HTTP 403 for both scopes. Therefore, the check states are visible but the causes, deployment source SHAs, and whether the failed projects are customer-facing aliases are not verified. Do not infer application build failure from these statuses alone, and do not change Vercel project links, domains, or deployment configuration without the account owner establishing authorized scope and confirming the canonical production project.
 
