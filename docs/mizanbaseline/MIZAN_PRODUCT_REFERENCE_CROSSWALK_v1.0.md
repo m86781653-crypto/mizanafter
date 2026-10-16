@@ -28,7 +28,7 @@ This crosswalk records the section-level structure visible in the DOCX text extr
 | 14 | المتطلبات المرجعية القابلة للتحقق | `14. المتطلبات المرجعية القابلة للتحقق` | Corresponding section found |
 | 15 | المواصفة النهائية للمنتج وحزمة بدء العمل | `15. المواصفة النهائية للمنتج وحزمة بدء العمل` | Corresponding section found |
 
-The DOCX table of contents and the Markdown heading structure both identify the same 15 major product-reference sections. This establishes broad structural correspondence only.
+The DOCX and Markdown share the same 19 top-level product-reference sections, including the 22-workflow library (section 16), requirements catalog (section 17), quality/release gates (section 18), and reference/change governance (section 19). This establishes structural correspondence, not by itself exact semantic equivalence.
 
 ## Required semantic review before declaring parity
 
@@ -48,21 +48,23 @@ For each difference, classify it as formatting/extraction noise, harmless editor
 
 ## Additional structure and unmatched headings
 
-The DOCX text extraction exposes section 16, `مكتبة مواصفات سير العمل`, which corresponds to Markdown section 16.
+### Corrected structural mapping
 
-The Markdown also has standalone top-level sections 17–19:
-- `17. قاموس المتطلبات المرجعية`
-- `18. بوابات الجودة والإطلاق`
-- `19. إدارة المرجع والتغيير`
+The full 25-page DOCX was re-read through its final pages (including pages 22–25), and the repository Markdown headings were enumerated directly. The DOCX **does contain** sections 17–19 as independent top-level sections, corresponding to Markdown sections 17–19. The earlier statement that these headings were absent from the DOCX extraction was incorrect and is superseded by this correction.
 
-The extracted DOCX does **not** show these as independent top-level sections. Some related material appears to be embedded in DOCX sections 14–16 (for example, the requirements model, launch/readiness criteria, and reference-change rules), but a direct subsection-by-subsection content mapping has not yet been established. This is a real structural difference, not something to mark as a confirmed one-to-one section match.
+- Section 16: `مكتبة مواصفات سير العمل` — both formats contain 22 workflow specifications.
+- Section 17: `قاموس المتطلبات المرجعية` — both formats contain P0-01–P0-22 and P1-01–P1-15, plus the P2 policy. The Word text extraction reverses/distorts some Arabic/Latin ordering (for example, the priority labels), so visual confirmation remains appropriate for ambiguous table/layout details.
+- Section 18: `بوابات الجودة والإطلاق` — both formats contain gates 0–7.
+- Section 19: `إدارة المرجع والتغيير` — both formats contain this section.
+
+Thus, the earlier claim of a standalone-section mismatch for 17–19 is withdrawn. Semantic comparison of exact wording, tables, criteria, and exceptions remains necessary.
 
 | Markdown section | Possible DOCX location | Status |
 |---|---|---|
 | 16. مكتبة مواصفات سير العمل | DOCX section 16 | Corresponding section found |
-| 17. قاموس المتطلبات المرجعية | DOCX section 14, `المتطلبات المرجعية القابلة للتحقق` | Partial conceptual overlap; Markdown adds explicit requirement IDs and expands the P0/P1/P2 priority categories into a numbered catalog; the DOCX does contain priority categories, but individual IDs are not visible in the extraction |
-| 18. بوابات الجودة والإطلاق | DOCX section 15, `المواصفة النهائية للمنتج وحزمة بدء العمل` | Partial conceptual overlap; Markdown enumerates eight named gates (0–7), while the DOCX describes a nine-step execution method (0–8) plus a 100% completion gate; the concepts broadly overlap but are grouped and numbered differently |
-| 19. إدارة المرجع والتغيير | DOCX sections 14–15 contain related rules such as not inventing features and requiring evidence, but no same-named top-level section was found | Additional standalone structure in Markdown; exact coverage and authority require review |
+| 17. قاموس المتطلبات المرجعية | DOCX section 17, `قاموس المتطلبات المرجعية` | Matching top-level section and numbered P0/P1 catalog are present in both; exact wording and RTL extraction artifacts still require semantic review |
+| 18. بوابات الجودة والإطلاق | DOCX section 18, `بوابات الجودة والإطلاق` | Matching top-level section and gates 0–7 are present in both; compare each gate's exact acceptance criteria with DOCX section 15's separate execution stages 0–8 and 100% completion gate |
+| 19. إدارة المرجع والتغيير | DOCX section 19, `إدارة المرجع والتغيير` | Matching top-level section is present in both; compare each rule, especially owner authority, versioning, and no silent product-definition changes |
 
 ### Execution-stage crosswalk: DOCX section 15 vs Markdown section 18
 
@@ -78,7 +80,7 @@ The extracted DOCX does **not** show these as independent top-level sections. So
 | 7 — Performance/sustainability | Gate 6 — Quality/performance | Broad match; confirm explicit sustainability/recovery scope |
 | 8 — Release | Gate 7 — Release | Direct conceptual match |
 
-The Markdown structure therefore merges or redistributes several DOCX stages and does not present DOCX stage 1 as a distinct named gate. This may be an intentional simplification, but it must be documented as such if the Markdown is to be maintained as an engineering derivative.
+The gate crosswalk remains a separate comparison between two different structures: DOCX section 15's execution method (stages 0–8, including stage 1 requirement alignment) and DOCX/Markdown section 18's quality gates (gates 0–7). These are distinct mechanisms in the source itself. Do not describe the absence of a named gate 1 alignment as a missing section in the Markdown; instead verify how requirement alignment is enforced before implementation and release.
 
 ### Requirement-level semantic crosswalk (candidate mapping)
 
@@ -140,9 +142,9 @@ This table maps the Markdown's existing requirement IDs to concepts found in the
 
 ### Material differences to resolve
 
-1. The Markdown explicitly enumerates **P0-01–P0-22**, **P1-01–P1-15**, and a P2 policy. The DOCX does contain P0/P1/P2 priority categories (the extraction reverses some letter/number order), but the individual requirement IDs and the full enumerated catalog were not found in the extracted text. Treat the numbered catalog as a structured elaboration requiring a semantic crosswalk, not as verbatim synchronized content.
+1. Both the DOCX and Markdown enumerate **P0-01–P0-22**, **P1-01–P1-15**, and a P2 policy. Their presence is not a Markdown-only elaboration. Exact wording, RTL rendering, and any table-level details still require comparison.
 2. The Markdown introduces eight named quality/release gates (0–7). The DOCX describes a nine-step execution method (0–8) and a “100% completion” gate. The concepts broadly overlap, but their grouping, numbering, and labels differ; map each stage and confirm whether this is an intentional restructuring or an unintended requirement change.
-3. The Markdown separates reference-change governance into a standalone section 19. The DOCX contains related “do not invent” and implementation-agent rules, but the same section title and full rule set were not found in the extracted text.
+3. Both formats have a standalone section 19 on reference/change governance. Compare the rules for versioning, decision supersession, owner authority, and preventing silent product changes.
 4. The DOCX extraction includes page headers, line-wrap artifacts, and OCR-like distortions. Absence from extracted text is a review signal, not definitive proof that a phrase is absent from the visual source. Inspect the original DOCX pages before final classification.
 
 Until these differences are resolved, treat the Markdown as a detailed engineering reference with possible elaborations—not as a verified exact mirror of the Product Reference DOCX.
@@ -150,8 +152,12 @@ Until these differences are resolved, treat the Markdown as a detailed engineeri
 ## Current conclusion
 
 - **Structural correspondence:** observed for the 15 foundation sections and section 16.
-- **Structural difference:** Markdown sections 17–19 are standalone top-level headings not observed as standalone headings in the DOCX extraction.
+- **Structural correspondence:** sections 1–19 are present in both formats, including sections 17–19; the earlier claim of a structural mismatch for those sections is withdrawn.
 - **Exact textual parity:** not established.
 - **Semantic parity:** not yet established.
 - **Authority:** the owner-designated DOCX remains the source file; the Markdown must not silently supersede it solely because it is easier for agents to read.
 - **Next action:** complete the section-by-section semantic review and record differences and resolutions before removing the OPEN status.
+
+## Correction note — 2026-10-17
+
+A full read of the 25-page owner Library DOCX through pages 22–25 and a direct enumeration of Markdown headings corrected several earlier conclusions in this crosswalk. Sections 17–19 and the numbered P0/P1 requirement catalogs are present in the DOCX; the earlier statements that they were absent are withdrawn. The remaining open work is semantic comparison, not proof of a structural omission. The DOCX section 15 execution stages (0–8) must also be distinguished from the separate section 18 quality gates (0–7).
