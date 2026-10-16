@@ -143,7 +143,7 @@ This table maps the Markdown's existing requirement IDs to concepts found in the
 ### Material differences to resolve
 
 1. The DOCX section 17 and Markdown section 17 contain the same numbered P0/P1 catalog and P2 policy. Compare exact Arabic wording and priority labels, especially where Word's RTL/LTR text extraction reverses the visible identifier order; do not treat the IDs as a Markdown-only elaboration.
-2. The Markdown introduces eight named quality/release gates (0–7). The DOCX describes a nine-step execution method (0–8) and a “100% completion” gate. The concepts broadly overlap, but their grouping, numbering, and labels differ; map each stage and confirm whether this is an intentional restructuring or an unintended requirement change.
+2. Both DOCX section 18 and Markdown section 18 contain eight named quality/release gates (0–7). Separately, DOCX section 15 describes an execution method with stages 0–8 and a “100% completion” gate. Do not conflate the quality gates with the execution stages; verify how each DOCX execution stage is represented and enforced in the implementation workflow.
 3. Both formats have a standalone section 19 on reference/change governance. Compare the rules for versioning, decision supersession, owner authority, and preventing silent product changes.
 4. The DOCX extraction includes page headers, line-wrap artifacts, and mixed RTL/LTR ordering distortions. These artifacts can make labels appear reversed even when the underlying requirement text matches. Inspect the original DOCX pages for ambiguous wording, tables, punctuation, and layout before final classification.
 
@@ -152,7 +152,6 @@ Until these differences are resolved, treat the Markdown as a detailed engineeri
 ## Current conclusion
 
 - **Structural correspondence:** corresponding top-level sections 1–19 are present in both formats, including the workflow library, requirements catalog, quality/release gates, and reference/change governance.
-- **Structural correspondence:** sections 1–19 are present in both formats, including sections 17–19; the earlier claim of a structural mismatch for those sections is withdrawn.
 - **Exact textual parity:** not established.
 - **Semantic parity:** not yet established.
 - **Authority:** the owner-designated DOCX remains the source file; the Markdown must not silently supersede it solely because it is easier for agents to read.
