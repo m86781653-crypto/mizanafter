@@ -47,3 +47,18 @@ The repository's `docs/mizanbaseline/MIZAN_Master_Product_Reference_v1.0.docx` a
 - Keep current-state observations separate from target requirements.
 - Do not change application code, database schema, production data, or deployment state merely to resolve a documentation conflict.
 - A pull request containing reference-alignment changes must state the files changed, the conflict resolved, the evidence checked, and any remaining unverified items.
+
+## Reference verification checkpoint — 2026-10-17
+
+The following documentation-only checks have since been completed and recorded in the crosswalk and parity audit:
+
+- The owner Product Reference DOCX and repository Markdown have corresponding top-level sections 1–19.
+- Section 17 in both formats contains the P0-01–P0-22 and P1-01–P1-15 catalogs and the P2 policy. Mixed Arabic/Latin identifier reversal in extracted text is an extraction/rendering issue, not evidence that the identifiers are absent from the DOCX.
+- Section 18 in both formats contains quality/release gates 0–7. These must be distinguished from the separate execution stages 0–8 and 100% completion gate in DOCX section 15.
+- Eight duplicated goal labels in the repository Markdown gate descriptions were corrected to match the source DOCX wording. The owner DOCX was not modified; no gate meaning was changed.
+- The Product Reference crosswalk remains **OPEN** for complete semantic comparison of workflows, tables, exact wording, acceptance criteria, exceptions, and RTL/LTR presentation.
+- Decision D-012 (four operational roles) remains a separate repository addendum pending transcription into the owner-maintained Decision Log DOCX or issuance of a formally versioned successor. It does not authorize production changes by itself.
+- The completed owner-approved MIZAN AI — MASTER EXECUTION PROMPT v2.0 remains not located/verified. The similarly named Library outline is not a completed execution specification, and the Agent Execution Contract v1.0 is a distinct artifact.
+
+These findings establish specific verified documentation facts only. They do not establish application, database, authorization, or production-deployment conformance. No application code, production database, production data, grants, migration history, or deployment state was changed during this checkpoint.
+
