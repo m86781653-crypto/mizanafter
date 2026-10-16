@@ -174,3 +174,22 @@ The Library also contains multiple same-named Product Reference v1.0 DOCX copies
 **Still open:** the exact owner-approved v2.0 Master Execution Prompt has not been found in the inspected Library inventory, package contents, or repository paths reviewed. This does not prove that no copy exists anywhere; it means the canonical artifact's identity and contents remain unverified. RG-01 stays BLOCKED until it is located or explicitly superseded by an owner decision.
 
 No original Library files were edited. No application, database, production-data, grant, migration-ledger, or deployment changes were made.
+
+
+## 9. Follow-up Library inventory and v2.0 outline examination — 2026-10-17
+
+A complete Library listing (140 items; no pagination cursor returned) and a full text read identified one additional relevant artifact:
+`MIZAN_PLATFORM_2026_MASTER_PROMPT_V2_Outline.docx` (Library item; modified 2026-07-10).
+
+The title is `MIZAN PLATFORM 2026 – MASTER PROMPT V2.0 ENTERPRISE EDITION`, but its body repeatedly states that each section “will be developed in detail in the final version” and ends with a preparation-method list. It is therefore demonstrably an **outline/draft**, not a completed execution prompt. It contains headings for architecture, multi-tenancy/RBAC, database/ERD, subscribers, readings/billing/collection, governance, AI/RAG, reporting, cybersecurity, QA/DevOps and expansion, but those headings do not establish complete requirements or acceptance criteria.
+
+This improves the source inventory and corrects the earlier wording “not located” as follows:
+- **Located:** a v2.0-named master-prompt outline in the Library.
+- **Not located/verified:** the completed owner-approved execution prompt v2.0 that the user’s workflow refers to as the binding master execution prompt.
+- **Not equivalent by evidence:** `MIZAN_Agent_Execution_Contract_v1.0.md` is a separate execution contract, and the outline explicitly anticipates a fuller final version. Neither may be silently promoted to the completed prompt.
+
+**RG-01 remains BLOCKED / NOT VERIFIED.** Acceptance requires finding the final completed version, or an explicit owner decision identifying the canonical document that supersedes it. Until then, use the official three-reference set, approved decisions, Product Reference and Agent Execution Contract within their stated scope, and pause any implementation choice that depends on missing prompt-specific instructions.
+
+This pass also confirms that the Current System Baseline v0.1 is dated 2026-10-03 and names an earlier `main` SHA (`6899f234...`) and an isolated E2E branch. Those are historical facts in the baseline, not evidence of today's deployment or repository state.
+
+No source Library item was edited. No application, database, production-data, grant, migration-ledger or deployment changes were made.
