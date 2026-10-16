@@ -51,3 +51,26 @@ A preliminary extracted-text comparison found substantial shared terminology and
 ## 6. Change boundary
 
 This audit and its related branch changes are documentation-only. They do not authorize or perform application-code, database, production-data, or deployment changes.
+
+
+## 7. Source-package provenance verification — 2026-10-17
+
+The owner Library package `MIZAN_CORRECTED_REFERENCE_AND_AUDIT_SET.zip` was inspected read-only. It contains the three official source DOCX files:
+- `01_MIZAN_Master_Reference_v0.1.docx`
+- `02_MIZAN_Current_System_Baseline_v0.1.docx`
+- `03_MIZAN_Decision_Log_v0.1.docx`
+
+It also contains `04_FINAL_AUDIT_VALIDATION_AND_CLOSURE_REPORT.md` as a separate fourth artifact. This confirms the report is not a fourth official reference.
+
+The prefixed DOCX copies were SHA-256 compared with their unprefixed Library counterparts and were byte-identical:
+- Master Reference v0.1: `8056d5a8704291a9819426e77611a1b6de7255225893398b3a21b866888889e9`
+- Current System Baseline v0.1: `990671c0c4d5aff6f778d5d1cb35353a5406f186a80f12f2fb9c4777e472e6f7`
+- Decision Log v0.1: `175f7428c3f9d42c63ad9bc62f22f4869f0c92c7b655b6149be61e6423d8cbee`
+
+The inspected Library copies of `MIZAN_Master_Product_Reference_v1.0.docx` were also byte-identical to one another (SHA-256 `d8584274086345f1305bef6acdaf929d9da52e6a369b73952ae16b7322a35cc8`). These checks resolve duplicate Library copy identity, not semantic parity between Word and Markdown or parity of repository extracts with the source.
+
+The separate `MIZAN_AGENT_PACKAGE_v1.0.zip` contains Product Reference v1.0 in DOCX/Markdown, `MIZAN_Agent_Execution_Contract_v1.0.md`, and `START_HERE.md`. Its START_HERE file names the Product Reference and Agent Execution Contract as the governing build documents, and requires discovery before changes, explicit status classification, P0 before P1, no invented features, end-to-end verification, and release evidence. It does not contain the exact `MIZAN AI — MASTER EXECUTION PROMPT v2.0`.
+
+**Status remains OPEN.** The package evidence confirms the Agent Execution Contract is a distinct artifact. It does not establish that it is identical to, or formally supersedes, the owner-referenced v2.0 prompt. RG-01 remains BLOCKED / NOT VERIFIED until the canonical prompt is located or an explicit owner decision formally supersedes it. The DOCX/Markdown semantic parity and D-012 synchronization items remain open.
+
+No original Library files were modified. No application, production database, production data, grants, migration history, or deployment changes were made.
