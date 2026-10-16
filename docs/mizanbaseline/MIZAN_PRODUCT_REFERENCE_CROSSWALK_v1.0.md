@@ -136,22 +136,22 @@ This table maps the Markdown's existing requirement IDs to concepts found in the
 #### Interpretation rules
 
 1. These rows map **concepts**, not identical wording. The DOCX extraction has layout/OCR artifacts, so all partial mappings and any decision that affects scope must be checked against the original DOCX visually.
-2. The IDs P0-01–P0-22 and P1-01–P1-15 are labels used by the Markdown; the extracted DOCX presents priority categories but does not expose these same IDs.
+2. The DOCX section 17 contains the same P0-01–P0-22 and P1-01–P1-15 requirement catalog as Markdown. The Word extraction reverses the visual order of mixed Arabic/Latin labels (for example, P0-01 may appear as 01 0 - P); compare the Arabic requirement text and inspect rendered pages for any ambiguous label. Do not classify the IDs as Markdown-only content.
 3. Do not infer that a mapped concept is already implemented in the application or database.
 4. The product owner must resolve whether the Markdown's explicit IDs and any extra specificity are approved engineering elaborations, or must be revised to match the owner source more closely.
 
 ### Material differences to resolve
 
-1. Both the DOCX and Markdown enumerate **P0-01–P0-22**, **P1-01–P1-15**, and a P2 policy. Their presence is not a Markdown-only elaboration. Exact wording, RTL rendering, and any table-level details still require comparison.
+1. The DOCX section 17 and Markdown section 17 contain the same numbered P0/P1 catalog and P2 policy. Compare exact Arabic wording and priority labels, especially where Word's RTL/LTR text extraction reverses the visible identifier order; do not treat the IDs as a Markdown-only elaboration.
 2. The Markdown introduces eight named quality/release gates (0–7). The DOCX describes a nine-step execution method (0–8) and a “100% completion” gate. The concepts broadly overlap, but their grouping, numbering, and labels differ; map each stage and confirm whether this is an intentional restructuring or an unintended requirement change.
 3. Both formats have a standalone section 19 on reference/change governance. Compare the rules for versioning, decision supersession, owner authority, and preventing silent product changes.
-4. The DOCX extraction includes page headers, line-wrap artifacts, and OCR-like distortions. Absence from extracted text is a review signal, not definitive proof that a phrase is absent from the visual source. Inspect the original DOCX pages before final classification.
+4. The DOCX extraction includes page headers, line-wrap artifacts, and mixed RTL/LTR ordering distortions. These artifacts can make labels appear reversed even when the underlying requirement text matches. Inspect the original DOCX pages for ambiguous wording, tables, punctuation, and layout before final classification.
 
 Until these differences are resolved, treat the Markdown as a detailed engineering reference with possible elaborations—not as a verified exact mirror of the Product Reference DOCX.
 
 ## Current conclusion
 
-- **Structural correspondence:** observed for the 15 foundation sections and section 16.
+- **Structural correspondence:** corresponding top-level sections 1–19 are present in both formats, including the workflow library, requirements catalog, quality/release gates, and reference/change governance.
 - **Structural correspondence:** sections 1–19 are present in both formats, including sections 17–19; the earlier claim of a structural mismatch for those sections is withdrawn.
 - **Exact textual parity:** not established.
 - **Semantic parity:** not yet established.
@@ -161,3 +161,8 @@ Until these differences are resolved, treat the Markdown as a detailed engineeri
 ## Correction note — 2026-10-17
 
 A full read of the 25-page owner Library DOCX through pages 22–25 and a direct enumeration of Markdown headings corrected several earlier conclusions in this crosswalk. Sections 17–19 and the numbered P0/P1 requirement catalogs are present in the DOCX; the earlier statements that they were absent are withdrawn. The remaining open work is semantic comparison, not proof of a structural omission. The DOCX section 15 execution stages (0–8) must also be distinguished from the separate section 18 quality gates (0–7).
+## Requirement-catalog parity check — 2026-10-17
+
+The original DOCX pages 22–23 were read directly, including the extracted requirement text. The DOCX section 17 contains the same P0-01–P0-22 and P1-01–P1-15 catalog and P2 policy found in the repository Markdown. Arabic requirement wording matches the inspected source text at the catalog level; Word's extraction reverses mixed RTL/LTR identifiers (e.g., visual P0-01 can be extracted as 01 0 - P). Therefore, the IDs are not Markdown-only additions. The catalog's presence is verified; this is not a certification that every other section, table, gate, or workflow is semantically identical.
+
+A small editorial defect was also observed in the repository Markdown section 18: the gate goal lines repeat الهدف: twice (e.g., - الهدف: الهدف: معرفة الحقيقة قبل التغيير.), while the source DOCX presents a single goal label. This is a confirmed textual discrepancy. It has not been silently edited in the Product Reference Markdown because that file is an implementation reference and the source-authority process should preserve traceability. Record it for an owner-approved editorial correction or a controlled mirror-synchronization change; it does not by itself justify changing product behavior.
