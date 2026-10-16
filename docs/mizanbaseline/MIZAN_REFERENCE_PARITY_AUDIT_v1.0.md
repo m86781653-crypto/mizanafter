@@ -78,3 +78,9 @@ No original Library files were modified. No application, production database, pr
 ## 9. Crosswalk correction — 2026-10-17
 
 A complete read of the owner Library Product Reference DOCX through pages 22–25 corrected earlier structural statements. Sections 17–19 and the P0-01–P0-22 / P1-01–P1-15 catalogs are present in the DOCX as well as Markdown. The prior statement that these were absent from the DOCX extraction is withdrawn. The remaining open issue is semantic parity and careful verification of RTL/LTR text and table layout, not a demonstrated absence of those sections. The execution stages in section 15 and quality gates in section 18 are distinct source structures and must not be conflated.
+
+## 10. Requirement catalog and gate-label verification — 2026-10-17
+
+Direct inspection of the owner DOCX pages 22–24 confirms section 17 contains the same P0-01–P0-22 and P1-01–P1-15 catalog and P2 policy as Markdown. Reversed identifiers in extracted text are a mixed RTL/LTR extraction artifact, not evidence that the IDs are absent from Word.
+
+The DOCX uses one goal label for each quality gate; the Markdown mirror repeated the label on all eight gate-goal lines. The duplicate labels were corrected in the Markdown mirror only in commit `656b0899579159d5454d0e4b6a7c53bc67f2d272`. The owner DOCX remains unchanged. This is a verified editorial synchronization correction, not closure of full semantic parity.
