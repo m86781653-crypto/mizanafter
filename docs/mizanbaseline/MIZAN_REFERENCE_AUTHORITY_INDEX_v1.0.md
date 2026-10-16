@@ -65,3 +65,7 @@ These findings establish specific verified documentation facts only. They do not
 
 The combined GitHub status for documentation commit `478879c4fd0f2404f7b80a7b455948d05e4e88c4` reports three Vercel contexts: `Vercel – mizanafter` = failure, `Vercel – mizanafter-gojh` = failure, and `Vercel – mizanafterv1` = success. The status links point to deployments under Vercel scopes `nezarmofeedalsalami-9484s-projects` and `mofeed1`. Attempts to retrieve deployment details/listings were denied with HTTP 403 for both scopes. Therefore, the check states are visible but the causes, deployment source SHAs, and whether the failed projects are customer-facing aliases are not verified. Do not infer application build failure from these statuses alone, and do not change Vercel project links, domains, or deployment configuration without the account owner establishing authorized scope and confirming the canonical production project.
 
+### Follow-up status snapshot
+
+For the subsequent documentation commit `7ce35d76a98f3723cd46d8c0caa110fce8339859`, the combined status snapshot is `Vercel – mizanafter` = failure, `Vercel – mizanafter-gojh` = failure, and `Vercel – mizanafterv1` = pending at the time checked. This newer snapshot supersedes the earlier success observation for `mizanafterv1` on the previous commit; it is not a stable final deployment result. Vercel detail access remains blocked by HTTP 403 for the relevant scopes, so causes and source identities are still unknown.
+
