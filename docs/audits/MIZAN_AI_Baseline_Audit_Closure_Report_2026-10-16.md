@@ -277,3 +277,36 @@ The available evidence indicates actionable access-control, permission-surface, 
 **Report owner:** MIZAN AI project owner  
 **Audit mode:** Read-only/non-destructive review  
 **Change status:** No application, production database, grant, migration-ledger, or deployment changes performed by this audit.
+
+
+## 10. Follow-up repository verification (after initial report creation)
+
+This section records a subsequent read-only check of repository state. It does not imply that production systems were changed or that the original audit was fully rerun.
+
+### 10.1 Workflow omission confirmed on current `main`
+
+The current `.github/workflows/database-contract.yml` contains an explicit step for `supabase/tests/029_water_production_measurement_contract.test.sql`, but no step for the separate existing file `supabase/tests/029_governed_tariff_creation_contract.test.sql`. The governed tariff test file exists in the repository. This confirms that the latter contract is not explicitly invoked by this workflow.
+
+**Next action:** add a dedicated workflow step in a reviewed change and verify the test passes in a clean local Supabase run. Do not treat the presence of the test file as evidence that CI executes it.
+
+### 10.2 Customer deletion path confirmed
+
+The current `src/pages/CustomersPage.tsx` contains a `handleDelete` path that calls `supabase.from('customers').delete().eq('id', id)`. Combined with the previously observed `ON DELETE CASCADE` relationship from invoices to customers, this remains a high-priority data-retention risk until the foreign-key behavior and intended archival workflow are independently rechecked against the current production schema and the UI path is replaced or constrained.
+
+**Next action:** define a reversible deactivation/archive workflow and test that invoice/payment history remains preserved. No deletion or code change was made during this verification.
+
+### 10.3 Offline cache path remains unverified in a real browser
+
+The current `public/mizan-offline.js` caches the app shell and OCR assets during service-worker installation. A same-origin GET cache miss falls through to `fetch(event.request)` without an apparent cache write for that response; navigation responses are handled separately and written to `/index.html`. Static reading alone cannot establish whether the complete user workflow works offline.
+
+**Next action:** perform controlled device/browser tests covering initial installation, loss of connectivity, reading/photo capture, queued submissions, reconnection, retries, and duplicate prevention. No claim of successful end-to-end offline behavior is made.
+
+### 10.4 Development-branch divergence is a release-control blocker
+
+The repository's `docs/MIZAN-PRODUCTION-DELIVERY-CONTRACT.md` identifies `feature/production-operational-governance-final` as the current implementation branch and states that its review PR is separate from `main`. A GitHub compare check between `main` and that branch reported the feature branch as **96 commits behind main and 0 commits ahead** at the time of that check. This is an unusual state that must be reconciled before any merge or deployment decision; do not infer which branch contains the intended releasable implementation from the branch name alone.
+
+**Next action:** identify the intended PR and its head/base SHAs, inspect the complete diff and checks, confirm which branch contains the approved application changes, and determine whether the contract document is stale. Do not merge, rebase, force-push, or deploy based on this audit finding alone.
+
+### 10.5 Scope boundary
+
+These follow-up checks were read-only. They did not change application code, production database state, grants, migration history, or deployment configuration. Findings remain open until the relevant change is reviewed and verified in the appropriate environment.
