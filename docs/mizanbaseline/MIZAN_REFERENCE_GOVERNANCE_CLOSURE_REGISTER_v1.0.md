@@ -197,3 +197,9 @@ No source Library item was edited. No application, database, production-data, gr
 ## 11. Crosswalk correction — 2026-10-17
 
 The full 25-page `MIZAN_Master_Product_Reference_v1.0.docx` was read through its final pages and its headings were compared with the repository Markdown headings. This corrected the earlier structural claims in section 4: both formats contain sections 1–19; section 17 includes the numbered P0/P1 requirement catalog in both; section 18 includes gates 0–7 in both; and section 19 is present in both. The earlier claims that Markdown sections 17–19 or the explicit IDs were absent from the DOCX are withdrawn. The crosswalk remains OPEN for semantic verification of exact wording, table details, acceptance criteria, and any RTL extraction ambiguity.
+
+## 12. Requirement catalog and quality-gate text verification — 2026-10-17
+
+The owner DOCX pages 22–24 were read directly. Section 17 contains the same numbered P0/P1 requirement catalog and P2 policy as the Markdown mirror; the apparent reversal of identifiers in extracted text is an RTL/LTR extraction artifact. This corrects earlier wording that the identifiers were not visible in the source. The exact Arabic catalog wording was checked at the requirement-list level; full parity for other tables/workflows remains open.
+
+The source DOCX page 24 uses a single goal label for each of the eight quality gates. The Markdown mirror had a duplicated goal label on all eight lines. This editorial defect was corrected in the Markdown only (commit `656b0899579159d5454d0e4b6a7c53bc67f2d272`); the authoritative DOCX was not modified and gate semantics were unchanged. This correction does not close overall parity.
