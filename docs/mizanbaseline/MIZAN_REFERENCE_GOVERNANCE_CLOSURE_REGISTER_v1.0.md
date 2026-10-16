@@ -60,7 +60,7 @@ The existing crosswalk identifies, at minimum:
 1. The DOCX and Markdown contain corresponding top-level sections 1–19, including the workflow library, requirement catalog, quality/release gates, and reference/change governance. This is structural correspondence, not semantic equivalence.
 2. Both DOCX and Markdown contain P0-01–P0-22 and P1-01–P1-15 plus the P2 policy. The Word text extraction distorts mixed Arabic/Latin ordering; verify ambiguous labels visually. The IDs are not Markdown-only elaborations.
 3. Sections 17–19 are present as corresponding top-level sections in both formats. Earlier assertions that these headings were absent from the DOCX were incorrect and are superseded by the full read of pages 22–25.
-4. The DOCX execution method is stages 0–8 plus a 100% completion gate; Markdown has eight named gates 0–7. Several stages are merged or redistributed, and the DOCX requirement-alignment stage is not represented as a separate named gate.
+4. DOCX section 15 defines execution stages 0–8 plus a 100% completion gate; DOCX section 18 and Markdown section 18 define quality gates 0–7. These are distinct structures in the DOCX itself. The comparison must verify that requirement alignment is enforced in the execution workflow, not infer a missing Markdown section from the different numbering.
 5. Text extraction may lose or distort table structure, formatting, and some context; the original DOCX must be visually inspected for material differences.
 6. D-012 is a repository addendum, not yet synchronized to the owner-maintained Decision Log source.
 
