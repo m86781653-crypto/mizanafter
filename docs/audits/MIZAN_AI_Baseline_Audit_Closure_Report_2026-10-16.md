@@ -373,3 +373,7 @@ The three prefixed DOCX files were SHA-256 compared with the unprefixed Library 
 The separate `MIZAN_AGENT_PACKAGE_v1.0.zip` contains Product Reference v1.0 in DOCX and Markdown, `MIZAN_Agent_Execution_Contract_v1.0.md`, and `START_HERE.md`; it does not contain the exact `MIZAN AI — MASTER EXECUTION PROMPT v2.0`. RG-01 remains blocked/not verified. The execution contract must not be substituted for the missing canonical prompt without an explicit owner decision.
 
 No original Library files or production systems were modified.
+
+### 10.13. Product-reference crosswalk correction — 2026-10-17
+
+The full 25-page owner Library `MIZAN_Master_Product_Reference_v1.0.docx` was read through pages 22–25 and compared with the repository Markdown heading inventory. This identified an error in earlier crosswalk conclusions: DOCX sections 17–19 are present as top-level sections, and the DOCX contains the P0-01–P0-22 and P1-01–P1-15 catalogs as well as the P2 policy. The prior statements that these were absent from the DOCX extraction are withdrawn. Both formats contain gates 0–7 in section 18; DOCX section 15 separately specifies execution stages 0–8 and the 100% completion gate. The crosswalk was corrected in commit `5c7af63cfb8ef4e00e5b574a46e54dc85acf3dc7`. Semantic parity remains OPEN for exact wording, tables, acceptance criteria, and RTL/LTR extraction review. This correction does not certify implementation or production readiness.
