@@ -334,3 +334,16 @@ GitHub commit status metadata showed:
 The connected Vercel tools did not expose the relevant projects/team or resolve the deployment by the status target identifier, so the live production domain, deployment target, and deployed application SHA remain **unverified**. A successful commit status alone is not proof that the domain used by water-project users serves that build.
 
 **Next action:** an authorized owner must verify the production project, domain assignments, Git repository linkage, production branch, and exact deployment commit in Vercel. Confirm whether the rate-limited legacy projects are obsolete or still route live traffic before changing or deleting any project.
+
+
+### 10.8. Repository mitigations found; production application remains unproven
+
+A targeted inspection of current `main` found repository migrations for two previously recorded findings:
+- `20260930210400_harden_postgis_metadata_dml_boundary.sql` revokes client-role privileges on PostGIS metadata tables and `st_estimatedextent` overloads.
+- `20260930210600_align_four_operational_role_slots.sql` allows the canonical four operational role values in `private.subtenant_user_slots`.
+
+These are **repository-level mitigations only**. Because the production migration ledger diverges from the repository, the audit cannot assert that either migration has been applied to production. Verify live privileges and role-slot constraints after schema/migration reconciliation; do not replay either migration blindly.
+
+A separate review of `20260930210000_harden_production_measurement_capture_authority.sql` found that the capture RPC accepts and validates detected serial number, OCR confidence, and AI model metadata, but its INSERT into `public.water_production_readings` does not include those fields. The OCR provenance persistence finding therefore remains open in the current repository code, not merely unverified in production.
+
+The existing production-readiness decision remains **NOT APPROVED** until the code-level issue is corrected and tested, and the production-only findings are independently verified against live state.
