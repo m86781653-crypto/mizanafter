@@ -362,3 +362,14 @@ The repository contains `docs/mizanbaseline/MIZAN_Agent_Execution_Contract_v1.0.
 ### 10.11. Current reference-governance decision
 
 The authority index, product crosswalk, parity audit, extracts, and four-role addendum provide a useful documented baseline, but formal synchronization remains open. The register separates the original owner sources from repository derivatives and current-state evidence. No product, application, database, production-data, grant, migration-ledger, or deployment changes were performed to address this documentation gap.
+
+
+### 10.12. Canonical source-package inventory and duplicate identity verified
+
+A read-only inspection of the owner's Library ZIP packages confirmed that `MIZAN_CORRECTED_REFERENCE_AND_AUDIT_SET.zip` contains the three official reference DOCX files (Master Reference v0.1, Current System Baseline v0.1, Decision Log v0.1) and a separate fourth artifact, `04_FINAL_AUDIT_VALIDATION_AND_CLOSURE_REPORT.md`. The report is not a fourth official reference.
+
+The three prefixed DOCX files were SHA-256 compared with the unprefixed Library copies; each pair is byte-identical. The inspected Product Reference v1.0 DOCX copies in the Library are also byte-identical to one another. These checks resolve duplicate-copy identity for the inspected Library files but do not establish that the repository's extracted mirrors preserve all Word semantics or that the owner source has been synchronized with D-012.
+
+The separate `MIZAN_AGENT_PACKAGE_v1.0.zip` contains Product Reference v1.0 in DOCX and Markdown, `MIZAN_Agent_Execution_Contract_v1.0.md`, and `START_HERE.md`; it does not contain the exact `MIZAN AI — MASTER EXECUTION PROMPT v2.0`. RG-01 remains blocked/not verified. The execution contract must not be substituted for the missing canonical prompt without an explicit owner decision.
+
+No original Library files or production systems were modified.
