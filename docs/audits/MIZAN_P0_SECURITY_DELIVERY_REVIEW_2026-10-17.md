@@ -82,7 +82,21 @@ Tracking issue: [#87](https://github.com/m86781653-crypto/mizanafter/issues/87).
 
 **Release rule:** map each repository migration to the live history as applied/equivalent/pending/unresolved; validate the clean chain and rollback/recovery before applying any pending migration. Do not blindly run `supabase db push`, replay historic files, delete migration history, or infer equivalence from timestamps.
 
-## 7. Other observed database/advisor findings
+## 7. Operating-cycle and offline verification gaps
+
+### Operating-period close and roll-forward — not evidenced
+The master product reference requires live updates during the period, immutable closed-period results, and explicit roll-forward of continuing states/balances. The live catalog query found reporting/billing period fields and equipment operation cycles, but no dedicated operational-period close/roll-forward routine or table. The repository tree has no dedicated period-close/roll-forward contract test. Reporting date filters alone do not prove this behavior.
+
+Tracking issue: [#88](https://github.com/m86781653-crypto/mizanafter/issues/88).
+
+### MRX offline capture/synchronization — implementation exists; end-to-end proof is missing
+The code contains `mrxOfflineQueue.ts` and `mirrorSync.ts` with retry/conflict-related logic. The recursive repository tree contains no dedicated test file for these queue/sync modules. Existing OCR and reading-lifecycle tests do not prove durable offline capture, photo persistence, idempotent retry, conflict recovery, and reconnection behavior end-to-end.
+
+Tracking issue: [#89](https://github.com/m86781653-crypto/mizanafter/issues/89).
+
+These are evidence gaps; do not infer a specific replacement architecture. Discover the existing path and test it against the reference. The live snapshot also has 0 water-production meters, 0 water-production readings, and 0 pump-operation cycles, so live end-to-end water-production behavior is not demonstrated by the current data snapshot.
+
+## 8. Other observed database/advisor findings
 
 - `public.project_seq_counters` and `public.seq_counters` have RLS enabled and no policies. This appears consistent with the stated server-mediated counter boundary; verify all write paths rather than adding broad client policies.
 - The `private` schema denies schema USAGE to `anon`; `authenticated` has USAGE but the inspected private tables had no direct anon/authenticated table grants. RLS-disabled private tables are not equivalent to public exposure, but their SECURITY DEFINER call paths still require review.
@@ -90,7 +104,7 @@ Tracking issue: [#87](https://github.com/m86781653-crypto/mizanafter/issues/87).
 - Performance advisor reported 28 unindexed foreign keys and 50 unused indexes. Do not automatically add/drop indexes from these counts alone; validate workload, query plans, write overhead, and actual traffic.
 - `postgis` is installed in `public`, and the security advisor reports three anonymous-callable SECURITY DEFINER overloads; these align with the ACL blocker above.
 
-## 8. Live data snapshot observed
+## 9. Live data snapshot observed
 
 Table-count snapshot:
 - 6 tenants; 5 projects.
@@ -103,16 +117,17 @@ Table-count snapshot:
 
 These counts describe the inspected database snapshot only; they do not prove end-to-end workflow completeness or a field pilot.
 
-## 9. Release gates still open
+## 10. Release gates still open
 
 1. Resolve #84 and #85 with supported privilege changes and negative tests.
-2. PR #81 is merged after both CI workflows passed on its exact head; verify production migration state before claiming its database-side fix is live.
-3. Reconcile migration history using issue #87 before applying any production migrations.
-4. Verify production migration state separately from repository state. The live migration list inspected during this review ended at version `20261001152927`; do not assume repository migrations have been applied to production.
-5. Confirm deployment status only for the approved Vercel project `mizanafterv1`; do not use unrelated Vercel projects as production evidence.
-6. Continue the full reference-to-implementation crosswalk for the remaining P0 workflow requirements: field evidence/identity verification, live state propagation, billing/payment effects, maintenance lifecycle, offline capture/sync/conflicts, period close/roll-forward, traceable reporting, backup/recovery, and role-by-role authorization.
+2. Resolve the migration-history mapping in #87 before any production migration application.
+3. Close the operating-period verification gap in #88 and add offline queue recovery tests per #89.
+4. PR #81 is merged after both CI workflows passed on its exact head; verify production migration state before claiming its database-side fix is live.
+5. Verify production migration state separately from repository state. The live migration list inspected during this review ended at version `20261001152927`; do not assume repository migrations have been applied to production.
+6. At main commit `0590ce51155f3058cbc5c7116ba4608728dddb79`, the approved Vercel project `mizanafterv1` check succeeded. This proves deployment status only, not that migrations were applied or the platform is production-ready.
+7. Continue the full reference-to-implementation crosswalk for the remaining P0 workflow requirements: field evidence/identity verification, live state propagation, billing/payment effects, maintenance lifecycle, offline capture/sync/conflicts, period close/roll-forward, traceable reporting, backup/recovery, and role-by-role authorization.
 
-## 10. Explicit status
+## 11. Explicit status
 
 **Overall MIZAN production readiness: NOT VERIFIED.**  
 **P0 security release gate: BLOCKED** by the extension-owned PostGIS ACLs until #84 and #85 are resolved and verified.  
