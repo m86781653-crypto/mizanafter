@@ -385,3 +385,214 @@ Read-only inspection of the combined GitHub status for commit `478879c4fd0f2404f
 ### 10.15. Database-contract workflow coverage — verified 2026-10-17
 
 A read-only reinspection of `.github/workflows/database-contract.yml` at blob `37a30d90585848081ec40a7b2a9e989161f0223a` found 34 explicit `supabase test db` invocations. The repository also contains `supabase/tests/029_governed_tariff_creation_contract.test.sql` (blob `4310ca53eb5e767fee2a422e953d93eb194a2cc5`, declares `plan(12)`), but that file is not invoked by the workflow. This confirms the previously identified CI coverage gap. The workflow does invoke `029_water_production_measurement_contract.test.sql`; the similarly numbered test files must not be confused. `package-lock.json` is present, while `package.json` defines no `test` script. No workflow or application files were changed during this audit. Recommended controlled remediation: add an explicit invocation for the governed tariff-creation contract, then validate the full clean local Supabase chain and review the resulting CI run before treating the gate as closed.
+
+
+## 10.16. Follow-up engineering checkpoint — 2026-10-17 (read-only verification; PRs remain unmerged)
+
+This section supersedes earlier status snapshots only for the exact commits and workflow runs listed below. It does not close the audit or approve production readiness.
+
+### PR #80 — archived project/tenant access
+
+- PR: https://github.com/m86781653-crypto/mizanafter/pull/80
+- Head: `8766499209bfa9fa4da2ba45426ca90421c02a54`; draft/open, not merged.
+- `MIZAN CI` run 39041955831: success.
+- `database-contract` run 39041956062: success, including the new project lifecycle behavior contract.
+- Combined status on this exact commit: `Vercel – mizanafterv1` success; two other Vercel contexts fail. The two non-canonical project contexts are not treated as production evidence; deployment details remain inaccessible.
+- Decision: **keep draft pending review against the canonical reference and the access matrix**. CI success supports the proposed fix but does not authorize production migration or prove the live database changed.
+
+### PR #79 — PostGIS ACL and governed tariff contract coverage
+
+- PR: https://github.com/m86781653-crypto/mizanafter/pull/79
+- Head: `b6d317e1e10ee9f63cfe9dc95f2a8f90f1a1d411`; draft/open, not merged.
+- `MIZAN CI` run 39028936566: success.
+- `database-contract` run 39028936642: failure at `033_extension_schema_security_contract.test.sql`; assertions 4–9 fail because API roles retain execution on three `public.st_estimatedextent` overloads.
+- Read-only production inspection found the functions owned by `supabase_admin`; the connected migration role `postgres` is not a superuser, and the ACL still grants EXECUTE to PUBLIC, `anon`, and `authenticated`. The logs warn that privileges could not be revoked.
+- Decision: **do not merge as a completed security fix**. Keep the assertions intact and investigate a supported ownership/extension ACL remediation. No production grant was changed.
+
+### PR #81 — preserve customer and invoice history
+
+- PR: https://github.com/m86781653-crypto/mizanafter/pull/81
+- Head: `cf4ad697f76c40e7bf3afe5e5dfa07a891ad91ac`; draft/open, not merged.
+- `MIZAN CI` run 39044832045: success.
+- `database-contract` run 39044831892: success, including `047_customer_history_delete_contract.test.sql`.
+- The proposed changes remove the direct customer-delete action, remove the customer DELETE policy, and change the invoice-to-customer foreign key from cascade to restrict. The existing suspend/reactivate action remains in the UI.
+- Decision: **retain as a candidate fix, but do not merge yet**. Review the exact reference requirements and all deletion/update policies, confirm no approved workflow depends on deletion, and strengthen the contract so it verifies the effective deletion boundary rather than relying only on a policy name. Successful CI is not a substitute for that review.
+
+### Reference authority and unresolved reference gaps
+
+Use the existing authority order in `docs/mizanbaseline/MIZAN_REFERENCE_AUTHORITY_INDEX_v1.0.md`:
+1. Owner Decision Log plus explicit newer owner decisions.
+2. `MIZAN_Master_Reference_v0.1.docx` for intended product behavior and boundaries.
+3. `MIZAN_Current_System_Baseline_v0.1.docx` for dated observed state, requiring re-verification.
+4. `MIZAN_Master_Product_Reference_v1.0.docx` as a supplementary reference.
+5. Its Markdown derivative only as a readable mirror until semantic parity is closed.
+6. `MIZAN_Agent_Execution_Contract_v1.0.md` for execution discipline, not as a substitute for the missing canonical `MIZAN AI — MASTER EXECUTION PROMPT v2.0`.
+
+Open reference conditions:
+- Product Reference DOCX/Markdown semantic parity remains OPEN for exact wording, tables, workflows, acceptance criteria, exceptions, and RTL/LTR presentation.
+- D-012 (four operational roles) remains a separate repository addendum until transcribed into the owner-maintained Decision Log or superseded by a formally versioned owner decision.
+- The completed canonical MASTER EXECUTION PROMPT v2.0 remains not located/verified; the Agent Execution Contract is not presumed equivalent.
+- A code change must be tied to a reference requirement or a verified defect that is necessary to meet the intended behavior. A passing test does not by itself establish reference conformance.
+
+### Current decision
+
+Production readiness remains **NOT APPROVED**. PRs #79, #80, and #81 are drafts and remain unmerged. No production migration, grant change, customer-data deletion, or deployment configuration change was performed in this checkpoint. Next priorities: finish reference-linked review of #80 and #81; diagnose #79 at the extension ownership/privilege boundary; then continue the remaining baseline risks using the same evidence-first process.
+
+
+### 10.17. Follow-up while this report PR is open — 2026-10-17
+
+- PR #81 was strengthened at commit `8f9a2a3f75cd2c4fa0a7c6bc4fd44d7ef0236a9e`: its customer-delete contract now checks for any permissive DELETE/ALL RLS policy applicable to PUBLIC, `anon`, or `authenticated`, rather than checking only one policy name. `MIZAN CI` is green on this commit; `database-contract` run 39048853760 remained in progress at the latest observation while starting local Supabase. Do not mark the updated contract green until that run completes.
+- PR #83 (https://github.com/m86781653-crypto/mizanafter/pull/83) was opened as a separate draft to add the existing governed-tariff creation test to CI without carrying PR #79's failing PostGIS remediation. Its CI result has not yet been verified. This isolates a valid coverage improvement from an unproven security fix.
+- The latest Library search for the exact canonical `MIZAN AI — MASTER EXECUTION PROMPT v2.0` returned the Agent Execution Contract v1.0 and unrelated/older artifacts, but did not establish the exact canonical v2.0 prompt. RG-01 remains BLOCKED / NOT VERIFIED. Do not substitute a similarly named file.
+- These are incremental report updates, not closure. PR #82 remains a draft documentation PR; the report must be reviewed and its own checks completed before merge.
+
+
+### 10.18. Regression findings from newly added contracts — 2026-10-17
+
+- PR #81's clean-chain run 39048853760 failed its strengthened test 047. The test exposed that dropping only the specifically named `mizan_tenant_delete` policy is insufficient in a fresh migration chain: the migration log said that policy name did not exist, while the effective-policy assertion still found a permissive customer DELETE/ALL policy. The migration was revised at head `f59e9e2571f99e3857ba0efee560b8d6509048e6` to remove all permissive customer DELETE/ALL policies applicable to PUBLIC, `anon`, or `authenticated`, regardless of legacy name. This is a candidate correction only; the CI run for the revised head has not yet been verified. Keep PR #81 draft.
+- PR #83's first CI run 39049003879 failed at the newly enabled existing tariff contract, assertion 3: `tariff creation RPC pins an empty search_path`. The migration defines `SET search_path = ''`, but the test used a brittle substring against `pg_get_functiondef` formatting. The test was updated at head `4aab4656012d80fdc48fb2d36980eefe62b64243` to inspect the function's `proconfig` setting instead. This correction is not yet CI-verified. Do not merge PR #83 until the full clean-chain run passes; if the corrected assertion still fails, inspect actual `proconfig` and migration state rather than weakening the security contract.
+- PR #82 (this report update) is still draft. Its latest recorded report content is on the PR branch; any further changes must be recorded there and rechecked before the final handover report.
+
+
+### 10.19. Reference-led discovery: periods, accounting, reporting, and AI — 2026-10-17
+
+Scope of this checkpoint: read-only inspection of the authoritative product reference on `main`, selected current source files on `main`, and the live Supabase schema/table inventory for project `dofteozulbjwnzofcfmo`. No production writes or migrations were performed.
+
+#### Controlling product requirements verified in `MIZAN_Master_Product_Reference_v1.0.md`
+- Section 5 (full operating cycle): opening state must be sourced and include continuing operational conditions, quantities, balances, open cases, and relevant asset state; events and computable results update during the cycle; close fixes a historical period result; continuing states roll into the next opening; unresolved cases remain open; non-continuing items do not roll forward.
+- Accounting separation: water operations/usage accounting and financial accounting are conceptually separate, linked where operational activity creates a financial effect.
+- Section 6 (information model): preserve source, event/record/verification/approval times when different; avoid duplicate independent truth; important results must retain traceability to their source and transformation.
+- Section 7 (intelligence and automation): select deterministic rules for known rules, statistical algorithms for known calculations, predictive models only with suitable data, and generative models for language/document/image tasks. Preserve evidence, extracted values, verification status, model/version/context, and human review where applicable. AI confidence alone is not approval.
+- Section 11 (reporting): every important number needs a definition, period, context, source, calculation method, and quality status; a closed-period report must not change just because current state changes.
+- Workflow specifications 15–17 require a traceable period report, closure with classification of ended/continuing/open states, and a next-period opening linked to prior results.
+- P0-07 through P0-10 require live state updates, historical immutability, period close, and traceable opening state; P0-13 requires correct entitlement/payment/balance; P0-20 requires end-to-end testing from opening through close and next period. Quality gate 3 requires that full-cycle proof.
+
+#### Live-schema observations (inventory metadata; not a full behavioral proof)
+- `public.invoices` exists with `billing_period_start/end`, `previous_balance`, `grand_total`, `amount_paid`, `balance`, tariff version, and `calculation_snapshot`; inventory reports 10 rows.
+- `public.payments` exists with invoice/customer links, amount, approval state, recorded/approved/rejected actor/time fields and client payment idempotency field; inventory reports 1 row.
+- `public.meter_readings` includes source reading, AI extraction/confidence/model, anomaly and quality-review fields; inventory reports 10 rows.
+- `public.kpi_snapshots` exists with period/start/end, production/consumption/NRW/revenue/collection/outstanding balance and completeness fields; inventory reports 0 rows.
+- `public.ai_logs` exists with operation/model/prompt version/input/output summary/confidence/duration/success/error/project fields; inventory reports 0 rows at this inspection.
+- Production measurement tables `water_production_meters`, `water_production_readings`, and `pump_operation_cycles` exist but each showed 0 rows in the inspected inventory. The source UI `src/pages/WaterProductionPage.tsx` calls local OCR and passes detected serial, confidence and model parameters to `mizan_capture_water_production_reading`; the inspected production table inventory for `water_production_readings` has no corresponding detected-serial/confidence/model columns. This is a confirmed schema/source mismatch requiring a controlled follow-up, not proof of every possible AI capability being absent.
+- `src/pages/CustomersPage.tsx` contains direct deletion of `customers`; PR #81 proposes to block this and preserve financial history but remains unmerged.
+
+#### Critical live Supabase advisor observation
+The Supabase table inventory/advisor reported RLS disabled on four tables: `public.spatial_ref_sys`, `private.subtenant_user_slots`, `private.admin_password_reset_tokens`, and `private.customer_household_history`. It classified this as critical and warned that the API roles may be able to access these tables. This must be independently checked against effective grants, schema exposure, and intended access before remediation. Do not blindly apply `ENABLE ROW LEVEL SECURITY`: the advisor explicitly warns that enabling RLS without appropriate policies can block legitimate access. No remediation was applied in this checkpoint.
+
+#### Accounting behavior remains unproven
+The current inventory and existing tariff test prove the presence of tariff calculation and invoice/payment structures, not that period close/open, arrears, partial payments, adjustments, duplicate prevention, and historical report immutability work end to end. The prior audit records a potential arrears double-counting path in `private.mizan_issue_invoice_for_reading`, but no incident was proven. Required next step is to inspect the exact live function definition and run isolated tests for consecutive unpaid periods, partial/full payment, adjustment, idempotent re-issue, and reconciliation before making a behavioral claim.
+
+#### AI/analytics behavior remains unproven
+The existence of `ai_logs`, OCR fields on `meter_readings`, and `kpi_snapshots` is evidence of schema provisions only. Zero rows in `ai_logs` and `kpi_snapshots` at this inspection do not prove that all AI/analytics code is absent; they do mean the inspected data does not demonstrate recorded AI operations or generated KPI snapshots. Follow up by tracing the source callers, RPC definitions, writes, readers, authorization scope, evidence provenance, evaluation/quality controls, and links from alerts/analysis to actions and outcomes.
+
+Classification for these items remains: requirement present in reference; schema/code components partially present; end-to-end implementation and behavior NOT VERIFIED. This section records a read-only checkpoint and does not close any finding.
+
+
+### 10.20. Live function-definition trace — invoice arrears and production OCR provenance — 2026-10-17
+
+Read-only SQL inspection of live Supabase project `dofteozulbjwnzofcfmo`; no writes or migrations performed.
+
+#### Invoice arrears: concrete logic risk found
+Live function `private.mizan_issue_invoice_for_reading(p_reading_id uuid, p_period_start date, p_period_end date)` contains all of the following:
+- Returns an existing invoice if one already has the same `source_reading_id` (idempotency for the same source reading).
+- Computes `v_arrears` as the sum of positive `balance` values across all invoices for the customer/project where `status <> 'paid'`.
+- Sets `v_grand_total := v_current_charge + v_arrears`.
+- Inserts the new invoice with `previous_balance = v_arrears`, `grand_total = v_grand_total`, `amount_paid = 0`, and `balance = v_grand_total`.
+
+This code path creates a concrete double-counting risk across consecutive unpaid invoices: because an earlier invoice's balance already includes arrears carried into that invoice, summing every unpaid invoice balance can include the same older debt more than once in a later invoice. This is a code-level finding; it has not been confirmed with a write-based behavioral test against production, and no production data was changed. Do not call it a reproduced production incident. Next safe step: create a deterministic isolated database test/fixture with rollback in CI covering (a) two consecutive unpaid invoices, (b) three consecutive unpaid invoices, (c) partial payment followed by next invoice, (d) fully paid prior invoice, and (e) retry of the same source reading. Assert both invoice totals and total customer liability reconcile to original charges minus actual payments, with no duplicated arrears. Do not patch the live function until the test defines the intended accounting behavior and passes on the current implementation as a failing regression test.
+
+#### Production reading OCR provenance: confirmed write omission
+Live `public.mizan_capture_water_production_reading(..., p_detected_serial_number, p_ai_confidence, p_ai_model)` validates that confidence is 70–100, model is nonblank, and detected serial matches the registered production meter. However, the function's INSERT into `public.water_production_readings` writes reading/time/phase/image/GPS/captured_by/notes and does not persist the detected serial, confidence, or model values. This confirms a live function/schema provenance gap for this path. The next step is to trace table columns, caller contract, audit log coverage, and reference requirements, then prepare a migration/test in a branch; no live change is authorized by this finding alone.
+
+#### Period lifecycle objects
+The inspected live schema inventory includes invoices with billing-period dates and calculation snapshot, payments, KPI snapshots, production readings, and pump operation cycles. The targeted function inventory did not identify a dedicated period-close or next-period-opening function by name. This is not sufficient to conclude that period close/open behavior is wholly absent; verify all migrations, triggers, scheduled jobs, and application-level orchestration before making that claim.
+
+#### Classification
+- Invoice arrears: **specific code-level risk identified; end-to-end behavior not yet reproduced in an isolated test**.
+- Production OCR provenance: **write omission confirmed in live function definition**.
+- Period close/open: **not yet verified**.
+- AI/analytics end-to-end orchestration: **not yet verified**.
+
+
+### 10.21. Follow-up trace: payment approval, pump cycles, and period-object inventory — 2026-10-17
+
+Read-only inspection of live Supabase function definitions and `information_schema`; no production writes performed.
+
+#### Payment recording and approval path
+- Two live overloads of `public.mizan_record_payment` exist, including a newer signature with `p_client_payment_id uuid`. Both use an invoice row, authorization checks, reject non-positive amounts, count pending payments when determining available invoice balance, and insert a payment as pending.
+- The newer overload obtains an advisory transaction lock scoped to invoice ID, checks `client_payment_id` for retry idempotency, and then inserts the pending payment. The older overload has a separate signature and remains present. The intended application call target and whether the older overload is still needed must be confirmed before any cleanup.
+- `public.mizan_review_payment` requires `collection.approve`, checks project update authorization, prevents self-approval, only processes pending payments, requires a reason for rejection, and on approval updates invoice `amount_paid`, `balance = max(grand_total - amount_paid, 0)`, and status (`paid` if balance zero, otherwise `partial`). This confirms a code path for approval-based invoice balance updates; end-to-end concurrency and reconciliation tests remain unverified.
+
+#### Production cycle path
+- `public.mizan_capture_water_production_reading` validates authentication, `water.production.capture`, nonnegative reading, allowed capture phase, OCR confidence (70–100), nonempty model, and meter serial match. It inserts a row into `water_production_readings` with the reading, time, phase, image/GPS, actor and notes, but not detected serial, AI confidence, or AI model.
+- `public.mizan_start_pump_operation_cycle` creates a running cycle from a valid pending start reading and rejects a second running cycle for the same pump.
+- `public.mizan_stop_pump_operation_cycle` validates a pending stop reading, computes production from the stop/start meter values, updates the cycle to completed, and marks both readings accepted.
+- This is evidence of a pump-cycle production measurement workflow, not evidence of a period close/open ledger or a complete water balance between production, distribution, and customer consumption.
+
+#### Period lifecycle inventory
+The live base-table name scan returned `invoices`, `payments`, `kpi_snapshots`, `pump_operation_cycles`, `ai_logs`, and maintenance work orders among matching names; it returned no base table whose name contains `period`, `close`, `opening`, or `settle`. This name-based scan does not rule out period orchestration in functions, triggers, application code, or external scheduled jobs. A full source/migration/trigger/job trace is still required before concluding whether close/open is absent.
+
+#### Accounting risk status refined
+The invoice issuance function's arrears sum across all non-paid invoice balances, then embeds that sum in a new invoice's previous balance, grand total and balance. The code path is confirmed. The repeated-arrears scenario remains a concrete risk, not yet a reproduced test result. No live data was changed.
+
+
+#### Production OCR evidence cleanup path in the UI
+In `src/pages/WaterProductionPage.tsx`, the UI uploads an image, successfully calls `mizan_capture_water_production_reading` (which inserts a database reading row), and then calls the start/stop cycle RPC. The surrounding catch handler removes the uploaded image from Storage whenever any later step throws. Therefore, if the reading insert succeeds but the subsequent cycle start/stop call fails, the database reading can remain while its referenced image is deleted. This is a source-code control-flow finding; it has not been reproduced in production. It requires an isolated failure-path test and a reversible correction that preserves evidence or explicitly rolls back the reading/cycle transaction. No production data or storage objects were changed.
+
+
+### 10.22. Continuation checkpoint — reference P0 lifecycle and PR status refresh — 2026-10-17
+
+#### Exact controlling requirements re-read from `docs/mizanbaseline/MIZAN_Master_Product_Reference_v1.0.md`
+The following requirements are explicit:
+- P0-07: update current state when reliable information becomes available, without waiting for period close.
+- P0-08: do not rewrite established historical results merely because current state changes.
+- P0-09: close a period by fixing its results and identifying continuing states.
+- P0-10: build the next period's opening from continuing results with traceable sources.
+- P0-13: correct entitlement, collection, and balance where linked to an operational event.
+- P0-20: end-to-end test the full cycle from opening through close and the following period.
+- P0-21: material AI actions require human review or a suitable alternative control.
+- P0-22: every critical result must be traceable to its source and key inputs.
+These are product requirements, not proof that implementation exists.
+
+#### Current PR states retrieved from GitHub
+All five reviewed PRs remain open, unmerged, and draft:
+- #79 `b6d317e1…`: `MIZAN CI` passed; `database-contract` failed on PostGIS ACL assertions 4–9. The PR description states the proposed ACL remediation is not working. Decision: do not merge; retain assertions and investigate the extension owner/privilege boundary.
+- #80 `87664992…`: both `MIZAN CI` and `database-contract` passed. The access-control change remains draft pending review against the authoritative access matrix and the actual clean-room behavior test. Not applied to production.
+- #81 `f59e9e25…`: both CI workflows passed. The proposed change disables customer deletion, removes the authenticated DELETE policy, and changes invoice FK deletion behavior to RESTRICT. Remains draft pending migration/test/UI diff review. Not applied to production.
+- #82 `ce9caee2…`: both CI workflows passed. The audit report remains a draft; this does not mean its findings are closed.
+- #83 `4aab4656…`: both CI workflows passed. It isolates tariff test coverage from the failing PostGIS remediation in #79. Remains draft pending final workflow/diff review.
+
+#### Accounting and period implementation status
+- Live invoice issuance code computes prior arrears from the balance of all invoices with status other than `paid`, then adds that sum to the next invoice's current charge and writes it to the new invoice's `previous_balance`, `grand_total`, and `balance`. This is a code-level repeated-arrears risk; no isolated behavioral test has yet been run. No production data was modified.
+- Live payment approval code updates `amount_paid`, `balance`, and invoice status upon approval. This is evidence of an implemented path, not proof of full cross-period reconciliation.
+- The inspected live schema contains no base table named for period/close/open/settlement. Name inventory alone cannot prove lifecycle orchestration absent.
+- No write-based tests have been run against production. Any behavioral proof must use isolated CI fixtures/transactions and must not mutate customer data in production.
+
+#### Next verification gate
+Before implementing an accounting correction, add a deterministic regression test in the repository's existing database-contract test harness that uses isolated fixtures and rolls back. The expected accounting contract must be derived from the approved product reference and the existing tariff/invoice rules; where the reference does not define a financial policy, mark it as an owner decision rather than inventing one. Required cases: repeated invoice issuance for one reading, consecutive unpaid invoices, partial payment followed by another invoice, full payment followed by another invoice, and rejected/pending payments. Verify total liability and invoice balances reconcile without counting the same debt twice.
+For period close/open, continue searching application source, migrations, triggers, and scheduled jobs before claiming presence or absence. For AI, trace caller -> RPC -> persisted evidence -> authorized consumer/report -> review/action -> outcome, and classify each link separately.
+
+
+### 10.23. Source trace of operational reporting and AI Copilot — 2026-10-17
+
+Read-only source inspection on `main`; no production writes or schema changes.
+
+#### Reporting and water-balance lineage
+- `supabase/migrations/20261001015000_align_yemen_business_day_reporting.sql` defines `public.mizan_water_balance` using completed `pump_operation_cycles` grouped by Yemen local date (`Asia/Aden`) and consumption from `meter_readings` with quality statuses `not_required`, `confirmed`, `accepted`, or `approved`. Its gap is production minus recorded meter consumption.
+- The same migration replaces `public.mizan_operational_report(project_id, period_start, period_end)` to use Asia/Aden boundaries and meter readings for recorded consumption, aligning its consumption source with the view.
+- The report returns period-scoped production, consumption, invoice counts/amounts, approved collections, readings/anomalies, faults, maintenance, and service interruptions. `current_outstanding_amount` intentionally sums current balances of all non-paid invoices for the project, without filtering those invoices by the requested report period. Consumers must preserve the distinction between a period metric and a current-state metric.
+- The report's `water_balance_is_comparable` is based on existence of production and qualifying consumption records; this is an availability indicator, not a proof that both datasets cover equivalent physical/time scopes or that the gap represents leakage.
+- `supabase/tests/034_governed_operational_reporting_contract.test.sql` verifies RPC existence, security-invoker behavior, access grants, source query patterns, and Yemen timezone boundary. It does not test numeric reconciliation across known fixture values or closed-period immutability.
+
+#### AI Copilot actual behavior
+- `supabase/functions/mizan-copilot/index.ts` authenticates the user, validates project access, retrieves current project metadata, counts of active customers/meters, up to 1,000 meter readings, open faults/interruption lists (up to 20 each), wells, and calls `mizan_operational_report` for the current calendar year in Yemen time.
+- It assembles those values into a JSON context and sends the user's question plus that context to Google Gemini model `gemini-3.8-flash`, with instructions to answer in Arabic from supplied data, not invent figures/names/causes, say when data is insufficient, make no changes, and not label the production-consumption gap as confirmed leakage.
+- It logs the question/answer through `mizan_log_ai_interaction`. The database logging RPC writes operation/model/input summary/output summary/success/error/user/project; confidence and duration are currently passed as NULL by that RPC.
+- `supabase/tests/037_ai_audit_write_path_contract.test.sql` verifies the AI logging RPC and privilege boundary. It does not verify model answer accuracy, source citations, prompt-injection resistance, numerical reconciliation, evaluation benchmarks, or follow-up action/outcome.
+- This establishes an implemented AI question-answering/summary path grounded in a selected live data context. It does not establish a predictive forecasting model, optimization engine, automated decision engine, or an end-to-end AI recommendations-to-outcomes loop. No such capability is asserted without further evidence.
+
+#### Evidence classification
+- Yemen-local reporting boundaries and the current water-balance data sources: **present in source; contract-tested at structural/query-pattern level; numerical behavior still needs fixture tests**.
+- AI Copilot context assembly, Gemini call, and logging path: **present in source; authorization/logging contract exists; answer quality and numerical fidelity not yet verified**.
+- Historical closed-period snapshots and next-period opening/roll-forward: **not established by this trace**.
+- KPI snapshots table exists in the live schema inventory, but the inspected Copilot and reporting code uses the live report RPC; a snapshot-generation/consumption lifecycle was not established here.
