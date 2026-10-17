@@ -59,7 +59,7 @@ Latest isolated PR #79 head: `f55803a9a9d6767e73da8139a0874e5068110844`. MIZAN C
 - PR #79 remains draft and must not be merged as a fix.
 - Required exit criterion: a supported owner-level/platform remediation, followed by a passing clean-room negative contract and read-only verification of effective privileges. Do not weaken or delete the security assertions.
 
-## 5. P0 blocker — PostGIS `spatial_ref_sys` table grants
+## 5. P1 integrity/availability risk — PostGIS `spatial_ref_sys` exposure
 
 **Evidence from read-only production SQL inspection:**
 - `public.spatial_ref_sys` has RLS disabled.
@@ -67,10 +67,12 @@ Latest isolated PR #79 head: `f55803a9a9d6767e73da8139a0874e5068110844`. MIZAN C
 - Effective privilege checks returned true for both `anon` and `authenticated` on SELECT, INSERT, UPDATE, and DELETE.
 - The table is owned by the Supabase-managed role `supabase_admin`.
 
-This is more than the generic RLS advisor warning: the effective ACL includes client write privileges. No write was attempted.
+Supabase's current PostGIS documentation says this is an expected Security Advisor finding and **not a data-confidentiality exposure**, because `spatial_ref_sys` contains built-in coordinate-system definitions, not application data. The confirmed write grants remain an integrity/availability risk if definitions are modified, and PostGIS is installed in the API-exposed `public` schema.
 
 - Tracking issue: [#85](https://github.com/m86781653-crypto/mizanafter/issues/85).
-- Required exit criterion: remove client write access through a supported extension-management path, preserve legitimate PostGIS behavior, and prove the resulting effective privileges/API behavior. Do not blindly enable RLS without an appropriate read policy and regression tests.
+- Reference: https://supabase.com/docs/guides/database/extensions/postgis
+- The live schema has nine application `geography` columns. Do not drop/recreate PostGIS with `CASCADE` without a reviewed backup/restore plan; use a supported managed move or contact Supabase Support.
+- Required exit criterion: document the supported schema-relocation decision, preserve legitimate PostGIS behavior, and verify effective API exposure/spatial operations after the change. Do not blindly enable RLS or repeat `REVOKE` as `postgres`.
 
 ## 6. Migration-history parity release gate
 
@@ -102,7 +104,7 @@ These are evidence gaps; do not infer a specific replacement architecture. Disco
 
 | Reference stage | Current implementation evidence | Status | Remaining proof/gap |
 |---|---|---|---|
-| Project/tenant context and authorization | Tenant/project data exists; PR #80 and tests 045/046 cover active/archived project access. | **PARTIAL / BLOCKED** | PostGIS function and table ACL blockers (#84, #85) prevent a production-security-ready conclusion; production migration state is not yet reconciled. |
+| Project/tenant context and authorization | Tenant/project data exists; PR #80 and tests 045/046 cover active/archived project access. | **PARTIAL / BLOCKED** | The PostGIS function ACL blocker (#84) prevents a production-security-ready conclusion; #85 is a separately classified P1 integrity/availability and schema-hygiene risk. Production migration state is not yet reconciled. |
 | Field reading and evidence capture | `ReadingsPage`, MRX queue/OCR code, tests 025–028. Live snapshot: 10 readings, all with image URL, AI model, client capture ID, and non-null quality-review status. | **PARTIAL** | All 10 readings lack GPS coordinates in this snapshot; absence alone is not a failure unless required by the capture context. Offline queue/sync has no dedicated tests (#89). No field trial is inferred from these rows. |
 | Reading-to-invoice traceability | Live snapshot has 10 invoices; all 10 have source reading links, tariff references, and calculation snapshots. Read-only consistency query found no missing source reading or project/customer/meter/current/previous-reading mismatch. Tests 016, 017, 021 and 029 cover tariff/billing contracts. | **PARTIAL** | Cross-table consistency is verified for these rows; independent recomputation of every amount and end-to-end behavior across all roles/edge cases is not established by these checks alone. |
 | Payment and balance propagation | Live snapshot has 1 approved payment linked to an invoice; project/customer links match, amount value is 20, invoice amount-paid total is 20; the inspected `payments` schema has no currency column, so the currency unit cannot be proven, and no approved-payment/amount-paid mismatch was found. Tests 018 and 044 cover approval/locking contracts. | **PARTIAL** | One live record does not establish full payment, arrears, rejection, duplicate retry, reversal, or period-transition behavior. |
@@ -111,7 +113,7 @@ These are evidence gaps; do not infer a specific replacement architecture. Disco
 | Reporting and analysis | `ReportsPage`, governed operational report RPC, tests 034/041. Live snapshot has 0 KPI snapshots, 1 water-balance row, and 0 AI-log rows. | **PARTIAL** | Contract presence is verified; historical report immutability, traceable calculation provenance, and actual live AI audit trail are not proven by the snapshot. |
 | Operational-period close and roll-forward | Billing/report pages support date ranges; the catalog query found billing/report period fields but no dedicated operational-period close/roll-forward routine or table. | **NOT EVIDENCED** | Issue #88: prove closed-period immutability and explicit carry-forward of continuing states/balances before claiming the complete cycle. |
 | Offline capture, sync and conflict recovery | Existing `mrxOfflineQueue.ts` and `mirrorSync.ts` contain persistence/retry/conflict logic. | **IMPLEMENTED, NOT VERIFIED END-TO-END** | Issue #89: tests are needed for persistence across restart, photo durability, idempotent retries, stale-reading conflict, explicit resolution, and reconnection. |
-| Security, data integrity and release history | SQL contract suite, tenant/RLS/function checks, PR #80/#81 changes. | **PARTIAL / BLOCKED** | #84 and #85 are unresolved extension-owned privilege boundaries; #87 is unresolved migration-history parity. Do not apply production migrations until the mapping and release gates are complete. |
+| Security, data integrity and release history | SQL contract suite, tenant/RLS/function checks, PR #80/#81 changes. | **PARTIAL / BLOCKED** | #84 is the unresolved P0 function-execution boundary; #85 is a P1 extension-schema integrity/availability risk; #87 is unresolved migration-history parity. Do not apply production migrations until the mapping and release gates are complete. |
 | Backup, restore, incident recovery and operational monitoring | Not covered by the specific checks in this review. | **CANNOT BE VERIFIED YET** | Require objective evidence for backup completion, restore test, recovery time/data-loss bounds, alerts, and operational ownership before release. |
 
 This crosswalk deliberately separates implemented code, contract tests, live-row consistency, and live operational proof. Passing CI does not upgrade a row to full production readiness when field evidence, closed-period behavior, offline recovery, security, or recovery evidence is missing.
@@ -150,7 +152,7 @@ These checks establish current relational consistency for the observed rows, not
 
 ## 11. Release gates still open
 
-1. Resolve #84 and #85 with supported privilege changes and negative tests.
+1. Resolve #84 with a supported owner-level fix and passing negative tests; follow #85's supported PostGIS schema-remediation path without destructive extension changes.
 2. Resolve the migration-history mapping in #87 before any production migration application.
 3. Close the operating-period verification gap in #88 and add offline queue recovery tests per #89.
 4. PR #81 is merged after both CI workflows passed on its exact head; verify production migration state before claiming its database-side fix is live.
@@ -161,5 +163,5 @@ These checks establish current relational consistency for the observed rows, not
 ## 12. Explicit status
 
 **Overall MIZAN production readiness: NOT VERIFIED.**  
-**P0 security release gate: BLOCKED** by the extension-owned PostGIS ACLs until #84 and #85 are resolved and verified.  
+**P0 security release gate: BLOCKED** by #84 until the PostGIS SECURITY DEFINER RPC boundary is corrected and verified. #85 remains a P1 integrity/availability and schema-hygiene issue; it is not a customer-data confidentiality breach.  
 No live production schema or data was changed during this review.
