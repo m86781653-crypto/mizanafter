@@ -385,3 +385,55 @@ Read-only inspection of the combined GitHub status for commit `478879c4fd0f2404f
 ### 10.15. Database-contract workflow coverage — verified 2026-10-17
 
 A read-only reinspection of `.github/workflows/database-contract.yml` at blob `37a30d90585848081ec40a7b2a9e989161f0223a` found 34 explicit `supabase test db` invocations. The repository also contains `supabase/tests/029_governed_tariff_creation_contract.test.sql` (blob `4310ca53eb5e767fee2a422e953d93eb194a2cc5`, declares `plan(12)`), but that file is not invoked by the workflow. This confirms the previously identified CI coverage gap. The workflow does invoke `029_water_production_measurement_contract.test.sql`; the similarly numbered test files must not be confused. `package-lock.json` is present, while `package.json` defines no `test` script. No workflow or application files were changed during this audit. Recommended controlled remediation: add an explicit invocation for the governed tariff-creation contract, then validate the full clean local Supabase chain and review the resulting CI run before treating the gate as closed.
+
+
+## 10.16. Follow-up engineering checkpoint — 2026-10-17 (read-only verification; PRs remain unmerged)
+
+This section supersedes earlier status snapshots only for the exact commits and workflow runs listed below. It does not close the audit or approve production readiness.
+
+### PR #80 — archived project/tenant access
+
+- PR: https://github.com/m86781653-crypto/mizanafter/pull/80
+- Head: `8766499209bfa9fa4da2ba45426ca90421c02a54`; draft/open, not merged.
+- `MIZAN CI` run 39041955831: success.
+- `database-contract` run 39041956062: success, including the new project lifecycle behavior contract.
+- Combined status on this exact commit: `Vercel – mizanafterv1` success; two other Vercel contexts fail. The two non-canonical project contexts are not treated as production evidence; deployment details remain inaccessible.
+- Decision: **keep draft pending review against the canonical reference and the access matrix**. CI success supports the proposed fix but does not authorize production migration or prove the live database changed.
+
+### PR #79 — PostGIS ACL and governed tariff contract coverage
+
+- PR: https://github.com/m86781653-crypto/mizanafter/pull/79
+- Head: `b6d317e1e10ee9f63cfe9dc95f2a8f90f1a1d411`; draft/open, not merged.
+- `MIZAN CI` run 39028936566: success.
+- `database-contract` run 39028936642: failure at `033_extension_schema_security_contract.test.sql`; assertions 4–9 fail because API roles retain execution on three `public.st_estimatedextent` overloads.
+- Read-only production inspection found the functions owned by `supabase_admin`; the connected migration role `postgres` is not a superuser, and the ACL still grants EXECUTE to PUBLIC, `anon`, and `authenticated`. The logs warn that privileges could not be revoked.
+- Decision: **do not merge as a completed security fix**. Keep the assertions intact and investigate a supported ownership/extension ACL remediation. No production grant was changed.
+
+### PR #81 — preserve customer and invoice history
+
+- PR: https://github.com/m86781653-crypto/mizanafter/pull/81
+- Head: `cf4ad697f76c40e7bf3afe5e5dfa07a891ad91ac`; draft/open, not merged.
+- `MIZAN CI` run 39044832045: success.
+- `database-contract` run 39044831892: success, including `047_customer_history_delete_contract.test.sql`.
+- The proposed changes remove the direct customer-delete action, remove the customer DELETE policy, and change the invoice-to-customer foreign key from cascade to restrict. The existing suspend/reactivate action remains in the UI.
+- Decision: **retain as a candidate fix, but do not merge yet**. Review the exact reference requirements and all deletion/update policies, confirm no approved workflow depends on deletion, and strengthen the contract so it verifies the effective deletion boundary rather than relying only on a policy name. Successful CI is not a substitute for that review.
+
+### Reference authority and unresolved reference gaps
+
+Use the existing authority order in `docs/mizanbaseline/MIZAN_REFERENCE_AUTHORITY_INDEX_v1.0.md`:
+1. Owner Decision Log plus explicit newer owner decisions.
+2. `MIZAN_Master_Reference_v0.1.docx` for intended product behavior and boundaries.
+3. `MIZAN_Current_System_Baseline_v0.1.docx` for dated observed state, requiring re-verification.
+4. `MIZAN_Master_Product_Reference_v1.0.docx` as a supplementary reference.
+5. Its Markdown derivative only as a readable mirror until semantic parity is closed.
+6. `MIZAN_Agent_Execution_Contract_v1.0.md` for execution discipline, not as a substitute for the missing canonical `MIZAN AI — MASTER EXECUTION PROMPT v2.0`.
+
+Open reference conditions:
+- Product Reference DOCX/Markdown semantic parity remains OPEN for exact wording, tables, workflows, acceptance criteria, exceptions, and RTL/LTR presentation.
+- D-012 (four operational roles) remains a separate repository addendum until transcribed into the owner-maintained Decision Log or superseded by a formally versioned owner decision.
+- The completed canonical MASTER EXECUTION PROMPT v2.0 remains not located/verified; the Agent Execution Contract is not presumed equivalent.
+- A code change must be tied to a reference requirement or a verified defect that is necessary to meet the intended behavior. A passing test does not by itself establish reference conformance.
+
+### Current decision
+
+Production readiness remains **NOT APPROVED**. PRs #79, #80, and #81 are drafts and remain unmerged. No production migration, grant change, customer-data deletion, or deployment configuration change was performed in this checkpoint. Next priorities: finish reference-linked review of #80 and #81; diagnose #79 at the extension ownership/privilege boundary; then continue the remaining baseline risks using the same evidence-first process.
