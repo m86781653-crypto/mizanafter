@@ -88,6 +88,9 @@ jobs:
       - name: Run tariff engine contract
         run: supabase test db supabase/tests/017_tariff_engine_contract.test.sql
 
+      - name: Run governed tariff creation contract
+        run: supabase test db supabase/tests/029_governed_tariff_creation_contract.test.sql
+
       - name: Run payment approval contract
         run: supabase test db supabase/tests/018_payment_approval_contract.test.sql
 
