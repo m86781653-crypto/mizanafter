@@ -512,3 +512,25 @@ The inspected live schema inventory includes invoices with billing-period dates 
 - Production OCR provenance: **write omission confirmed in live function definition**.
 - Period close/open: **not yet verified**.
 - AI/analytics end-to-end orchestration: **not yet verified**.
+
+
+### 10.21. Follow-up trace: payment approval, pump cycles, and period-object inventory — 2026-10-17
+
+Read-only inspection of live Supabase function definitions and `information_schema`; no production writes performed.
+
+#### Payment recording and approval path
+- Two live overloads of `public.mizan_record_payment` exist, including a newer signature with `p_client_payment_id uuid`. Both use an invoice row, authorization checks, reject non-positive amounts, count pending payments when determining available invoice balance, and insert a payment as pending.
+- The newer overload obtains an advisory transaction lock scoped to invoice ID, checks `client_payment_id` for retry idempotency, and then inserts the pending payment. The older overload has a separate signature and remains present. The intended application call target and whether the older overload is still needed must be confirmed before any cleanup.
+- `public.mizan_review_payment` requires `collection.approve`, checks project update authorization, prevents self-approval, only processes pending payments, requires a reason for rejection, and on approval updates invoice `amount_paid`, `balance = max(grand_total - amount_paid, 0)`, and status (`paid` if balance zero, otherwise `partial`). This confirms a code path for approval-based invoice balance updates; end-to-end concurrency and reconciliation tests remain unverified.
+
+#### Production cycle path
+- `public.mizan_capture_water_production_reading` validates authentication, `water.production.capture`, nonnegative reading, allowed capture phase, OCR confidence (70–100), nonempty model, and meter serial match. It inserts a row into `water_production_readings` with the reading, time, phase, image/GPS, actor and notes, but not detected serial, AI confidence, or AI model.
+- `public.mizan_start_pump_operation_cycle` creates a running cycle from a valid pending start reading and rejects a second running cycle for the same pump.
+- `public.mizan_stop_pump_operation_cycle` validates a pending stop reading, computes production from the stop/start meter values, updates the cycle to completed, and marks both readings accepted.
+- This is evidence of a pump-cycle production measurement workflow, not evidence of a period close/open ledger or a complete water balance between production, distribution, and customer consumption.
+
+#### Period lifecycle inventory
+The live base-table name scan returned `invoices`, `payments`, `kpi_snapshots`, `pump_operation_cycles`, `ai_logs`, and maintenance work orders among matching names; it returned no base table whose name contains `period`, `close`, `opening`, or `settle`. This name-based scan does not rule out period orchestration in functions, triggers, application code, or external scheduled jobs. A full source/migration/trigger/job trace is still required before concluding whether close/open is absent.
+
+#### Accounting risk status refined
+The invoice issuance function's arrears sum across all non-paid invoice balances, then embeds that sum in a new invoice's previous balance, grand total and balance. The code path is confirmed. The repeated-arrears scenario remains a concrete risk, not yet a reproduced test result. No live data was changed.
