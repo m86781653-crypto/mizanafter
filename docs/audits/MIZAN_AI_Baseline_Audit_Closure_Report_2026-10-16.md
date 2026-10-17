@@ -486,3 +486,29 @@ The current inventory and existing tariff test prove the presence of tariff calc
 The existence of `ai_logs`, OCR fields on `meter_readings`, and `kpi_snapshots` is evidence of schema provisions only. Zero rows in `ai_logs` and `kpi_snapshots` at this inspection do not prove that all AI/analytics code is absent; they do mean the inspected data does not demonstrate recorded AI operations or generated KPI snapshots. Follow up by tracing the source callers, RPC definitions, writes, readers, authorization scope, evidence provenance, evaluation/quality controls, and links from alerts/analysis to actions and outcomes.
 
 Classification for these items remains: requirement present in reference; schema/code components partially present; end-to-end implementation and behavior NOT VERIFIED. This section records a read-only checkpoint and does not close any finding.
+
+
+### 10.20. Live function-definition trace — invoice arrears and production OCR provenance — 2026-10-17
+
+Read-only SQL inspection of live Supabase project `dofteozulbjwnzofcfmo`; no writes or migrations performed.
+
+#### Invoice arrears: concrete logic risk found
+Live function `private.mizan_issue_invoice_for_reading(p_reading_id uuid, p_period_start date, p_period_end date)` contains all of the following:
+- Returns an existing invoice if one already has the same `source_reading_id` (idempotency for the same source reading).
+- Computes `v_arrears` as the sum of positive `balance` values across all invoices for the customer/project where `status <> 'paid'`.
+- Sets `v_grand_total := v_current_charge + v_arrears`.
+- Inserts the new invoice with `previous_balance = v_arrears`, `grand_total = v_grand_total`, `amount_paid = 0`, and `balance = v_grand_total`.
+
+This code path creates a concrete double-counting risk across consecutive unpaid invoices: because an earlier invoice's balance already includes arrears carried into that invoice, summing every unpaid invoice balance can include the same older debt more than once in a later invoice. This is a code-level finding; it has not been confirmed with a write-based behavioral test against production, and no production data was changed. Do not call it a reproduced production incident. Next safe step: create a deterministic isolated database test/fixture with rollback in CI covering (a) two consecutive unpaid invoices, (b) three consecutive unpaid invoices, (c) partial payment followed by next invoice, (d) fully paid prior invoice, and (e) retry of the same source reading. Assert both invoice totals and total customer liability reconcile to original charges minus actual payments, with no duplicated arrears. Do not patch the live function until the test defines the intended accounting behavior and passes on the current implementation as a failing regression test.
+
+#### Production reading OCR provenance: confirmed write omission
+Live `public.mizan_capture_water_production_reading(..., p_detected_serial_number, p_ai_confidence, p_ai_model)` validates that confidence is 70–100, model is nonblank, and detected serial matches the registered production meter. However, the function's INSERT into `public.water_production_readings` writes reading/time/phase/image/GPS/captured_by/notes and does not persist the detected serial, confidence, or model values. This confirms a live function/schema provenance gap for this path. The next step is to trace table columns, caller contract, audit log coverage, and reference requirements, then prepare a migration/test in a branch; no live change is authorized by this finding alone.
+
+#### Period lifecycle objects
+The inspected live schema inventory includes invoices with billing-period dates and calculation snapshot, payments, KPI snapshots, production readings, and pump operation cycles. The targeted function inventory did not identify a dedicated period-close or next-period-opening function by name. This is not sufficient to conclude that period close/open behavior is wholly absent; verify all migrations, triggers, scheduled jobs, and application-level orchestration before making that claim.
+
+#### Classification
+- Invoice arrears: **specific code-level risk identified; end-to-end behavior not yet reproduced in an isolated test**.
+- Production OCR provenance: **write omission confirmed in live function definition**.
+- Period close/open: **not yet verified**.
+- AI/analytics end-to-end orchestration: **not yet verified**.
