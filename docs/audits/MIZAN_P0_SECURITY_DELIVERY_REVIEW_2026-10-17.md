@@ -98,7 +98,25 @@ Tracking issue: [#89](https://github.com/m86781653-crypto/mizanafter/issues/89).
 
 These are evidence gaps; do not infer a specific replacement architecture. Discover the existing path and test it against the reference. The live snapshot also has 0 water-production meters, 0 water-production readings, and 0 pump-operation cycles, so live end-to-end water-production behavior is not demonstrated by the current data snapshot.
 
-## 8. Other observed database/advisor findings
+## 8. Reference-to-implementation operating-cycle crosswalk
+
+| Reference stage | Current implementation evidence | Status | Remaining proof/gap |
+|---|---|---|---|
+| Project/tenant context and authorization | Tenant/project data exists; PR #80 and tests 045/046 cover active/archived project access. | **PARTIAL / BLOCKED** | PostGIS function and table ACL blockers (#84, #85) prevent a production-security-ready conclusion; production migration state is not yet reconciled. |
+| Field reading and evidence capture | `ReadingsPage`, MRX queue/OCR code, tests 025–028. Live snapshot: 10 readings, all with image URL, AI model, client capture ID, and non-null quality-review status. | **PARTIAL** | All 10 readings lack GPS coordinates in this snapshot; absence alone is not a failure unless required by the capture context. Offline queue/sync has no dedicated tests (#89). No field trial is inferred from these rows. |
+| Reading-to-invoice traceability | Live snapshot has 10 invoices; all 10 have source reading links, tariff references, and calculation snapshots. Read-only consistency query found no missing source reading or project/customer/meter/current/previous-reading mismatch. Tests 016, 017, 021 and 029 cover tariff/billing contracts. | **PARTIAL** | Cross-table consistency is verified for these rows; independent recomputation of every amount and end-to-end behavior across all roles/edge cases is not established by these checks alone. |
+| Payment and balance propagation | Live snapshot has 1 approved payment linked to an invoice; project/customer links match, amount is 20 YER, invoice amount-paid total is 20 YER, and no approved-payment/amount-paid mismatch was found. Tests 018 and 044 cover approval/locking contracts. | **PARTIAL** | One live record does not establish full payment, arrears, rejection, duplicate retry, reversal, or period-transition behavior. |
+| Water production and pump operation | `WaterProductionPage`, `water_production_meters`, `water_production_readings`, `pump_operation_cycles`; tests 029 and 036. | **CANNOT BE VERIFIED LIVE** | Live snapshot has 0 production meters, 0 production readings, and 0 pump-operation cycles. Contract tests are not proof of live operational use. |
+| Faults and maintenance | Fault/maintenance pages and tests 031/032. Live snapshot has 2 faults, 2 work orders, and 0 closed work orders. | **PARTIAL** | The snapshot contains no closed work order to verify the full close/result/history path in live data. |
+| Reporting and analysis | `ReportsPage`, governed operational report RPC, tests 034/041. Live snapshot has 0 KPI snapshots, 1 water-balance row, and 0 AI-log rows. | **PARTIAL** | Contract presence is verified; historical report immutability, traceable calculation provenance, and actual live AI audit trail are not proven by the snapshot. |
+| Operational-period close and roll-forward | Billing/report pages support date ranges; the catalog query found billing/report period fields but no dedicated operational-period close/roll-forward routine or table. | **NOT EVIDENCED** | Issue #88: prove closed-period immutability and explicit carry-forward of continuing states/balances before claiming the complete cycle. |
+| Offline capture, sync and conflict recovery | Existing `mrxOfflineQueue.ts` and `mirrorSync.ts` contain persistence/retry/conflict logic. | **IMPLEMENTED, NOT VERIFIED END-TO-END** | Issue #89: tests are needed for persistence across restart, photo durability, idempotent retries, stale-reading conflict, explicit resolution, and reconnection. |
+| Security, data integrity and release history | SQL contract suite, tenant/RLS/function checks, PR #80/#81 changes. | **PARTIAL / BLOCKED** | #84 and #85 are unresolved extension-owned privilege boundaries; #87 is unresolved migration-history parity. Do not apply production migrations until the mapping and release gates are complete. |
+| Backup, restore, incident recovery and operational monitoring | Not covered by the specific checks in this review. | **CANNOT BE VERIFIED YET** | Require objective evidence for backup completion, restore test, recovery time/data-loss bounds, alerts, and operational ownership before release. |
+
+This crosswalk deliberately separates implemented code, contract tests, live-row consistency, and live operational proof. Passing CI does not upgrade a row to full production readiness when field evidence, closed-period behavior, offline recovery, security, or recovery evidence is missing.
+
+## 9. Other observed database/advisor findings
 
 - `public.project_seq_counters` and `public.seq_counters` have RLS enabled and no policies. This appears consistent with the stated server-mediated counter boundary; verify all write paths rather than adding broad client policies.
 - The `private` schema denies schema USAGE to `anon`; `authenticated` has USAGE but the inspected private tables had no direct anon/authenticated table grants. RLS-disabled private tables are not equivalent to public exposure, but their SECURITY DEFINER call paths still require review.
@@ -106,7 +124,7 @@ These are evidence gaps; do not infer a specific replacement architecture. Disco
 - Performance advisor reported 28 unindexed foreign keys and 50 unused indexes. Do not automatically add/drop indexes from these counts alone; validate workload, query plans, write overhead, and actual traffic.
 - `postgis` is installed in `public`, and the security advisor reports three anonymous-callable SECURITY DEFINER overloads; these align with the ACL blocker above.
 
-## 9. Live data snapshot observed
+## 10. Live data snapshot observed
 
 Table-count snapshot:
 - 6 tenants; 5 projects.
@@ -130,7 +148,7 @@ These counts describe the inspected database snapshot only; they do not prove en
 
 These checks establish current relational consistency for the observed rows, not correctness of every tariff calculation, proof of a live field trial, full authorization coverage, or a closed-period/roll-forward workflow.
 
-## 10. Release gates still open
+## 11. Release gates still open
 
 1. Resolve #84 and #85 with supported privilege changes and negative tests.
 2. Resolve the migration-history mapping in #87 before any production migration application.
@@ -140,7 +158,7 @@ These checks establish current relational consistency for the observed rows, not
 6. At main commit `0590ce51155f3058cbc5c7116ba4608728dddb79`, MIZAN CI and database-contract succeeded, and the approved Vercel project `mizanafterv1` check succeeded. This proves the tested code/contracts and deployment check only; it does not prove the pending migrations were applied or the platform is production-ready.
 7. Continue the full reference-to-implementation crosswalk for the remaining P0 workflow requirements: field evidence/identity verification, live state propagation, billing/payment effects, maintenance lifecycle, offline capture/sync/conflicts, period close/roll-forward, traceable reporting, backup/recovery, and role-by-role authorization.
 
-## 11. Explicit status
+## 12. Explicit status
 
 **Overall MIZAN production readiness: NOT VERIFIED.**  
 **P0 security release gate: BLOCKED** by the extension-owned PostGIS ACLs until #84 and #85 are resolved and verified.  
