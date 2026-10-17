@@ -115,7 +115,7 @@ async function syncOne(item: PendingReading) {
   if (error) throw error;
 
   // Invoice issuance is atomic with the meter capture inside mrx_capture_meter_reading.
-  await idbDelete(STORE_BLOBS, item.clientId);
+  // Keep the local photo until the caller durably marks this queue item as synced.
 }
 
 export async function syncPendingReadings(force = false) {
@@ -132,7 +132,10 @@ export async function syncPendingReadings(force = false) {
       await idbPut(STORE_QUEUE, { ...item, status: "syncing" });
       try {
         await syncOne(item);
+        // Persist server acknowledgement locally before deleting the only local photo copy.
+        // If the queue write fails, the queued photo remains available for safe retry/recovery.
         await idbPut(STORE_QUEUE, { ...item, status: "synced", syncedAt: new Date().toISOString(), lastError: undefined });
+        if (item.hasPhoto) await idbDelete(STORE_BLOBS, item.clientId);
         synced++;
       } catch (error) {
         await idbPut(STORE_QUEUE, {
