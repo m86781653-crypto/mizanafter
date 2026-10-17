@@ -437,3 +437,11 @@ Open reference conditions:
 ### Current decision
 
 Production readiness remains **NOT APPROVED**. PRs #79, #80, and #81 are drafts and remain unmerged. No production migration, grant change, customer-data deletion, or deployment configuration change was performed in this checkpoint. Next priorities: finish reference-linked review of #80 and #81; diagnose #79 at the extension ownership/privilege boundary; then continue the remaining baseline risks using the same evidence-first process.
+
+
+### 10.17. Follow-up while this report PR is open — 2026-10-17
+
+- PR #81 was strengthened at commit `8f9a2a3f75cd2c4fa0a7c6bc4fd44d7ef0236a9e`: its customer-delete contract now checks for any permissive DELETE/ALL RLS policy applicable to PUBLIC, `anon`, or `authenticated`, rather than checking only one policy name. `MIZAN CI` is green on this commit; `database-contract` run 39048853760 remained in progress at the latest observation while starting local Supabase. Do not mark the updated contract green until that run completes.
+- PR #83 (https://github.com/m86781653-crypto/mizanafter/pull/83) was opened as a separate draft to add the existing governed-tariff creation test to CI without carrying PR #79's failing PostGIS remediation. Its CI result has not yet been verified. This isolates a valid coverage improvement from an unproven security fix.
+- The latest Library search for the exact canonical `MIZAN AI — MASTER EXECUTION PROMPT v2.0` returned the Agent Execution Contract v1.0 and unrelated/older artifacts, but did not establish the exact canonical v2.0 prompt. RG-01 remains BLOCKED / NOT VERIFIED. Do not substitute a similarly named file.
+- These are incremental report updates, not closure. PR #82 remains a draft documentation PR; the report must be reviewed and its own checks completed before merge.
