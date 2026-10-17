@@ -168,3 +168,38 @@ These checks establish current relational consistency for the observed rows, not
 **Overall MIZAN production readiness: NOT VERIFIED.**  
 **P0 security release gate: BLOCKED** by #84 until the PostGIS SECURITY DEFINER RPC boundary is corrected and verified. #85 remains a P1 integrity/availability and schema-hygiene issue; it is not a customer-data confidentiality breach.  
 No live production schema or data was changed during this review.
+
+## 13. Post-PR #90 revalidation — 2026-10-17
+
+### CI and deployment status
+
+At repository main commit `20680ee0825c1bd018c20d3cc6ae3175fab7c61f`:
+
+- MIZAN CI run [39066464652](https://github.com/m86781653-crypto/mizanafter/actions/runs/39066464652): **success**.
+- Database-contract run [39066464743](https://github.com/m86781653-crypto/mizanafter/actions/runs/39066464743): **success**.
+- Vercel check for the explicitly approved project `mizanafterv1`: **success**.
+- Two other Vercel status contexts (`mizanafter-gojh` and `mizanafter`) reported failure. They are not treated as the approved production project; they are recorded rather than silently ignored.
+
+These results establish the corresponding CI suites and the check for `mizanafterv1`; they do not prove production database migration parity or overall readiness.
+
+### Fresh Supabase advisor snapshot
+
+Security advisor findings observed at 2026-10-17T20:56:49Z:
+
+- Three `public.st_estimatedextent` overloads remain callable by `anon` as SECURITY DEFINER functions.
+- `postgis` remains installed in `public`; `public.spatial_ref_sys` remains exposed with RLS disabled.
+- Supabase Auth leaked-password protection remains disabled.
+- Two sequence-counter tables have RLS enabled without policies; this is an informational finding requiring validation of server-mediated access, not an instruction to add broad client policies.
+- The advisor also lists 29 authenticated-callable SECURITY DEFINER functions. Each must be evaluated against its intended caller and internal authorization checks; the count alone does not establish a vulnerability for every function.
+
+Performance advisor snapshot: 28 foreign keys reported without covering indexes and 50 indexes reported unused. These are workload-dependent findings; no index was added or removed based on counts alone.
+
+### Live migration-history status
+
+A fresh migration-history listing returned 163 records; the latest listed version remained `20261001152927` (`20261001150000_fix_profile_update_policy_recursion`). This is not evidence that the merged PR #80/#81 database safeguards are live. The read-only findings documented above remain release blockers until rechecked after a governed deployment.
+
+### Decision
+
+PR #90's targeted offline-photo ordering change is merged and both CI workflows now pass on its merge commit. The offline recovery acceptance criteria in #89 remain open because the current CI addition is a source-contract check, not a runtime IndexedDB/network/restart/conflict test.
+
+Overall readiness remains **NOT VERIFIED**; P0 release remains **BLOCKED** by #84 and #87, with #88 and #89 also open. No live production schema or data was changed during this revalidation.
