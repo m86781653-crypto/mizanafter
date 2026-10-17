@@ -31,7 +31,7 @@ Relevant reference requirements:
 - Change: `private.mizan_can_access_project(uuid)` now requires active project and tenant states in tenant-scoped paths; the explicit platform-admin governance bypass remains.
 - Added SQL contract and behavior tests for own active project, archived project, central/subtenant access, archived tenant, cross-tenant denial, and the explicit platform-admin path.
 - Verification before merge: MIZAN CI and database-contract succeeded on the PR head.
-- **Production application status:** the migration is in the repository. This review did not apply it to the live database; confirm its production migration state before claiming the fix is live.
+- **Live production verification (read-only, 2026-10-17):** the current `private.mizan_can_access_project(uuid)` definition does not require `p.status='active'` in the direct tenant-scoped branch, and does not require the direct tenant status to be active. The subtenant branch does check active project-parent/subtenant conditions. The latest live migration record remains `20261001152927`; the PR #80 migration is not evidenced as applied by migration history. Thus the merged fix is **not verified as live**, and the direct-tenant lifecycle gap remains observable in the live function.
 
 ## 3. PR #81 — customer/invoice history protection
 
@@ -39,7 +39,7 @@ Relevant reference requirements:
 - PR head tested: `a84116a0c2bed38c787421381cced90e031c2db9`; merge commit: `0590ce51155f3058cbc5c7116ba4608728dddb79`.
 - Changes: remove destructive customer deletion from the UI, remove client DELETE policy on customers, change `invoices_customer_id_fkey` from `ON DELETE CASCADE` to `ON DELETE RESTRICT`, add a database-contract test.
 - Verification on the exact PR head: MIZAN CI passed; clean-chain database-contract passed, including the customer-history and project-lifecycle contracts.
-- The migration is now in repository `main`; this review did not apply it to the live database. Confirm production migration state before claiming the database-side fix is live.
+- **Live production verification (read-only, 2026-10-17):** `public.invoices_customer_id_fkey` still uses `ON DELETE CASCADE`; the permissive `mizan_tenant_delete` policy applies to the `authenticated` role on `public.customers`. Therefore the PR #81 database protection is **not live** in the inspected production schema. The merged migration is not evidenced as applied by migration history. This is a confirmed financial-history integrity risk, not just an unverified rollout assumption.
 - No live production schema or data changes were made by this review.
 
 ## 4. P0 blocker — PostGIS function ACL
