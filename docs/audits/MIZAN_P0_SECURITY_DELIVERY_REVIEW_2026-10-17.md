@@ -203,3 +203,5 @@ A fresh migration-history listing returned 163 records; the latest listed versio
 PR #90's targeted offline-photo ordering change is merged and both CI workflows now pass on its merge commit. The offline recovery acceptance criteria in #89 remain open because the current CI addition is a source-contract check, not a runtime IndexedDB/network/restart/conflict test.
 
 Overall readiness remains **NOT VERIFIED**; P0 release remains **BLOCKED** by #84 and #87, with #88 and #89 also open. No live production schema or data was changed during this revalidation.
+
+- **Additional #89 retry edge case:** live `mrx_capture_meter_reading` checks current meter state and write permission before looking up an existing `client_capture_id`. The duplicate lookup exists, but its behavior after a successful server commit followed by a failed local acknowledgement is not proven if meter status/authorization changes before retry. This is recorded for targeted acceptance testing; no claim is made that the scenario has occurred.
