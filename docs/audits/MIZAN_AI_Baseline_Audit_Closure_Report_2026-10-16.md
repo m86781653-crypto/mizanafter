@@ -534,3 +534,7 @@ The live base-table name scan returned `invoices`, `payments`, `kpi_snapshots`, 
 
 #### Accounting risk status refined
 The invoice issuance function's arrears sum across all non-paid invoice balances, then embeds that sum in a new invoice's previous balance, grand total and balance. The code path is confirmed. The repeated-arrears scenario remains a concrete risk, not yet a reproduced test result. No live data was changed.
+
+
+#### Production OCR evidence cleanup path in the UI
+In `src/pages/WaterProductionPage.tsx`, the UI uploads an image, successfully calls `mizan_capture_water_production_reading` (which inserts a database reading row), and then calls the start/stop cycle RPC. The surrounding catch handler removes the uploaded image from Storage whenever any later step throws. Therefore, if the reading insert succeeds but the subsequent cycle start/stop call fails, the database reading can remain while its referenced image is deleted. This is a source-code control-flow finding; it has not been reproduced in production. It requires an isolated failure-path test and a reversible correction that preserves evidence or explicitly rolls back the reading/cycle transaction. No production data or storage objects were changed.
