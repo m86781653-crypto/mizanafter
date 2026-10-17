@@ -173,6 +173,9 @@ jobs:
       - name: Run governed payment recording lock contract
         run: supabase test db supabase/tests/044_payment_recording_lock_contract.test.sql
 
+      - name: Run customer history deletion contract
+        run: supabase test db supabase/tests/047_customer_history_delete_contract.test.sql
+
       - name: Run project lifecycle access contract
         run: supabase test db supabase/tests/045_project_lifecycle_access_contract.test.sql
 

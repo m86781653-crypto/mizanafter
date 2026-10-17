@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { LoadingSpinner, ErrorState } from '@/lib/hooks';
 import { formatNumber, formatDateTime, customerTypeLabels, meterStatusLabels } from '@/lib/utils';
-import { Plus, Users, Gauge, Search, Phone, MapPin, Trash2, Ban, CheckCircle2, Home } from 'lucide-react';
+import { Plus, Users, Gauge, Search, Phone, MapPin, Ban, CheckCircle2, Home } from 'lucide-react';
 import type { Customer, Meter } from '@/types';
 
 type MeterRow = Meter & { customers?: Pick<Customer, 'name_ar' | 'customer_number'> | null };
@@ -108,13 +108,6 @@ export function CustomersPage() {
     } finally { setSaving(false); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا المشترك؟')) return;
-    const { error: delError } = await supabase.from('customers').delete().eq('id', id);
-    if (delError) setError('فشل حذف المشترك: ' + delError.message);
-    else await fetchData();
-  };
-
   const handleToggleStatus = async (id: string, current: string) => {
     const next = current === 'active' ? 'suspended' : 'active';
     const { error: updError } = await supabase.from('customers').update({ status: next }).eq('id', id);
@@ -168,7 +161,6 @@ export function CustomersPage() {
                   <td className="px-4 py-3"><div className="flex items-center gap-1">
                     <button className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-100" title="إضافة عداد لهذا المشترك" onClick={()=>openNew('meter-existing',customer.id)}><Gauge size={16}/></button>
                     <button className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-100" title={customer.status==='active'?'إيقاف المشترك':'تفعيل المشترك'} onClick={()=>handleToggleStatus(customer.id,customer.status)}>{customer.status==='active'?<Ban size={16}/>:<CheckCircle2 size={16}/>}</button>
-                    <button className="p-2 rounded-lg text-error-500 hover:bg-error-50" title="حذف المشترك" onClick={()=>handleDelete(customer.id)}><Trash2 size={16}/></button>
                   </div></td>
                 </tr>
               ))}
