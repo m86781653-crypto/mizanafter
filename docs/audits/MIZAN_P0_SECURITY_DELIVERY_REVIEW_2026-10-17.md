@@ -205,3 +205,22 @@ PR #90's targeted offline-photo ordering change is merged and both CI workflows 
 Overall readiness remains **NOT VERIFIED**; P0 release remains **BLOCKED** by #84 and #87, with #88 and #89 also open. No live production schema or data was changed during this revalidation.
 
 - **Additional #89 retry edge case:** live `mrx_capture_meter_reading` checks current meter state and write permission before looking up an existing `client_capture_id`. The duplicate lookup exists, but its behavior after a successful server commit followed by a failed local acknowledgement is not proven if meter status/authorization changes before retry. This is recorded for targeted acceptance testing; no claim is made that the scenario has occurred.
+
+
+## 14. SECURITY DEFINER caller inventory — read-only revalidation
+
+A catalog query against the live Supabase project returned:
+
+- 64 functions in `public` marked `SECURITY DEFINER`.
+- 29 callable by `authenticated`.
+- 3 callable by `anon`; all three are the PostGIS `st_estimatedextent` overloads documented in #84.
+- In this catalog snapshot, the three anonymous-callable functions and the same three authenticated-callable functions were the only callable public SECURITY DEFINER functions whose definitions did not contain an `auth.uid()` / `AUTH_REQUIRED` text pattern.
+- The 29 authenticated-callable functions contain that authentication pattern; this is only a static guard-pattern inventory, **not** proof that every function's object-level authorization is correct. Function-level permission checks and negative behavior tests remain necessary.
+
+The special `mizan_claim_subtenant_user_slot(text)` onboarding path was inspected separately. It requires an authenticated UID, a non-empty onboarding token whose stored SHA-256 hash matches an unexpired pending slot, and a matching authenticated-user email before claiming the slot and writing an audit record. This is source inspection, not a substitute for adversarial acceptance tests.
+
+### Revalidation outcome
+
+The new audit documentation commit `8964072b80b9c930977511cbb4a38cca6e048331` passed MIZAN CI and database-contract. The approved Vercel project `mizanafterv1` status was successful on that commit; unrelated Vercel contexts `mizanafter-gojh` and `mizanafter` reported failures and were not treated as the approved deployment.
+
+This narrows the anonymous callable SECURITY DEFINER finding to the known PostGIS extension boundary, but does not close #84, prove the database migration history is reconciled, or authorize a production release.
