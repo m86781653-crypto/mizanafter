@@ -51,7 +51,9 @@ Relevant reference requirements:
 
 All three functions are owned by `supabase_admin`, implemented in C, marked `SECURITY DEFINER`, and their ACL grants EXECUTE to `PUBLIC`, `anon`, and `authenticated`. Effective privilege checks returned true for all three client/public roles.
 
-The connected `postgres` role is not a superuser and is not a member of `supabase_admin`. The attempted REVOKE in PR #79 did not remove the grants; CI failed in `033_extension_schema_security_contract.test.sql` on these negative assertions. Repeating the same REVOKE is not a fix.
+The connected `postgres` role is not a superuser and is not a member of `supabase_admin`. The attempted REVOKE in PR #79 did not remove the grants; repeating the same REVOKE is not a fix.
+
+Latest isolated PR #79 head: `f55803a9a9d6767e73da8139a0874e5068110844`. MIZAN CI passed; `database-contract` failed at `033_extension_schema_security_contract.test.sql`: 6 of 25 assertions failed (tests 4–9), all six negative EXECUTE checks for the three overloads. The diagnostic ACLs still show EXECUTE granted to PUBLIC, anon, and authenticated.
 
 - Tracking issue: [#84](https://github.com/m86781653-crypto/mizanafter/issues/84).
 - PR #79 remains draft and must not be merged as a fix.
@@ -135,7 +137,7 @@ These checks establish current relational consistency for the observed rows, not
 3. Close the operating-period verification gap in #88 and add offline queue recovery tests per #89.
 4. PR #81 is merged after both CI workflows passed on its exact head; verify production migration state before claiming its database-side fix is live.
 5. Verify production migration state separately from repository state. The live migration list inspected during this review ended at version `20261001152927`; do not assume repository migrations have been applied to production.
-6. At main commit `0590ce51155f3058cbc5c7116ba4608728dddb79`, the approved Vercel project `mizanafterv1` check succeeded. This proves deployment status only, not that migrations were applied or the platform is production-ready.
+6. At main commit `0590ce51155f3058cbc5c7116ba4608728dddb79`, MIZAN CI and database-contract succeeded, and the approved Vercel project `mizanafterv1` check succeeded. This proves the tested code/contracts and deployment check only; it does not prove the pending migrations were applied or the platform is production-ready.
 7. Continue the full reference-to-implementation crosswalk for the remaining P0 workflow requirements: field evidence/identity verification, live state propagation, billing/payment effects, maintenance lifecycle, offline capture/sync/conflicts, period close/roll-forward, traceable reporting, backup/recovery, and role-by-role authorization.
 
 ## 11. Explicit status
