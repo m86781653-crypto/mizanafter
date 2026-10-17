@@ -538,3 +538,36 @@ The invoice issuance function's arrears sum across all non-paid invoice balances
 
 #### Production OCR evidence cleanup path in the UI
 In `src/pages/WaterProductionPage.tsx`, the UI uploads an image, successfully calls `mizan_capture_water_production_reading` (which inserts a database reading row), and then calls the start/stop cycle RPC. The surrounding catch handler removes the uploaded image from Storage whenever any later step throws. Therefore, if the reading insert succeeds but the subsequent cycle start/stop call fails, the database reading can remain while its referenced image is deleted. This is a source-code control-flow finding; it has not been reproduced in production. It requires an isolated failure-path test and a reversible correction that preserves evidence or explicitly rolls back the reading/cycle transaction. No production data or storage objects were changed.
+
+
+### 10.22. Continuation checkpoint — reference P0 lifecycle and PR status refresh — 2026-10-17
+
+#### Exact controlling requirements re-read from `docs/mizanbaseline/MIZAN_Master_Product_Reference_v1.0.md`
+The following requirements are explicit:
+- P0-07: update current state when reliable information becomes available, without waiting for period close.
+- P0-08: do not rewrite established historical results merely because current state changes.
+- P0-09: close a period by fixing its results and identifying continuing states.
+- P0-10: build the next period's opening from continuing results with traceable sources.
+- P0-13: correct entitlement, collection, and balance where linked to an operational event.
+- P0-20: end-to-end test the full cycle from opening through close and the following period.
+- P0-21: material AI actions require human review or a suitable alternative control.
+- P0-22: every critical result must be traceable to its source and key inputs.
+These are product requirements, not proof that implementation exists.
+
+#### Current PR states retrieved from GitHub
+All five reviewed PRs remain open, unmerged, and draft:
+- #79 `b6d317e1…`: `MIZAN CI` passed; `database-contract` failed on PostGIS ACL assertions 4–9. The PR description states the proposed ACL remediation is not working. Decision: do not merge; retain assertions and investigate the extension owner/privilege boundary.
+- #80 `87664992…`: both `MIZAN CI` and `database-contract` passed. The access-control change remains draft pending review against the authoritative access matrix and the actual clean-room behavior test. Not applied to production.
+- #81 `f59e9e25…`: both CI workflows passed. The proposed change disables customer deletion, removes the authenticated DELETE policy, and changes invoice FK deletion behavior to RESTRICT. Remains draft pending migration/test/UI diff review. Not applied to production.
+- #82 `ce9caee2…`: both CI workflows passed. The audit report remains a draft; this does not mean its findings are closed.
+- #83 `4aab4656…`: both CI workflows passed. It isolates tariff test coverage from the failing PostGIS remediation in #79. Remains draft pending final workflow/diff review.
+
+#### Accounting and period implementation status
+- Live invoice issuance code computes prior arrears from the balance of all invoices with status other than `paid`, then adds that sum to the next invoice's current charge and writes it to the new invoice's `previous_balance`, `grand_total`, and `balance`. This is a code-level repeated-arrears risk; no isolated behavioral test has yet been run. No production data was modified.
+- Live payment approval code updates `amount_paid`, `balance`, and invoice status upon approval. This is evidence of an implemented path, not proof of full cross-period reconciliation.
+- The inspected live schema contains no base table named for period/close/open/settlement. Name inventory alone cannot prove lifecycle orchestration absent.
+- No write-based tests have been run against production. Any behavioral proof must use isolated CI fixtures/transactions and must not mutate customer data in production.
+
+#### Next verification gate
+Before implementing an accounting correction, add a deterministic regression test in the repository's existing database-contract test harness that uses isolated fixtures and rolls back. The expected accounting contract must be derived from the approved product reference and the existing tariff/invoice rules; where the reference does not define a financial policy, mark it as an owner decision rather than inventing one. Required cases: repeated invoice issuance for one reading, consecutive unpaid invoices, partial payment followed by another invoice, full payment followed by another invoice, and rejected/pending payments. Verify total liability and invoice balances reconcile without counting the same debt twice.
+For period close/open, continue searching application source, migrations, triggers, and scheduled jobs before claiming presence or absence. For AI, trace caller -> RPC -> persisted evidence -> authorized consumer/report -> review/action -> outcome, and classify each link separately.
