@@ -117,6 +117,17 @@ Table-count snapshot:
 
 These counts describe the inspected database snapshot only; they do not prove end-to-end workflow completeness or a field pilot.
 
+### Read-only cross-table consistency checks
+
+- All 10 invoices have a non-null `source_reading_id`; all 10 source readings exist.
+- For all 10 linked invoice/reading pairs, project, customer, meter, current reading, and previous reading match. No missing-source or cross-entity mismatch was found in this snapshot.
+- All 10 invoices have a tariff reference and calculation snapshot.
+- The single payment is linked to an existing invoice; project/customer links match. It is approved for 20 YER, the invoice `amount_paid` total is 20 YER, and the count of invoice/payment approved-total mismatches is 0.
+- All 10 readings have an image URL, AI model value, client capture ID, and a non-null quality-review status; none has both GPS coordinates recorded.
+- `ai_logs` has 0 rows, `kpi_snapshots` has 0 rows, and `mizan_water_balance` has 1 row.
+
+These checks establish current relational consistency for the observed rows, not correctness of every tariff calculation, proof of a live field trial, full authorization coverage, or a closed-period/roll-forward workflow.
+
 ## 10. Release gates still open
 
 1. Resolve #84 and #85 with supported privilege changes and negative tests.
