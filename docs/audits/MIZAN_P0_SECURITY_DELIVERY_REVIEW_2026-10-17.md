@@ -53,6 +53,8 @@ All three functions are owned by `supabase_admin`, implemented in C, marked `SEC
 
 The connected `postgres` role is not a superuser and is not a member of `supabase_admin`. The attempted REVOKE in PR #79 did not remove the grants; repeating the same REVOKE is not a fix.
 
+The existing `033_extension_schema_security_contract.test.sql` explicitly asserts that PostGIS remains installed in `public` and that relocation is separately governed. A move to `extensions` therefore cannot be made silently as part of this PR; it requires a governed change to that contract and validation of all nine application `geography` columns and dependent spatial operations. Supabase documents a supported managed relocation path via Support when avoiding a drop/recreate; see https://supabase.com/docs/guides/database/extensions/postgis.
+
 Latest isolated PR #79 head: `f55803a9a9d6767e73da8139a0874e5068110844`. MIZAN CI passed; `database-contract` failed at `033_extension_schema_security_contract.test.sql`: 6 of 25 assertions failed (tests 4–9), all six negative EXECUTE checks for the three overloads. The diagnostic ACLs still show EXECUTE granted to PUBLIC, anon, and authenticated.
 
 - Tracking issue: [#84](https://github.com/m86781653-crypto/mizanafter/issues/84).
