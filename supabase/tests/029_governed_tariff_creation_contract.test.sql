@@ -25,11 +25,16 @@ SELECT ok(
 );
 
 SELECT ok(
-  pg_get_functiondef((
-    SELECT p.oid FROM pg_proc p
-    JOIN pg_namespace n ON n.oid=p.pronamespace
-    WHERE n.nspname='public' AND p.proname='mizan_create_tariff_with_tiers'
-  )) LIKE '%set search_path = ''''%',
+  EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    CROSS JOIN LATERAL unnest(coalesce(p.proconfig, ARRAY[]::text[])) AS settings(setting)
+    WHERE n.nspname = 'public'
+      AND p.proname = 'mizan_create_tariff_with_tiers'
+      AND settings.setting ~ '^search_path='
+      AND replace(split_part(settings.setting, '=', 2), chr(34), '') = ''
+  ),
   'tariff creation RPC pins an empty search_path'
 );
 
