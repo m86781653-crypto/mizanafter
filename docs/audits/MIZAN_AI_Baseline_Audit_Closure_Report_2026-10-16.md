@@ -571,3 +571,28 @@ All five reviewed PRs remain open, unmerged, and draft:
 #### Next verification gate
 Before implementing an accounting correction, add a deterministic regression test in the repository's existing database-contract test harness that uses isolated fixtures and rolls back. The expected accounting contract must be derived from the approved product reference and the existing tariff/invoice rules; where the reference does not define a financial policy, mark it as an owner decision rather than inventing one. Required cases: repeated invoice issuance for one reading, consecutive unpaid invoices, partial payment followed by another invoice, full payment followed by another invoice, and rejected/pending payments. Verify total liability and invoice balances reconcile without counting the same debt twice.
 For period close/open, continue searching application source, migrations, triggers, and scheduled jobs before claiming presence or absence. For AI, trace caller -> RPC -> persisted evidence -> authorized consumer/report -> review/action -> outcome, and classify each link separately.
+
+
+### 10.23. Source trace of operational reporting and AI Copilot — 2026-10-17
+
+Read-only source inspection on `main`; no production writes or schema changes.
+
+#### Reporting and water-balance lineage
+- `supabase/migrations/20261001015000_align_yemen_business_day_reporting.sql` defines `public.mizan_water_balance` using completed `pump_operation_cycles` grouped by Yemen local date (`Asia/Aden`) and consumption from `meter_readings` with quality statuses `not_required`, `confirmed`, `accepted`, or `approved`. Its gap is production minus recorded meter consumption.
+- The same migration replaces `public.mizan_operational_report(project_id, period_start, period_end)` to use Asia/Aden boundaries and meter readings for recorded consumption, aligning its consumption source with the view.
+- The report returns period-scoped production, consumption, invoice counts/amounts, approved collections, readings/anomalies, faults, maintenance, and service interruptions. `current_outstanding_amount` intentionally sums current balances of all non-paid invoices for the project, without filtering those invoices by the requested report period. Consumers must preserve the distinction between a period metric and a current-state metric.
+- The report's `water_balance_is_comparable` is based on existence of production and qualifying consumption records; this is an availability indicator, not a proof that both datasets cover equivalent physical/time scopes or that the gap represents leakage.
+- `supabase/tests/034_governed_operational_reporting_contract.test.sql` verifies RPC existence, security-invoker behavior, access grants, source query patterns, and Yemen timezone boundary. It does not test numeric reconciliation across known fixture values or closed-period immutability.
+
+#### AI Copilot actual behavior
+- `supabase/functions/mizan-copilot/index.ts` authenticates the user, validates project access, retrieves current project metadata, counts of active customers/meters, up to 1,000 meter readings, open faults/interruption lists (up to 20 each), wells, and calls `mizan_operational_report` for the current calendar year in Yemen time.
+- It assembles those values into a JSON context and sends the user's question plus that context to Google Gemini model `gemini-3.8-flash`, with instructions to answer in Arabic from supplied data, not invent figures/names/causes, say when data is insufficient, make no changes, and not label the production-consumption gap as confirmed leakage.
+- It logs the question/answer through `mizan_log_ai_interaction`. The database logging RPC writes operation/model/input summary/output summary/success/error/user/project; confidence and duration are currently passed as NULL by that RPC.
+- `supabase/tests/037_ai_audit_write_path_contract.test.sql` verifies the AI logging RPC and privilege boundary. It does not verify model answer accuracy, source citations, prompt-injection resistance, numerical reconciliation, evaluation benchmarks, or follow-up action/outcome.
+- This establishes an implemented AI question-answering/summary path grounded in a selected live data context. It does not establish a predictive forecasting model, optimization engine, automated decision engine, or an end-to-end AI recommendations-to-outcomes loop. No such capability is asserted without further evidence.
+
+#### Evidence classification
+- Yemen-local reporting boundaries and the current water-balance data sources: **present in source; contract-tested at structural/query-pattern level; numerical behavior still needs fixture tests**.
+- AI Copilot context assembly, Gemini call, and logging path: **present in source; authorization/logging contract exists; answer quality and numerical fidelity not yet verified**.
+- Historical closed-period snapshots and next-period opening/roll-forward: **not established by this trace**.
+- KPI snapshots table exists in the live schema inventory, but the inspected Copilot and reporting code uses the live report RPC; a snapshot-generation/consumption lifecycle was not established here.
