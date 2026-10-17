@@ -82,7 +82,8 @@ Read-only comparison observed:
 - Repository `main` after PR #81 merge: 131 SQL migration files.
 - Live Supabase `schema_migrations`: 163 applied records.
 - Latest live record observed: version `20261001152927`, name `20261001150000_fix_profile_update_policy_recursion`.
-- A preliminary normalized-name comparison matched 90 repository migration basenames to live migration names. Historical renames, duplicate concepts, and differing recorded versions mean this is a diagnostic comparison only, not a safe replay/apply plan.
+- A fresh read-only normalized-name inventory matched 102 live records to 91 unique repository migration filenames; 40 repository files had no normalized live-name match, and 61 live records had no normalized repository-name match. Eleven normalized live-name groups contain duplicate records. These are filename/name comparisons only, not SQL equivalence or applied-state proof.
+- Full reproducible inventory: `docs/audits/MIZAN_MIGRATION_HISTORY_NAME_RECONCILIATION_2026-10-17.md`.
 
 Tracking issue: [#87](https://github.com/m86781653-crypto/mizanafter/issues/87).
 
