@@ -173,6 +173,9 @@ jobs:
       - name: Run project lifecycle access contract
         run: supabase test db supabase/tests/045_project_lifecycle_access_contract.test.sql
 
+      - name: Run project lifecycle access behavior
+        run: supabase test db supabase/tests/046_project_lifecycle_access_behavior.test.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
