@@ -19,6 +19,29 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
+      - name: Verify offline photo acknowledgement ordering
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const sync = fs.readFileSync('src/lib/mirrorSync.ts', 'utf8');
+          const db = fs.readFileSync('src/lib/mirrorOfflineDb.ts', 'utf8');
+          const syncOneStart = sync.indexOf('async function syncOne');
+          const syncLoopStart = sync.indexOf('export async function syncPendingReadings', syncOneStart);
+          if (syncOneStart < 0 || syncLoopStart < 0) throw new Error('Offline sync functions are missing');
+          const syncOne = sync.slice(syncOneStart, syncLoopStart);
+          if (syncOne.includes('idbDelete(STORE_BLOBS')) {
+            throw new Error('Photo cleanup must not occur before durable local sync acknowledgement');
+          }
+          const ack = sync.indexOf('status: "synced"', syncLoopStart);
+          const cleanup = sync.indexOf('if (item.hasPhoto) await idbDelete(STORE_BLOBS, item.clientId)', syncLoopStart);
+          if (ack < 0 || cleanup < 0 || cleanup < ack) {
+            throw new Error('Offline photo must be deleted only after the queue item is durably marked synced');
+          }
+          if (!db.includes('idbPutQueueWithPhoto') || !db.includes('t.objectStore(STORE_BLOBS).put(photo,queueValue.clientId)')) {
+            throw new Error('Offline queue/photo persistence transaction contract is missing');
+          }
+          console.log('Offline photo acknowledgement ordering: PASS');
+          NODE
       - name: Verify Copilot single authority contract
         run: |
           node --input-type=module <<'NODE'
